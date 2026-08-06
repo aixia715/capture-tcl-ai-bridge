@@ -1,0 +1,7 @@
+__pycache__/
+.pytest_cache/
+.tmp/
+*.py[cod]
+*.log
+capture_tcl_bridge.json
+capture_tcl_bridge.*.tmp
