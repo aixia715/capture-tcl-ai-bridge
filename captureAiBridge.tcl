@@ -32,6 +32,7 @@ if {![info exists ::CaptureAiBridgeRetryMaxMs]} { set ::CaptureAiBridgeRetryMaxM
 if {![info exists ::CaptureAiBridgeLastPollError]} { set ::CaptureAiBridgeLastPollError {} }
 if {![info exists ::CaptureAiBridgePollingHalted]} { set ::CaptureAiBridgePollingHalted 0 }
 if {![info exists ::CaptureAiBridgeProtocolError]} { set ::CaptureAiBridgeProtocolError {} }
+if {![info exists ::CaptureAiBridgePythonPath]} { set ::CaptureAiBridgePythonPath {} }
 
 proc _captureAiJsonQuote {value} {
     set encoded {"}
@@ -748,6 +749,62 @@ proc _captureAiRuntimeFile {} {
     return [file join $::env(TEMP) capture_tcl_bridge.json]
 }
 
+proc _captureAiInstallManifestPath {} {
+    if {![info exists ::env(LOCALAPPDATA)] || $::env(LOCALAPPDATA) eq {}} {
+        return {}
+    }
+    return [file join $::env(LOCALAPPDATA) capture-tcl-ai-bridge install.json]
+}
+
+proc _captureAiReadInstallManifest {path} {
+    if {$path eq {} || [catch {file isfile $path} isFile] || !$isFile} {
+        return {}
+    }
+    set parseCode [catch {
+        set channel [open $path r]
+        try {
+            fconfigure $channel -encoding utf-8
+            set raw [read $channel]
+        } finally {
+            close $channel
+        }
+        set manifest [::json::json2dict $raw]
+        foreach key {schemaVersion project pythonTarget} {
+            if {![dict exists $manifest $key]} {
+                error "install manifest is missing $key"
+            }
+        }
+        if {![string is integer -strict [dict get $manifest schemaVersion]] ||
+            [dict get $manifest schemaVersion] != 1} {
+            error {install manifest has an unsupported schema version}
+        }
+        if {[dict get $manifest project] ne {capture-tcl-ai-bridge}} {
+            error {install manifest belongs to another project}
+        }
+        set pythonTarget [dict get $manifest pythonTarget]
+        if {[file pathtype $pythonTarget] ne {absolute}} {
+            error {install manifest Python target is not absolute}
+        }
+        file normalize $pythonTarget
+    } pythonTarget]
+    if {$parseCode != 0} {
+        return {}
+    }
+    return $pythonTarget
+}
+
+proc _captureAiResolvePythonPath {} {
+    if {[info exists ::CaptureAiBridgePythonPath] &&
+        $::CaptureAiBridgePythonPath ne {}} {
+        return [file normalize $::CaptureAiBridgePythonPath]
+    }
+    set pythonTarget [_captureAiReadInstallManifest [_captureAiInstallManifestPath]]
+    if {$pythonTarget ne {}} {
+        return $pythonTarget
+    }
+    return {C:/tclpython}
+}
+
 proc _captureAiCreateLaunchSignals {generation} {
     set template [file join $::env(TEMP) \
         "capture_tcl_bridge_launch_[pid]_${generation}_XXXXXXXX"]
@@ -1142,11 +1199,7 @@ proc CaptureAiBridgeStart {} {
         puts stderr "Capture AI bridge requires Tcl json package: $packageError"
         return
     }
-    if {[info exists ::TclPythonPath]} {
-        set pythonRoot $::TclPythonPath
-    } else {
-        set pythonRoot {C:/tclpython}
-    }
+    set pythonRoot [_captureAiResolvePythonPath]
     set serverScript [file join $pythonRoot capture_tcl_bridge_server.py]
     if {![file exists $serverScript]} {
         puts stderr "Capture AI bridge server not found: $serverScript"

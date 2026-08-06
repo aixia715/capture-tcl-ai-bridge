@@ -3,6 +3,11 @@
 set repoRoot [file normalize [file join [file dirname [info script]] ..]]
 set bridgeFile [file join $repoRoot captureAiBridge.tcl]
 set ::fail 0
+set oldCaptureAiBridgePythonPathExists [info exists ::CaptureAiBridgePythonPath]
+if {$oldCaptureAiBridgePythonPathExists} {
+    set oldCaptureAiBridgePythonPath $::CaptureAiBridgePythonPath
+}
+set ::CaptureAiBridgePythonPath $repoRoot
 
 proc check {description actual expected} {
     if {$actual ne $expected} {
@@ -28,6 +33,7 @@ proc checkTrue {description value} {
 
 set beforeAfter [after info]
 source $bridgeFile
+check {source preserves explicit Python path} $::CaptureAiBridgePythonPath $repoRoot
 check {service name} $::CaptureAiBridgeService {capture-tcl-bridge}
 check {protocol version} $::CaptureAiBridgeProtocolVersion 1
 check {port} $::CaptureAiBridgePort 8767
@@ -59,6 +65,57 @@ check {source creates no after task} [after info] $beforeAfter
 check {public lifecycle start proc exists} [llength [info commands CaptureAiBridgeStart]] 1
 check {public lifecycle status proc exists} [llength [info commands CaptureAiBridgeStatus]] 1
 check {public lifecycle stop proc exists} [llength [info commands CaptureAiBridgeStop]] 1
+
+if {[llength [info commands ::_captureAiResolvePythonPath]] > 0} {
+    package require json
+    set manifestRoot [file normalize [file join [pwd] capture-ai-install-manifest-[pid]]]
+    file mkdir $manifestRoot
+    set oldLocalAppDataExists [info exists ::env(LOCALAPPDATA)]
+    if {$oldLocalAppDataExists} { set oldLocalAppData $::env(LOCALAPPDATA) }
+    set ::env(LOCALAPPDATA) $manifestRoot
+    set manifestPath [file join $manifestRoot capture-tcl-ai-bridge install.json]
+    file mkdir [file dirname $manifestPath]
+    set manifestChannel [open $manifestPath w]
+    fconfigure $manifestChannel -encoding utf-8
+    puts -nonewline $manifestChannel [format \
+        {{"schemaVersion":1,"project":"capture-tcl-ai-bridge","pythonTarget":"%s"}} \
+        [string map [list {\\} {/}] [file join $manifestRoot manifest-target]]]
+    close $manifestChannel
+
+    set ::CaptureAiBridgePythonPath [file join $manifestRoot explicit-target]
+    check {explicit Python path wins over install manifest} \
+        [_captureAiResolvePythonPath] [file normalize $::CaptureAiBridgePythonPath]
+    unset ::CaptureAiBridgePythonPath
+    check {install manifest path uses LOCALAPPDATA} \
+        [_captureAiInstallManifestPath] [file normalize $manifestPath]
+    check {valid install manifest supplies Python path} \
+        [_captureAiResolvePythonPath] [file normalize [file join $manifestRoot manifest-target]]
+
+    set manifestChannel [open $manifestPath w]
+    fconfigure $manifestChannel -encoding utf-8
+    puts -nonewline $manifestChannel {not JSON}
+    close $manifestChannel
+    check {malformed manifest falls back to standalone default} \
+        [_captureAiResolvePythonPath] {C:/tclpython}
+
+    set manifestChannel [open $manifestPath w]
+    fconfigure $manifestChannel -encoding utf-8
+    puts -nonewline $manifestChannel \
+        {{"schemaVersion":1,"project":"capture-tcl-ai-bridge","pythonTarget":"relative/python"}}
+    close $manifestChannel
+    check {relative manifest Python path falls back to standalone default} \
+        [_captureAiResolvePythonPath] {C:/tclpython}
+
+    file delete -force -- $manifestRoot
+    if {$oldLocalAppDataExists} {
+        set ::env(LOCALAPPDATA) $oldLocalAppData
+    } else {
+        unset ::env(LOCALAPPDATA)
+    }
+    set ::CaptureAiBridgePythonPath $repoRoot
+} else {
+    check {_captureAiResolvePythonPath exists} 0 1
+}
 
 set ::CaptureAiBridgeActive 1
 set ::CaptureAiBridgeConnecting 1
@@ -1154,9 +1211,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
         lappend ::captureAiLifecycleAfterCalls $args
         return lifecycle-after-[llength $::captureAiLifecycleAfterCalls]
     }
-    set oldTclPythonExists [info exists ::TclPythonPath]
-    if {$oldTclPythonExists} { set oldTclPythonPath $::TclPythonPath }
-    set ::TclPythonPath $repoRoot
+    set ::CaptureAiBridgePythonPath $repoRoot
     set oldTempExists [info exists ::env(TEMP)]
     if {$oldTempExists} { set oldTemp $::env(TEMP) }
     set ::env(TEMP) [pwd]
@@ -1169,6 +1224,8 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     CaptureAiBridgeStart
     check {duplicate start launches one server} [llength $::captureAiExecCalls] 1
     set launchArgs [lindex $::captureAiExecCalls 0]
+    check {launch uses resolved Python path} [lindex $launchArgs 1] \
+        [file join $repoRoot capture_tcl_bridge_server.py]
     checkTrue {launch binds localhost} [expr {[lsearch -exact $launchArgs 127.0.0.1] >= 0}]
     checkTrue {launch passes parent pid} [expr {[lsearch -exact $launchArgs --parent-pid] >= 0 && [lindex $launchArgs [expr {[lsearch -exact $launchArgs --parent-pid] + 1}]] == [pid]}]
     checkTrue {launch passes runtime file} [expr {[lsearch -exact $launchArgs --runtime-file] >= 0 && [file tail [lindex $launchArgs [expr {[lsearch -exact $launchArgs --runtime-file] + 1}]]] eq "capture_tcl_bridge.json"}]
@@ -1737,10 +1794,10 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     rename ::captureAiRealAfter ::after
     rename ::exec {}
     rename ::captureAiRealExec ::exec
-    if {$oldTclPythonExists} {
-        set ::TclPythonPath $oldTclPythonPath
+    if {$oldCaptureAiBridgePythonPathExists} {
+        set ::CaptureAiBridgePythonPath $oldCaptureAiBridgePythonPath
     } else {
-        unset ::TclPythonPath
+        unset ::CaptureAiBridgePythonPath
     }
     if {$oldTempExists} {
         set ::env(TEMP) $oldTemp
