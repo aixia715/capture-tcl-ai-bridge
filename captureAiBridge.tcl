@@ -416,7 +416,7 @@ proc _captureAiSafeError {message} {
     return $message
 }
 
-proc _captureAiRequest {method path {payload {}}} {
+proc _captureAiRequest {method path {payload {}} {extraHeaders {}}} {
     if {$::CaptureAiBridgeBaseUrl ne "http://127.0.0.1:$::CaptureAiBridgePort"} {
         error {Capture AI bridge URL is not the configured localhost service.}
     }
@@ -430,6 +430,15 @@ proc _captureAiRequest {method path {payload {}}} {
     set headers [list \
         Authorization "Bearer $::CaptureAiBridgeToken" \
         X-Capture-Pid [pid]]
+    if {[llength $extraHeaders] % 2 != 0} {
+        error {Invalid Capture AI bridge request headers.}
+    }
+    foreach {headerName headerValue} $extraHeaders {
+        if {[string tolower $headerName] in {authorization x-capture-pid host}} {
+            error {Capture AI bridge request cannot override protected headers.}
+        }
+        lappend headers $headerName $headerValue
+    }
     set requestOptions [list \
         -headers $headers \
         -timeout 1500 \
@@ -527,7 +536,8 @@ proc _captureAiTick {{generation {}}} {
             } else {
                 set pendingId $::CaptureAiBridgePendingResultId
                 set pendingJson $::CaptureAiBridgePendingResultJson
-                _captureAiRequest POST /internal/result $pendingJson
+                _captureAiRequest POST /internal/result $pendingJson \
+                    [list X-Capture-Command-Id $::CaptureAiBridgePendingResultId]
                 if {[_captureAiLifecycleIsCurrent $generation Active] &&
                     $::CaptureAiBridgePendingResultId eq $pendingId &&
                     $::CaptureAiBridgePendingResultJson eq $pendingJson &&
@@ -556,7 +566,8 @@ proc _captureAiTick {{generation {}}} {
                 return
             }
             _captureAiStorePendingResult $generation $commandId $payload
-            _captureAiRequest POST /internal/result $payload
+            _captureAiRequest POST /internal/result $payload \
+                [list X-Capture-Command-Id $::CaptureAiBridgePendingResultId]
             if {![_captureAiLifecycleIsCurrent $generation Active]} {
                 return
             }

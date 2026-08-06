@@ -38,6 +38,19 @@ FIELD_LIMIT_BYTES = 4_194_304
 HEARTBEAT_TIMEOUT_SECONDS = 5.0
 EXECUTE_TIMEOUT_SECONDS = 30.0
 RESULT_HISTORY_LIMIT = 100
+REQUIRED_RESULT_FIELDS = (
+    "id",
+    "returnCode",
+    "result",
+    "stdout",
+    "stderr",
+    "errorInfo",
+    "errorCode",
+    "errorLine",
+    "stdoutTruncated",
+    "stderrTruncated",
+    "resultTruncated",
+)
 RUNTIME_LOCK_TIMEOUT_SECONDS = 2.0
 RUNTIME_FILE: Path | None = None
 LAUNCH_FILE: Path | None = None
@@ -108,6 +121,15 @@ def request_shutdown(server: Any | None = None) -> None:
 
 class RequestBodyTooLarge(ValueError):
     pass
+
+
+class ResultValidationError(ValueError):
+    """A field-level validation failure in Capture's internal result payload."""
+
+    def __init__(self, field: str, reason: str) -> None:
+        super().__init__(f"{field}:{reason}")
+        self.field = field
+        self.reason = reason
 
 
 async def read_json_limited(request: Request, limit: int) -> Any:
@@ -626,42 +648,40 @@ def truncate_utf8_list(values: list[str], limit_bytes: int) -> list[str]:
     return bounded
 
 
-def normalize_result(payload: Any) -> dict[str, Any] | None:
-    """Validate and normalize an internal Capture result without raising."""
-    required = {
-        "id",
-        "returnCode",
-        "result",
-        "stdout",
-        "stderr",
-        "errorInfo",
-        "errorCode",
-        "errorLine",
-        "stdoutTruncated",
-        "stderrTruncated",
-        "resultTruncated",
-    }
-    if not isinstance(payload, dict) or not required.issubset(payload):
-        return None
+def validate_and_normalize_result(payload: Any) -> dict[str, Any]:
+    """Validate Capture's result schema and return a bounded response object."""
+    if not isinstance(payload, dict):
+        raise ResultValidationError("body", "invalid_type")
+    for field in REQUIRED_RESULT_FIELDS:
+        if field not in payload:
+            raise ResultValidationError(field, "missing")
 
     command_id = payload["id"]
+    if not is_utf8_text(command_id) or not command_id:
+        raise ResultValidationError("id", "invalid_utf8" if isinstance(command_id, str) else "invalid_type")
     return_code = payload["returnCode"]
-    error_info = payload["errorInfo"]
+    if not isinstance(return_code, int) or isinstance(return_code, bool):
+        raise ResultValidationError("returnCode", "invalid_type")
+    for field in ("result", "stdout", "stderr", "errorInfo"):
+        if not is_utf8_text(payload[field]):
+            raise ResultValidationError(field, "invalid_utf8" if isinstance(payload[field], str) else "invalid_type")
+
     error_code = payload["errorCode"]
+    if not isinstance(error_code, list):
+        raise ResultValidationError("errorCode", "invalid_type")
+    for item in error_code:
+        if not is_utf8_text(item):
+            raise ResultValidationError("errorCode", "invalid_utf8" if isinstance(item, str) else "invalid_type")
+
+    error_info = payload["errorInfo"]
     error_line = payload["errorLine"]
-    flags = ("stdoutTruncated", "stderrTruncated", "resultTruncated")
-    if (
-        not is_utf8_text(command_id)
-        or not command_id
-        or not isinstance(return_code, int)
-        or isinstance(return_code, bool)
-        or any(not is_utf8_text(payload[name]) for name in ("result", "stdout", "stderr", "errorInfo"))
-        or not isinstance(error_code, list)
-        or any(not is_utf8_text(item) for item in error_code)
-        or (error_line is not None and (not isinstance(error_line, int) or isinstance(error_line, bool)))
-        or any(not isinstance(payload[name], bool) for name in flags)
+    if error_line is not None and (
+        not isinstance(error_line, int) or isinstance(error_line, bool)
     ):
-        return None
+        raise ResultValidationError("errorLine", "invalid_type")
+    for field in ("stdoutTruncated", "stderrTruncated", "resultTruncated"):
+        if not isinstance(payload[field], bool):
+            raise ResultValidationError(field, "invalid_type")
 
     bounded_error_info, _ = truncate_utf8(error_info, FIELD_LIMIT_BYTES)
     normalized: dict[str, Any] = {
@@ -682,6 +702,33 @@ def normalize_result(payload: Any) -> dict[str, Any] | None:
         normalized[field] = text
         normalized[flag] = payload[flag] or truncated
     return normalized
+
+
+def normalize_result(payload: Any) -> dict[str, Any] | None:
+    """Compatibility wrapper for callers that expect invalid values as None."""
+    try:
+        return validate_and_normalize_result(payload)
+    except ResultValidationError:
+        return None
+
+
+def protocol_failure_result(command_id: str, field: str, reason: str) -> dict[str, Any]:
+    """Create a safe synthetic completion when Capture returns an invalid result."""
+    return {
+        "id": command_id,
+        "state": "completed",
+        "ok": False,
+        "returnCode": 1,
+        "result": "Capture returned an invalid bridge result.",
+        "stdout": "",
+        "stderr": "",
+        "errorInfo": f"Invalid internal result payload: {field}:{reason}",
+        "errorCode": ["CAPTURE", "AI", "BRIDGE", "INVALID_RESULT"],
+        "errorLine": None,
+        "stdoutTruncated": False,
+        "stderrTruncated": False,
+        "resultTruncated": False,
+    }
 
 
 @app.post("/v1/execute")
@@ -763,32 +810,107 @@ async def result(request: Request) -> JSONResponse:
     if rejected is not None:
         return rejected
 
+    command_id = request.headers.get("X-Capture-Command-Id")
+    if not command_id:
+        return error_response(409, "COMMAND_ID_MISMATCH", "Result does not match the executing command.")
+
+    with bridge.lock:
+        already_completed = command_id in bridge.completed
+        active_snapshot: str | None = None
+        if not already_completed:
+            active = bridge.active
+            if (
+                active is None
+                or active["id"] != command_id
+                or active["state"] != "executing"
+            ):
+                return error_response(409, "COMMAND_ID_MISMATCH", "Result does not match the executing command.")
+            active_snapshot = active["id"]
+
     bridge.mark_seen()
+    failure: tuple[int, str, str, str, str] | None = None
     try:
         payload = await read_json_limited(request, RESULT_BODY_LIMIT_BYTES)
     except RequestBodyTooLarge:
-        return error_response(413, "REQUEST_TOO_LARGE", "Result body is too large.")
+        if already_completed:
+            return error_response(
+                413,
+                "REQUEST_TOO_LARGE",
+                "Result body is too large.",
+                field="body",
+                reason="too_large",
+            )
+        failure = (413, "REQUEST_TOO_LARGE", "Result body is too large.", "body", "too_large")
     except (UnicodeDecodeError, ValueError):
-        return error_response(400, "INVALID_RESULT", "Result body must contain a valid command result.")
-
-    normalized = normalize_result(payload)
-    if normalized is None:
-        return error_response(400, "INVALID_RESULT", "Result body must contain a valid command result.")
+        if already_completed:
+            return error_response(
+                400,
+                "INVALID_RESULT",
+                "Result body must contain a valid command result.",
+                field="body",
+                reason="invalid_json",
+            )
+        failure = (
+            400,
+            "INVALID_RESULT",
+            "Result body must contain a valid command result.",
+            "body",
+            "invalid_json",
+        )
+    else:
+        if isinstance(payload, dict) and "id" in payload and payload["id"] != command_id:
+            return error_response(409, "COMMAND_ID_MISMATCH", "Result does not match the executing command.")
+        else:
+            try:
+                normalized = validate_and_normalize_result(payload)
+            except ResultValidationError as error:
+                if already_completed:
+                    return error_response(
+                        400,
+                        "INVALID_RESULT",
+                        "Result body must contain a valid command result.",
+                        field=error.field,
+                        reason=error.reason,
+                    )
+                failure = (
+                    400,
+                    "INVALID_RESULT",
+                    "Result body must contain a valid command result.",
+                    error.field,
+                    error.reason,
+                )
 
     with bridge.lock:
-        completed = bridge.completed.get(normalized["id"])
+        completed = bridge.completed.get(command_id)
         if completed is not None:
-            return JSONResponse(content={"id": normalized["id"], "state": "completed"})
+            return JSONResponse(content={"id": command_id, "state": "completed"})
         active = bridge.active
         if (
-            active is None
-            or active["id"] != normalized["id"]
+            already_completed
+            or active_snapshot is None
+            or active is None
+            or active["id"] != active_snapshot
             or active["state"] != "executing"
         ):
             return error_response(409, "COMMAND_ID_MISMATCH", "Result does not match the executing command.")
-        bridge.store_completed(normalized)
+        if failure is None:
+            bridge.store_completed(normalized)
+        else:
+            status_code, code, message, field, reason = failure
+            bridge.store_completed(protocol_failure_result(command_id, field, reason))
         bridge.active = None
-    return JSONResponse(content={"id": normalized["id"], "state": "completed"})
+    if failure is not None:
+        status_code, code, message, field, reason = failure
+        return error_response(
+            status_code,
+            code,
+            message,
+            id=command_id,
+            state="completed",
+            field=field,
+            reason=reason,
+        )
+    return JSONResponse(content={"id": command_id, "state": "completed"})
 
 
 @app.get("/v1/commands/{command_id}")

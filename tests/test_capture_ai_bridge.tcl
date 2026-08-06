@@ -620,8 +620,8 @@ if {[llength [info commands ::_captureAiResultJson]] > 0} {
 
 if {[llength [info commands ::_captureAiTick]] > 0} {
     rename ::_captureAiRequest ::captureAiRealRequest
-    proc ::_captureAiRequest {method path {payload {}}} {
-        lappend ::captureAiRequests [list $method $path $payload]
+    proc ::_captureAiRequest {method path {payload {}} {extraHeaders {}}} {
+        lappend ::captureAiRequests [list $method $path $payload $extraHeaders]
         if {$method eq "GET"} {
             if {$::captureAiPollMode eq "error"} {
                 error {poll failed without secret-token}
@@ -703,6 +703,9 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     check {tick claims before posting} [lrange [lindex $::captureAiRequests 0] 0 1] {GET /internal/command}
     check {tick posts one matching result} [lrange [lindex $::captureAiRequests 1] 0 1] {POST /internal/result}
     set postedPayload [lindex [lindex $::captureAiRequests 1] 2]
+    check {normal result post binds pending command id header} \
+        [lindex [lindex $::captureAiRequests 1] 3] \
+        {X-Capture-Command-Id cmd-1}
     checkTrue {posted result keeps command id} [expr {[string first {"id":"cmd-1"} $postedPayload] >= 0}]
     checkTrue {posted result contains Tcl result} [expr {[string first {"result":"64"} $postedPayload] >= 0}]
     checkTrue {posted result contains captured stdout} [expr {[string first {"stdout":"bridge\n"} $postedPayload] >= 0}]
@@ -733,6 +736,9 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     check {pending retry makes only one request} [llength $::captureAiRequests] 1
     check {pending retry is a result POST} [lrange [lindex $::captureAiRequests 0] 0 1] {POST /internal/result}
     check {pending retry uses identical JSON} [lindex [lindex $::captureAiRequests 0] 2] $firstUnreachablePayload
+    check {pending result post binds retained pending command id header} \
+        [lindex [lindex $::captureAiRequests 0] 3] \
+        {X-Capture-Command-Id cmd-unreachable}
     check {successful pending retry clears id} $::CaptureAiBridgePendingResultId {}
     check {successful pending retry clears JSON} $::CaptureAiBridgePendingResultJson {}
 
@@ -935,9 +941,17 @@ if {[llength [info commands ::_captureAiRequest]] > 0} {
     check {HTTP success cleans transaction} [llength $::captureAiHttpCleanups] 1
 
     set ::captureAiHttpData {}
-    _captureAiRequest POST /internal/result {{"id":"one"}}
+    _captureAiRequest POST /internal/result {{"id":"one"}} {X-Capture-Command-Id one}
     checkTrue {HTTP POST uses JSON content type} [expr {[lsearch -glob $::captureAiHttpOptions {application/json*}] >= 0}]
     checkTrue {HTTP POST sends payload} [expr {[lsearch -exact $::captureAiHttpOptions -query] >= 0}]
+    set headerIndex [lsearch -exact $::captureAiHttpOptions -headers]
+    set sentHeaders [lindex $::captureAiHttpOptions [expr {$headerIndex + 1}]]
+    checkTrue {HTTP POST sends supplied command id header} \
+        [expr {[lsearch -exact $sentHeaders X-Capture-Command-Id] >= 0 && [lsearch -exact $sentHeaders one] >= 0}]
+    foreach protectedHeader {Authorization X-Capture-Pid Host} {
+        check "HTTP request forbids override of $protectedHeader" \
+            [catch [list _captureAiRequest POST /internal/result {{"id":"one"}} [list $protectedHeader override]]] 1
+    }
     check {HTTP POST cleans transaction} [llength $::captureAiHttpCleanups] 2
 
     set ::captureAiHttpStatus 500

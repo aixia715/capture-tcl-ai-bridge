@@ -27,8 +27,16 @@ def bridge_headers():
     return {"Authorization": "Bearer test-token"}
 
 
-def capture_headers(pid=4242):
-    return {**bridge_headers(), "X-Capture-Pid": str(pid)}
+def capture_headers(pid=4242, command_id=None):
+    if command_id is None:
+        with bridge.bridge.lock:
+            active = bridge.bridge.active
+            command_id = active["id"] if active is not None else "command-1"
+    return {
+        **bridge_headers(),
+        "X-Capture-Pid": str(pid),
+        "X-Capture-Command-Id": command_id,
+    }
 
 
 def server_signal_paths(runtime_file):
@@ -84,6 +92,241 @@ def queue_and_claim(client, command_id="command-1", script="puts hello"):
     assert response.status_code == 200
     assert response.json() == {"id": command_id, "script": script}
     return command_id
+
+
+@pytest.mark.parametrize(
+    ("body", "expected_field", "expected_reason"),
+    [
+        (b"{", "body", "invalid_json"),
+        (json.dumps({"id": "command-1"}).encode(), "returnCode", "missing"),
+        (
+            json.dumps(result_payload("command-1", returnCode=True)).encode(),
+            "returnCode",
+            "invalid_type",
+        ),
+        (
+            json.dumps(result_payload("command-1", errorInfo="\ud800")).encode(),
+            "errorInfo",
+            "invalid_utf8",
+        ),
+    ],
+    ids=("invalid_json", "missing_field", "wrong_type", "unencodable"),
+)
+def test_invalid_result_authenticated_completion_replaces_invalid_capture_payload(
+    client, body, expected_field, expected_reason
+):
+    command_id = queue_and_claim(client)
+
+    response = client.post(
+        "/internal/result", headers=capture_headers(command_id=command_id), content=body
+    )
+
+    assert response.status_code == 400
+    response_body = response.json()
+    assert response_body["error"]["code"] == "INVALID_RESULT"
+    assert response_body["id"] == command_id
+    assert response_body["state"] == "completed"
+    assert response_body["field"] == expected_field
+    assert response_body["reason"] == expected_reason
+    assert "test-token" not in response.text
+    assert bridge.bridge.active is None
+    assert bridge.bridge.completed[command_id] == {
+        "id": command_id,
+        "state": "completed",
+        "ok": False,
+        "returnCode": 1,
+        "result": "Capture returned an invalid bridge result.",
+        "stdout": "",
+        "stderr": "",
+        "errorInfo": f"Invalid internal result payload: {expected_field}:{expected_reason}",
+        "errorCode": ["CAPTURE", "AI", "BRIDGE", "INVALID_RESULT"],
+        "errorLine": None,
+        "stdoutTruncated": False,
+        "stderrTruncated": False,
+        "resultTruncated": False,
+    }
+
+
+def test_result_body_oversized_authenticated_completion_replaces_invalid_capture_payload(
+    client, monkeypatch
+):
+    monkeypatch.setattr(bridge, "RESULT_BODY_LIMIT_BYTES", 16)
+    command_id = queue_and_claim(client)
+
+    response = client.post(
+        "/internal/result",
+        headers=capture_headers(command_id=command_id),
+        content=b"{" + b"x" * 16,
+    )
+
+    assert response.status_code == 413
+    assert response.json() == {
+        "ok": False,
+        "error": {
+            "code": "REQUEST_TOO_LARGE",
+            "message": "Result body is too large.",
+        },
+        "id": command_id,
+        "state": "completed",
+        "field": "body",
+        "reason": "too_large",
+    }
+    assert bridge.bridge.active is None
+    assert bridge.bridge.completed[command_id]["errorInfo"] == (
+        "Invalid internal result payload: body:too_large"
+    )
+
+
+@pytest.mark.parametrize("header_id", (None, "wrong-id", "old-id"))
+def test_command_id_mismatch_malformed_result_with_missing_wrong_or_old_header_cannot_finish_active_command(
+    client, header_id
+):
+    command_id = queue_and_claim(client)
+    headers = {**bridge_headers(), "X-Capture-Pid": "4242"}
+    if header_id is not None:
+        headers["X-Capture-Command-Id"] = header_id
+
+    response = client.post("/internal/result", headers=headers, content=b"{")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "COMMAND_ID_MISMATCH"
+    assert bridge.bridge.active == {
+        "id": command_id,
+        "script": "puts hello",
+        "state": "executing",
+    }
+    assert command_id not in bridge.bridge.completed
+
+
+def test_internal_result_rejects_queued_command_even_when_header_and_payload_match(client):
+    command_id = "queued-command"
+    with bridge.bridge.lock:
+        bridge.bridge.active = {"id": command_id, "script": "puts hello", "state": "queued"}
+
+    response = client.post(
+        "/internal/result",
+        headers=capture_headers(command_id=command_id),
+        json=result_payload(command_id),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "COMMAND_ID_MISMATCH"
+    assert bridge.bridge.active["state"] == "queued"
+
+
+def test_completed_result_replay_cannot_finish_a_later_executing_command(client):
+    completed_id = "completed-command"
+    later_id = "later-command"
+    with bridge.bridge.lock:
+        bridge.bridge.store_completed(result_payload(completed_id))
+        bridge.bridge.active = {"id": later_id, "script": "puts later", "state": "executing"}
+
+    replay = client.post(
+        "/internal/result",
+        headers=capture_headers(command_id=completed_id),
+        json=result_payload(completed_id),
+    )
+
+    assert replay.status_code == 200
+    assert replay.json() == {"id": completed_id, "state": "completed"}
+    assert bridge.bridge.active == {
+        "id": later_id,
+        "script": "puts later",
+        "state": "executing",
+    }
+
+
+def test_completed_header_replay_with_a_current_payload_id_is_rejected_without_touching_current(
+    client,
+):
+    completed_id = "completed-command"
+    current_id = "current-command"
+    with bridge.bridge.lock:
+        bridge.bridge.store_completed(result_payload(completed_id))
+        bridge.bridge.active = {"id": current_id, "script": "puts current", "state": "executing"}
+
+    replay = client.post(
+        "/internal/result",
+        headers=capture_headers(command_id=completed_id),
+        json=result_payload(current_id),
+    )
+
+    assert replay.status_code == 409
+    assert replay.json()["error"]["code"] == "COMMAND_ID_MISMATCH"
+    assert bridge.bridge.active == {
+        "id": current_id,
+        "script": "puts current",
+        "state": "executing",
+    }
+    assert current_id not in bridge.bridge.completed
+
+
+def test_completed_header_replay_with_malformed_body_is_not_acknowledged(client):
+    completed_id = "completed-command"
+    current_id = "current-command"
+    with bridge.bridge.lock:
+        bridge.bridge.store_completed(result_payload(completed_id))
+        bridge.bridge.active = {"id": current_id, "script": "puts current", "state": "executing"}
+
+    replay = client.post(
+        "/internal/result", headers=capture_headers(command_id=completed_id), content=b"{"
+    )
+
+    assert replay.status_code == 400
+    assert replay.json()["error"]["code"] == "INVALID_RESULT"
+    assert bridge.bridge.active == {
+        "id": current_id,
+        "script": "puts current",
+        "state": "executing",
+    }
+
+
+def test_wrong_payload_id_before_missing_fields_cannot_synthetically_complete_current_command(client):
+    current_id = "current-command"
+    with bridge.bridge.lock:
+        bridge.bridge.active = {"id": current_id, "script": "puts current", "state": "executing"}
+
+    response = client.post(
+        "/internal/result",
+        headers=capture_headers(command_id=current_id),
+        json={"id": "wrong-command"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "COMMAND_ID_MISMATCH"
+    assert bridge.bridge.active == {
+        "id": current_id,
+        "script": "puts current",
+        "state": "executing",
+    }
+    assert current_id not in bridge.bridge.completed
+
+
+def test_execute_waiter_receives_synthetic_completion_after_an_invalid_capture_result(client):
+    client.get("/internal/command", headers=capture_headers())
+    responses = []
+    waiter = threading.Thread(
+        target=lambda: responses.append(
+            client.post("/v1/execute", headers=bridge_headers(), json={"script": "puts hello"})
+        )
+    )
+    waiter.start()
+    deadline = time.monotonic() + 2
+    while bridge.bridge.active is None and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert bridge.bridge.active is not None
+    command_id = bridge.bridge.active["id"]
+    assert client.get("/internal/command", headers=capture_headers()).json()["id"] == command_id
+
+    invalid = client.post(
+        "/internal/result", headers=capture_headers(command_id=command_id), content=b"{"
+    )
+
+    assert invalid.status_code == 400
+    waiter.join(timeout=2)
+    assert not waiter.is_alive()
+    assert responses[0].json()["id"] == command_id
+    assert responses[0].json()["errorCode"] == ["CAPTURE", "AI", "BRIDGE", "INVALID_RESULT"]
 
 
 @pytest.mark.parametrize(
@@ -492,15 +735,26 @@ def test_execute_timeout_reports_executing_state_at_the_final_decision(client, m
         result_payload("command-1", resultTruncated=[]),
     ],
 )
-def test_internal_result_rejects_mismatch_or_invalid_payload_without_clearing_active(client, payload):
+def test_internal_result_rejects_mismatch_and_safely_completes_invalid_payload(client, payload):
     command_id = queue_and_claim(client)
 
     response = client.post("/internal/result", headers=capture_headers(), json=payload)
 
-    expected_code = "COMMAND_ID_MISMATCH" if payload.get("id") == "different-id" else "INVALID_RESULT"
+    expected_code = "COMMAND_ID_MISMATCH" if payload.get("id") != command_id else "INVALID_RESULT"
     assert response.status_code == (409 if expected_code == "COMMAND_ID_MISMATCH" else 400)
     assert response.json()["error"]["code"] == expected_code
-    assert bridge.bridge.active == {"id": command_id, "script": "puts hello", "state": "executing"}
+    if expected_code == "COMMAND_ID_MISMATCH":
+        assert bridge.bridge.active == {"id": command_id, "script": "puts hello", "state": "executing"}
+    else:
+        assert response.json()["id"] == command_id
+        assert response.json()["state"] == "completed"
+        assert bridge.bridge.active is None
+        assert bridge.bridge.completed[command_id]["errorCode"] == [
+            "CAPTURE",
+            "AI",
+            "BRIDGE",
+            "INVALID_RESULT",
+        ]
 
 
 def test_internal_result_rejects_a_result_before_the_command_is_claimed(client):
@@ -598,7 +852,7 @@ def test_normalize_result_utf8_truncates_one_oversized_error_code_item(monkeypat
     assert len(normalized["errorCode"][0].encode("utf-8")) == 6
 
 
-def test_internal_result_rejects_an_unencodable_json_string_without_clearing_active(client):
+def test_internal_result_safely_completes_an_unencodable_json_string(client):
     command_id = queue_and_claim(client)
 
     response = client.post(
@@ -609,8 +863,12 @@ def test_internal_result_rejects_an_unencodable_json_string_without_clearing_act
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "INVALID_RESULT"
-    assert bridge.bridge.active["id"] == command_id
-    assert bridge.bridge.active["state"] == "executing"
+    assert response.json()["id"] == command_id
+    assert response.json()["state"] == "completed"
+    assert bridge.bridge.active is None
+    assert bridge.bridge.completed[command_id]["errorInfo"] == (
+        "Invalid internal result payload: errorInfo:invalid_utf8"
+    )
 
 
 def test_nonzero_return_code_is_not_ok_and_preserves_error_details(client):
@@ -1706,12 +1964,16 @@ def test_result_retry_for_completed_command_is_idempotent(client):
     payload = result_payload("already-completed")
     with bridge.bridge.lock:
         bridge.bridge.store_completed(payload)
-    response = client.post("/internal/result", headers=capture_headers(), json=payload)
+    response = client.post(
+        "/internal/result",
+        headers=capture_headers(command_id="already-completed"),
+        json=payload,
+    )
     assert response.status_code == 200
     assert response.json() == {"id": "already-completed", "state": "completed"}
 
 
-def test_result_rejects_declared_body_over_limit_without_consuming_active_command(
+def test_result_declared_body_over_limit_safely_completes_active_command(
     client, monkeypatch
 ):
     monkeypatch.setattr(bridge, "RESULT_BODY_LIMIT_BYTES", 16)
@@ -1731,12 +1993,13 @@ def test_result_rejects_declared_body_over_limit_without_consuming_active_comman
     assert response.status_code == 413
     assert response.json()["error"]["code"] == "REQUEST_TOO_LARGE"
     with bridge.bridge.lock:
-        assert bridge.bridge.active["id"] == "oversized-result"
-        assert bridge.bridge.active["state"] == "executing"
-        assert "oversized-result" not in bridge.bridge.completed
+        assert bridge.bridge.active is None
+        assert bridge.bridge.completed["oversized-result"]["errorInfo"] == (
+            "Invalid internal result payload: body:too_large"
+        )
 
 
-def test_result_rejects_chunked_body_over_limit_without_consuming_active_command(
+def test_result_chunked_body_over_limit_safely_completes_active_command(
     client, monkeypatch
 ):
     monkeypatch.setattr(bridge, "RESULT_BODY_LIMIT_BYTES", 16)
@@ -1760,9 +2023,10 @@ def test_result_rejects_chunked_body_over_limit_without_consuming_active_command
     assert response.status_code == 413
     assert response.json()["error"]["code"] == "REQUEST_TOO_LARGE"
     with bridge.bridge.lock:
-        assert bridge.bridge.active["id"] == "chunked-oversized-result"
-        assert bridge.bridge.active["state"] == "executing"
-        assert "chunked-oversized-result" not in bridge.bridge.completed
+        assert bridge.bridge.active is None
+        assert bridge.bridge.completed["chunked-oversized-result"]["errorInfo"] == (
+            "Invalid internal result payload: body:too_large"
+        )
 
 
 def test_revalidation_after_claim_prevents_bind_after_tcl_revocation(tmp_path, monkeypatch):
