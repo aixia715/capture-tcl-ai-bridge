@@ -27,6 +27,11 @@ if {![info exists ::CaptureAiBridgeExtraGrace]} { set ::CaptureAiBridgeExtraGrac
 if {![info exists ::CaptureAiBridgePendingResultId]} { set ::CaptureAiBridgePendingResultId {} }
 if {![info exists ::CaptureAiBridgePendingResultJson]} { set ::CaptureAiBridgePendingResultJson {} }
 if {![info exists ::CaptureAiBridgePendingResultGeneration]} { set ::CaptureAiBridgePendingResultGeneration {} }
+if {![info exists ::CaptureAiBridgeRetryDelayMs]} { set ::CaptureAiBridgeRetryDelayMs 250 }
+if {![info exists ::CaptureAiBridgeRetryMaxMs]} { set ::CaptureAiBridgeRetryMaxMs 5000 }
+if {![info exists ::CaptureAiBridgeLastPollError]} { set ::CaptureAiBridgeLastPollError {} }
+if {![info exists ::CaptureAiBridgePollingHalted]} { set ::CaptureAiBridgePollingHalted 0 }
+if {![info exists ::CaptureAiBridgeProtocolError]} { set ::CaptureAiBridgeProtocolError {} }
 
 proc _captureAiJsonQuote {value} {
     set encoded {"}
@@ -454,16 +459,48 @@ proc _captureAiRequest {method path {payload {}} {extraHeaders {}}} {
 
     set httpToken {}
     try {
-        set httpToken [::http::geturl \
-            "${::CaptureAiBridgeBaseUrl}${path}" {*}$requestOptions]
-        if {[::http::status $httpToken] ne "ok"} {
-            error {Capture AI bridge HTTP transport failed.}
+        set getCode [catch {
+            ::http::geturl "${::CaptureAiBridgeBaseUrl}${path}" {*}$requestOptions
+        } requestToken]
+        if {$getCode != 0} {
+            return -code error -errorcode {CAPTURE_AI_BRIDGE TRANSPORT} \
+                [_captureAiSafeError $requestToken]
         }
-        set statusCode [::http::ncode $httpToken]
+        set httpToken $requestToken
+        if {[catch {::http::status $httpToken} transportStatus] ||
+            $transportStatus ne "ok"} {
+            return -code error -errorcode {CAPTURE_AI_BRIDGE TRANSPORT} \
+                {Capture AI bridge HTTP transport failed.}
+        }
+        if {[catch {::http::ncode $httpToken} statusCode] ||
+            [catch {::http::data $httpToken} responseBytes]} {
+            return -code error -errorcode {CAPTURE_AI_BRIDGE TRANSPORT} \
+                {Capture AI bridge HTTP transport failed.}
+        }
+        set response [encoding convertfrom utf-8 $responseBytes]
         if {$statusCode < 200 || $statusCode >= 300} {
-            error "Capture AI bridge returned HTTP $statusCode."
+            set remoteCode HTTP_ERROR
+            set responseId {}
+            set responseState {}
+            set remoteMessage "Capture AI bridge returned HTTP $statusCode."
+            if {![catch {::json::json2dict $response} errorBody]} {
+                if {[dict exists $errorBody error code]} {
+                    set remoteCode [dict get $errorBody error code]
+                }
+                if {[dict exists $errorBody error message]} {
+                    set remoteMessage [dict get $errorBody error message]
+                }
+                if {[dict exists $errorBody id]} {
+                    set responseId [dict get $errorBody id]
+                }
+                if {[dict exists $errorBody state]} {
+                    set responseState [dict get $errorBody state]
+                }
+            }
+            return -code error \
+                -errorcode [list CAPTURE_AI_BRIDGE HTTP $statusCode $remoteCode $responseId $responseState] \
+                [_captureAiSafeError $remoteMessage]
         }
-        set response [encoding convertfrom utf-8 [::http::data $httpToken]]
         if {$response eq {}} {
             return {}
         }
@@ -482,14 +519,64 @@ proc _captureAiLifecycleIsCurrent {generation state} {
     return [set ::CaptureAiBridge$state]
 }
 
-proc _captureAiScheduleTick {{generation {}}} {
+proc _captureAiResetPollRecoveryState {} {
+    set ::CaptureAiBridgeRetryDelayMs 250
+    set ::CaptureAiBridgeLastPollError {}
+    set ::CaptureAiBridgePollingHalted 0
+    set ::CaptureAiBridgeProtocolError {}
+}
+
+proc _captureAiScheduleTick {{generation {}} {delay {}}} {
     if {$generation eq {}} {
         set generation $::CaptureAiBridgeGeneration
     }
-    if {[_captureAiLifecycleIsCurrent $generation Active]} {
-        set ::CaptureAiBridgeAfterId \
-            [after $::CaptureAiBridgePollMs [list _captureAiTick $generation]]
+    if {$delay eq {}} {
+        set delay $::CaptureAiBridgeRetryDelayMs
     }
+    if {[_captureAiLifecycleIsCurrent $generation Active] &&
+        !$::CaptureAiBridgePollingHalted &&
+        $::CaptureAiBridgeAfterId eq {}} {
+        set ::CaptureAiBridgeAfterId \
+            [after $delay [list _captureAiTick $generation]]
+    }
+}
+
+proc _captureAiSchedulePollRetry {generation} {
+    set delay $::CaptureAiBridgeRetryDelayMs
+    _captureAiScheduleTick $generation $delay
+    set ::CaptureAiBridgeRetryDelayMs [expr {
+        min($::CaptureAiBridgeRetryMaxMs, $delay * 2)}]
+}
+
+proc _captureAiReportPollError {fingerprint message} {
+    if {$::CaptureAiBridgeLastPollError ne $fingerprint} {
+        puts stderr "Capture AI bridge poll failed: [_captureAiSafeError $message]"
+        set ::CaptureAiBridgeLastPollError $fingerprint
+    }
+}
+
+proc _captureAiPollErrorDisposition {message options} {
+    set errorCode {}
+    if {[dict exists $options -errorcode]} {
+        set errorCode [dict get $options -errorcode]
+    }
+    if {[llength $errorCode] >= 2 &&
+        [lindex $errorCode 0] eq "CAPTURE_AI_BRIDGE" &&
+        [lindex $errorCode 1] eq "HTTP"} {
+        set statusCode [lindex $errorCode 2]
+        set remoteCode [lindex $errorCode 3]
+        set fingerprint "HTTP:$statusCode:$remoteCode"
+        _captureAiReportPollError $fingerprint $message
+        if {[string is integer -strict $statusCode] &&
+            $statusCode >= 400 && $statusCode < 500} {
+            set ::CaptureAiBridgePollingHalted 1
+            set ::CaptureAiBridgeProtocolError [_captureAiSafeError $message]
+            return halt
+        }
+        return retry
+    }
+    _captureAiReportPollError TRANSPORT $message
+    return retry
 }
 
 proc _captureAiClearPendingResult {} {
@@ -512,6 +599,55 @@ proc _captureAiPendingResultIsCurrent {generation} {
         $::CaptureAiBridgePendingResultGeneration eq $generation}]
 }
 
+proc _captureAiPostPendingResult {generation} {
+    set pendingId $::CaptureAiBridgePendingResultId
+    set pendingJson $::CaptureAiBridgePendingResultJson
+    set postCode [catch {
+        _captureAiRequest POST /internal/result $pendingJson \
+            [list X-Capture-Command-Id $::CaptureAiBridgePendingResultId]
+    } postMessage postOptions]
+    if {$postCode == 0} {
+        if {[_captureAiLifecycleIsCurrent $generation Active] &&
+            $::CaptureAiBridgePendingResultId eq $pendingId &&
+            $::CaptureAiBridgePendingResultJson eq $pendingJson &&
+            $::CaptureAiBridgePendingResultGeneration eq $generation} {
+            _captureAiClearPendingResult
+        }
+        set ::CaptureAiBridgeRetryDelayMs 250
+        set ::CaptureAiBridgeLastPollError {}
+        return posted
+    }
+
+    set errorCode {}
+    if {[dict exists $postOptions -errorcode]} {
+        set errorCode [dict get $postOptions -errorcode]
+    }
+    if {[llength $errorCode] >= 5 &&
+        [lindex $errorCode 0] eq "CAPTURE_AI_BRIDGE" &&
+        [lindex $errorCode 1] eq "HTTP"} {
+        set statusCode [lindex $errorCode 2]
+        set remoteCode [lindex $errorCode 3]
+        set responseId [lindex $errorCode 4]
+        set responseState [lindex $errorCode 5]
+        set fingerprint "HTTP:$statusCode:$remoteCode"
+        if {$statusCode in {400 413} &&
+            $remoteCode in {INVALID_RESULT REQUEST_TOO_LARGE} &&
+            $responseId eq $pendingId && $responseState eq "completed"} {
+            _captureAiReportPollError $fingerprint $postMessage
+            _captureAiClearPendingResult
+            set ::CaptureAiBridgeRetryDelayMs 250
+            return discarded
+        }
+        if {$statusCode == 409 && $remoteCode eq "COMMAND_ID_MISMATCH"} {
+            _captureAiReportPollError $fingerprint $postMessage
+            _captureAiClearPendingResult
+            set ::CaptureAiBridgeRetryDelayMs 250
+            return discarded
+        }
+    }
+    return [_captureAiPollErrorDisposition $postMessage $postOptions]
+}
+
 proc _captureAiTick {{generation {}}} {
     if {$generation eq {}} {
         set generation $::CaptureAiBridgeGeneration
@@ -523,6 +659,7 @@ proc _captureAiTick {{generation {}}} {
     if {![_captureAiLifecycleIsCurrent $generation Active]} {
         return
     }
+    set retryPoll 0
     try {
         if {$::CaptureAiBridgePendingResultGeneration ne {} &&
             $::CaptureAiBridgePendingResultGeneration ne $generation} {
@@ -534,20 +671,24 @@ proc _captureAiTick {{generation {}}} {
             if {![_captureAiPendingResultIsCurrent $generation]} {
                 _captureAiClearPendingResult
             } else {
-                set pendingId $::CaptureAiBridgePendingResultId
-                set pendingJson $::CaptureAiBridgePendingResultJson
-                _captureAiRequest POST /internal/result $pendingJson \
-                    [list X-Capture-Command-Id $::CaptureAiBridgePendingResultId]
-                if {[_captureAiLifecycleIsCurrent $generation Active] &&
-                    $::CaptureAiBridgePendingResultId eq $pendingId &&
-                    $::CaptureAiBridgePendingResultJson eq $pendingJson &&
-                    $::CaptureAiBridgePendingResultGeneration eq $generation} {
-                    _captureAiClearPendingResult
+                set postDisposition [_captureAiPostPendingResult $generation]
+                if {$postDisposition eq "retry"} {
+                    set retryPoll 1
                 }
                 return
             }
         }
-        set command [_captureAiRequest GET /internal/command]
+        set commandCode [catch {
+            _captureAiRequest GET /internal/command
+        } command commandOptions]
+        if {$commandCode != 0} {
+            if {[_captureAiPollErrorDisposition $command $commandOptions] eq "retry"} {
+                set retryPoll 1
+            }
+            return
+        }
+        set ::CaptureAiBridgeRetryDelayMs 250
+        set ::CaptureAiBridgeLastPollError {}
         if {![_captureAiLifecycleIsCurrent $generation Active]} {
             return
         }
@@ -566,23 +707,37 @@ proc _captureAiTick {{generation {}}} {
                 return
             }
             _captureAiStorePendingResult $generation $commandId $payload
-            _captureAiRequest POST /internal/result $payload \
-                [list X-Capture-Command-Id $::CaptureAiBridgePendingResultId]
-            if {![_captureAiLifecycleIsCurrent $generation Active]} {
-                return
-            }
-            if {$::CaptureAiBridgePendingResultId eq $commandId &&
-                $::CaptureAiBridgePendingResultJson eq $payload &&
-                $::CaptureAiBridgePendingResultGeneration eq $generation} {
-                _captureAiClearPendingResult
+            set postDisposition [_captureAiPostPendingResult $generation]
+            if {$postDisposition eq "retry"} {
+                set retryPoll 1
             }
         }
     } on error {message options} {
         if {[_captureAiLifecycleIsCurrent $generation Active]} {
-            puts stderr "Capture AI bridge poll failed: [_captureAiSafeError $message]"
+            if {[_captureAiPollErrorDisposition $message $options] eq "retry"} {
+                set retryPoll 1
+            }
         }
     } finally {
-        _captureAiScheduleTick $generation
+        if {$retryPoll} {
+            _captureAiSchedulePollRetry $generation
+        } else {
+            _captureAiScheduleTick $generation
+        }
+    }
+}
+
+proc CaptureAiBridgeDumpPendingResult {path} {
+    if {$::CaptureAiBridgePendingResultId eq {} ||
+        $::CaptureAiBridgePendingResultJson eq {}} {
+        error {Capture AI bridge has no pending result to dump.}
+    }
+    set channel [open $path wb]
+    try {
+        fconfigure $channel -encoding utf-8 -translation binary
+        puts -nonewline $channel $::CaptureAiBridgePendingResultJson
+    } finally {
+        close $channel
     }
 }
 
@@ -999,6 +1154,7 @@ proc CaptureAiBridgeStart {} {
     }
 
     set runtimeFile [_captureAiRuntimeFile]
+    _captureAiResetPollRecoveryState
     _captureAiClearPendingResult
     set generation [incr ::CaptureAiBridgeGeneration]
     if {[catch {
@@ -1069,6 +1225,8 @@ proc CaptureAiBridgeStatus {} {
         puts stderr "Capture AI bridge polling stopped; server cleanup required: $::CaptureAiBridgeStopError"
     } elseif {$::CaptureAiBridgeStopping} {
         puts {Capture AI bridge stopping; waiting for server acknowledgement}
+    } elseif {$::CaptureAiBridgePollingHalted} {
+        puts stderr "Capture AI bridge polling halted by protocol error: $::CaptureAiBridgeProtocolError"
     } elseif {$::CaptureAiBridgeActive} {
         puts "Capture AI bridge running at $::CaptureAiBridgeBaseUrl"
     } elseif {$::CaptureAiBridgeConnecting} {
@@ -1080,6 +1238,7 @@ proc CaptureAiBridgeStatus {} {
 
 proc CaptureAiBridgeStop {} {
     set stopGeneration [incr ::CaptureAiBridgeGeneration]
+    _captureAiResetPollRecoveryState
     _captureAiClearPendingResult
     set wasActive $::CaptureAiBridgeActive
     set wasConnecting $::CaptureAiBridgeConnecting

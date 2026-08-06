@@ -857,6 +857,151 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     check {_captureAiTick exists} 0 1
 }
 
+# Poll recovery is exercised through the request seam.  The resulting error
+# codes mirror the JSON error envelopes returned by the local bridge.
+if {[llength [info commands ::_captureAiTick]] > 0} {
+    rename ::_captureAiRequest ::captureAiRecoveryRealRequest
+    proc ::_captureAiRequest {method path {payload {}} {extraHeaders {}}} {
+        lappend ::captureAiRecoveryRequests [list $method $path $payload $extraHeaders]
+        switch -- $::captureAiRecoveryMode {
+            pending-transport {
+                return -code error -errorcode {CAPTURE_AI_BRIDGE TRANSPORT} {offline}
+            }
+            pending-500 {
+                return -code error -errorcode {CAPTURE_AI_BRIDGE HTTP 500 SERVER_ERROR {} {}} {server error}
+            }
+            pending-invalid {
+                return -code error -errorcode {CAPTURE_AI_BRIDGE HTTP 400 INVALID_RESULT pending-1 completed} {invalid result}
+            }
+            pending-too-large {
+                return -code error -errorcode {CAPTURE_AI_BRIDGE HTTP 413 REQUEST_TOO_LARGE pending-1 completed} {result too large}
+            }
+            pending-stale {
+                return -code error -errorcode {CAPTURE_AI_BRIDGE HTTP 409 COMMAND_ID_MISMATCH {} {}} {stale result}
+            }
+            pending-auth {
+                return -code error -errorcode {CAPTURE_AI_BRIDGE HTTP 401 UNAUTHORIZED {} {}} {not authorized}
+            }
+            pending-pid-mismatch {
+                return -code error -errorcode {CAPTURE_AI_BRIDGE HTTP 409 CAPTURE_PID_MISMATCH {} {}} {capture pid mismatch}
+            }
+            command-transport {
+                return -code error -errorcode {CAPTURE_AI_BRIDGE TRANSPORT} {offline}
+            }
+            command-500 {
+                return -code error -errorcode {CAPTURE_AI_BRIDGE HTTP 500 SERVER_ERROR {} {}} {server error}
+            }
+            default { return {} }
+        }
+    }
+    rename ::after ::captureAiRecoveryRealAfter
+    proc ::after {args} {
+        lappend ::captureAiRecoveryAfterCalls $args
+        return recovery-after-[llength $::captureAiRecoveryAfterCalls]
+    }
+
+    set ::CaptureAiBridgeGeneration 200
+    set ::CaptureAiBridgeActive 1
+    set ::CaptureAiBridgeConnecting 0
+    set ::CaptureAiBridgeStopping 0
+    set ::CaptureAiBridgeAfterId {}
+    set ::CaptureAiBridgeToken recovery-token
+    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+    set ::CaptureAiBridgePendingResultId pending-1
+    set ::CaptureAiBridgePendingResultJson {"id":"pending-1"}
+    set ::CaptureAiBridgePendingResultGeneration 200
+    set ::captureAiRecoveryRequests {}
+    set ::captureAiRecoveryAfterCalls {}
+    set ::captureAiRecoveryMode pending-transport
+    _captureAiTick 200
+    check {transport retains pending result} $::CaptureAiBridgePendingResultId pending-1
+    check {transport retry begins at 250 ms} [lindex [lindex $::captureAiRecoveryAfterCalls 0] 0] 250
+    check {pending post carries exact retained id header} [lindex [lindex $::captureAiRecoveryRequests 0] 3] {X-Capture-Command-Id pending-1}
+
+    set retryDelays [list]
+    foreach expectedDelay {500 1000 2000 4000 5000 5000} {
+        set ::captureAiRecoveryAfterCalls {}
+        set ::captureAiRecoveryMode pending-500
+        _captureAiTick 200
+        lappend retryDelays [lindex [lindex $::captureAiRecoveryAfterCalls 0] 0]
+    }
+    check {transport and 5xx retry with capped exponential backoff} $retryDelays {500 1000 2000 4000 5000 5000}
+    check {5xx retains pending result} $::CaptureAiBridgePendingResultId pending-1
+
+    set ::captureAiRecoveryAfterCalls {}
+    set ::captureAiRecoveryMode pending-invalid
+    _captureAiTick 200
+    check {confirmed invalid completed result is discarded} $::CaptureAiBridgePendingResultId {}
+    check {confirmed invalid result continues polling} [lindex [lindex $::captureAiRecoveryAfterCalls 0] 0] 250
+
+    _captureAiStorePendingResult 200 pending-1 {"id":"pending-1"}
+    set ::captureAiRecoveryAfterCalls {}
+    set ::captureAiRecoveryMode pending-too-large
+    _captureAiTick 200
+    check {confirmed oversized completed result is discarded} $::CaptureAiBridgePendingResultId {}
+
+    _captureAiStorePendingResult 200 pending-1 {"id":"pending-1"}
+    set ::captureAiRecoveryAfterCalls {}
+    set ::captureAiRecoveryMode pending-stale
+    _captureAiTick 200
+    check {command id mismatch discards stale pending result} $::CaptureAiBridgePendingResultId {}
+
+    _captureAiStorePendingResult 200 pending-1 {"id":"pending-1"}
+    set ::captureAiRecoveryAfterCalls {}
+    set ::captureAiRecoveryMode pending-auth
+    _captureAiTick 200
+    check {unconfirmed 4xx halts polling} $::CaptureAiBridgePollingHalted 1
+    checkTrue {unconfirmed 4xx retains protocol error} [expr {$::CaptureAiBridgeProtocolError ne {}}]
+    check {halted poll schedules nothing} [llength $::captureAiRecoveryAfterCalls] 0
+    check {halted poll retains pending result} $::CaptureAiBridgePendingResultId pending-1
+
+    _captureAiResetPollRecoveryState
+    set ::captureAiRecoveryAfterCalls {}
+    set ::captureAiRecoveryMode pending-pid-mismatch
+    _captureAiTick 200
+    check {capture pid mismatch halts polling} $::CaptureAiBridgePollingHalted 1
+    check {capture pid mismatch schedules nothing} [llength $::captureAiRecoveryAfterCalls] 0
+
+    _captureAiResetPollRecoveryState
+    _captureAiClearPendingResult
+    set ::CaptureAiBridgeActive 1
+    set ::captureAiRecoveryAfterCalls {}
+    set ::captureAiRecoveryMode command-transport
+    _captureAiTick 200
+    check {command transport uses retry delay} [lindex [lindex $::captureAiRecoveryAfterCalls 0] 0] 250
+    set ::captureAiRecoveryAfterCalls {}
+    set ::captureAiRecoveryMode command-500
+    _captureAiTick 200
+    check {command 5xx advances retry delay} [lindex [lindex $::captureAiRecoveryAfterCalls 0] 0] 500
+    set ::captureAiRecoveryAfterCalls {}
+    set ::captureAiRecoveryMode empty
+    _captureAiTick 200
+    check {successful command poll resets retry delay} $::CaptureAiBridgeRetryDelayMs 250
+
+    set dumpPath [file join [pwd] capture-ai-pending-dump.json]
+    _captureAiStorePendingResult 200 dump-id {"id":"dump-id"}
+    CaptureAiBridgeDumpPendingResult $dumpPath
+    set dumpChannel [open $dumpPath rb]
+    fconfigure $dumpChannel -encoding utf-8 -translation binary
+    set dumpText [read $dumpChannel]
+    close $dumpChannel
+    check {explicit dump writes exact pending JSON} $dumpText {"id":"dump-id"}
+    checkTrue {explicit dump never writes bearer token} [expr {[string first recovery-token $dumpText] < 0}]
+    _captureAiClearPendingResult
+    check {dump without pending result errors} [catch {CaptureAiBridgeDumpPendingResult $dumpPath}] 1
+    file delete -force $dumpPath
+
+    rename ::after {}
+    rename ::captureAiRecoveryRealAfter ::after
+    rename ::_captureAiRequest {}
+    rename ::captureAiRecoveryRealRequest ::_captureAiRequest
+    set ::CaptureAiBridgeActive 0
+    set ::CaptureAiBridgeToken {}
+    set ::CaptureAiBridgeBaseUrl {}
+} else {
+    check {poll recovery helpers exist} 0 1
+}
+
 if {[llength [info commands ::_captureAiLoadDescriptor]] > 0} {
     package require json
     set descriptorFile [file join [pwd] capture-ai-bridge-descriptor.tmp]
@@ -952,10 +1097,18 @@ if {[llength [info commands ::_captureAiRequest]] > 0} {
         check "HTTP request forbids override of $protectedHeader" \
             [catch [list _captureAiRequest POST /internal/result {{"id":"one"}} [list $protectedHeader override]]] 1
     }
+    check {HTTP request forbids case-insensitive authorization override} \
+        [catch {_captureAiRequest POST /internal/result {{"id":"one"}} {authorization override}}] 1
     check {HTTP POST cleans transaction} [llength $::captureAiHttpCleanups] 2
 
     set ::captureAiHttpStatus 500
-    check {HTTP non-2xx is an error} [catch {_captureAiRequest GET /v1/health}] 1
+    set ::captureAiHttpData [encoding convertto utf-8 \
+        {{"ok":false,"error":{"code":"SERVER_ERROR","message":"server failed"},"id":"cmd-http","state":"completed"}}]
+    set non2xxCode [catch {_captureAiRequest GET /v1/health} non2xxMessage non2xxOptions]
+    check {HTTP non-2xx is an error} $non2xxCode 1
+    check {HTTP non-2xx exposes typed remote error code} \
+        [dict get $non2xxOptions -errorcode] \
+        {CAPTURE_AI_BRIDGE HTTP 500 SERVER_ERROR cmd-http completed}
     check {HTTP non-2xx cleans transaction} [llength $::captureAiHttpCleanups] 3
 
     set ::captureAiHttpStatus 200
@@ -966,6 +1119,15 @@ if {[llength [info commands ::_captureAiRequest]] > 0} {
     set ::captureAiHttpTransportStatus timeout
     check {HTTP transport failure is an error} [catch {_captureAiRequest GET /v1/health}] 1
     check {HTTP transport failure cleans transaction} [llength $::captureAiHttpCleanups] 5
+
+    rename ::http::geturl ::http::captureAiWorkingGeturl
+    proc ::http::geturl {url args} { error {simulated connection failure} }
+    set geturlFailureCode [catch {_captureAiRequest GET /v1/health} geturlFailure geturlFailureOptions]
+    rename ::http::geturl {}
+    rename ::http::captureAiWorkingGeturl ::http::geturl
+    check {HTTP transport exception is an error} $geturlFailureCode 1
+    check {HTTP transport exception has stable error code} \
+        [dict get $geturlFailureOptions -errorcode] {CAPTURE_AI_BRIDGE TRANSPORT}
 
     foreach command {geturl status ncode data cleanup} {
         rename ::http::$command {}
@@ -985,6 +1147,10 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     }
     rename ::after ::captureAiRealAfter
     proc ::after {args} {
+        if {[lindex $args 0] eq "cancel"} {
+            lappend ::captureAiLifecycleAfterCancels [lindex $args 1]
+            return
+        }
         lappend ::captureAiLifecycleAfterCalls $args
         return lifecycle-after-[llength $::captureAiLifecycleAfterCalls]
     }
@@ -996,6 +1162,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     set ::env(TEMP) [pwd]
     set ::captureAiExecCalls {}
     set ::captureAiLifecycleAfterCalls {}
+    set ::captureAiLifecycleAfterCancels {}
     set ::CaptureAiBridgeActive 0
     set ::CaptureAiBridgeConnecting 0
     CaptureAiBridgeStart
@@ -1469,6 +1636,102 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     set ::CaptureAiBridgeCancelFile {}
     set ::CaptureAiBridgeAckFile {}
     set ::CaptureAiBridgeLaunchNonce {}
+
+    # Stop must cancel its current poll timer, and a subsequent Start must
+    # discard all poll-recovery diagnostics before accepting another command.
+    rename ::_captureAiRequest ::captureAiRealRequestForRecoveryLifecycle
+    proc ::_captureAiRequest {method path {payload {}} {extraHeaders {}}} {
+        if {$path eq "/v1/health"} {
+            return [dict create \
+                service capture-tcl-bridge \
+                protocolVersion 1 \
+                capturePid [pid]]
+        }
+        if {$path eq "/internal/command"} {
+            if {$::captureAiRecoveryLifecycleCommandAvailable} {
+                set ::captureAiRecoveryLifecycleCommandAvailable 0
+                return [dict create id recovery-command script {
+                    set ::captureAiRecoveryLifecycleExecuted 1
+                }]
+            }
+            return {}
+        }
+        if {$path eq "/internal/result"} {
+            incr ::captureAiRecoveryLifecyclePosts
+        }
+        return {}
+    }
+    rename ::_captureAiLoadDescriptor ::captureAiRealLoadDescriptorForRecoveryLifecycle
+    proc ::_captureAiLoadDescriptor {args} {
+        return [dict create \
+            service capture-tcl-bridge \
+            protocolVersion 1 \
+            baseUrl http://127.0.0.1:8767 \
+            token recovery-lifecycle-token \
+            capturePid [pid] \
+            serverPid 4321]
+    }
+    set ::CaptureAiBridgeGeneration 90
+    set ::CaptureAiBridgeActive 1
+    set ::CaptureAiBridgeConnecting 0
+    set ::CaptureAiBridgeStopping 0
+    set ::CaptureAiBridgeOwnedPid {}
+    set ::CaptureAiBridgeLaunchFile {}
+    set ::CaptureAiBridgeClaimFile {}
+    set ::CaptureAiBridgeCancelFile {}
+    set ::CaptureAiBridgeAckFile {}
+    set ::CaptureAiBridgeLaunchNonce {}
+    set ::CaptureAiBridgeToken recovery-lifecycle-token
+    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+    set ::CaptureAiBridgePollingHalted 0
+    set ::CaptureAiBridgeProtocolError {}
+    set ::CaptureAiBridgeLastPollError {}
+    set ::CaptureAiBridgeRetryDelayMs 250
+    set ::CaptureAiBridgeAfterId {}
+    set ::captureAiLifecycleAfterCalls {}
+    set ::captureAiLifecycleAfterCancels {}
+    _captureAiScheduleTick 90
+    set scheduledPollTimer $::CaptureAiBridgeAfterId
+    _captureAiScheduleTick 90
+    check {scheduled poll is not duplicated} [llength $::captureAiLifecycleAfterCalls] 1
+    set ::CaptureAiBridgePollingHalted 1
+    set ::CaptureAiBridgeProtocolError {stale protocol error}
+    set ::CaptureAiBridgeLastPollError {HTTP:401:UNAUTHORIZED}
+    set ::CaptureAiBridgeRetryDelayMs 5000
+    CaptureAiBridgeStop
+    check {Stop cancels its scheduled poll timer} $::captureAiLifecycleAfterCancels [list $scheduledPollTimer]
+    check {Stop clears halted recovery state} $::CaptureAiBridgePollingHalted 0
+    check {Stop clears protocol error} $::CaptureAiBridgeProtocolError {}
+    check {Stop clears last poll error} $::CaptureAiBridgeLastPollError {}
+    check {Stop resets retry delay} $::CaptureAiBridgeRetryDelayMs 250
+
+    set ::captureAiExecCalls {}
+    CaptureAiBridgeStart
+    check {Start clears halted recovery state} $::CaptureAiBridgePollingHalted 0
+    check {Start clears protocol error} $::CaptureAiBridgeProtocolError {}
+    check {Start clears last poll error} $::CaptureAiBridgeLastPollError {}
+    check {Start resets retry delay} $::CaptureAiBridgeRetryDelayMs 250
+    _captureAiConnect $::CaptureAiBridgeGeneration 0
+    set ::CaptureAiBridgeAfterId {}
+    set ::captureAiRecoveryLifecycleCommandAvailable 1
+    set ::captureAiRecoveryLifecyclePosts 0
+    unset -nocomplain ::captureAiRecoveryLifecycleExecuted
+    _captureAiTick $::CaptureAiBridgeGeneration
+    check {restart accepts and executes next command} $::captureAiRecoveryLifecycleExecuted 1
+    check {restart posts next command completion} $::captureAiRecoveryLifecyclePosts 1
+    _captureAiCleanupSignals
+    set ::CaptureAiBridgeActive 0
+    set ::CaptureAiBridgeConnecting 0
+    set ::CaptureAiBridgeOwnedPid {}
+    set ::CaptureAiBridgeLaunchFile {}
+    set ::CaptureAiBridgeClaimFile {}
+    set ::CaptureAiBridgeCancelFile {}
+    set ::CaptureAiBridgeAckFile {}
+    set ::CaptureAiBridgeLaunchNonce {}
+    rename ::_captureAiLoadDescriptor {}
+    rename ::captureAiRealLoadDescriptorForRecoveryLifecycle ::_captureAiLoadDescriptor
+    rename ::_captureAiRequest {}
+    rename ::captureAiRealRequestForRecoveryLifecycle ::_captureAiRequest
 
     rename ::after {}
     rename ::captureAiRealAfter ::after
