@@ -52,6 +52,22 @@ Capture 验收**。当前状态：
 自动测试不等于真实验收。在真实 Capture 中签收之前，`tcl_bom` 仍是回退来源；
 不要把它的工作树或源文件作为本次迁移的一部分删除。
 
+## 待真实 Capture 确认的 Dbo API 假设
+
+`examples/*.tcl` 是对着**模拟的** Dbo 接口写并测试的，没有链接真实 Capture。
+下面这些形状必须在真实验收时逐条确认；任何一条不成立，对应示例就要改：
+
+| 假设 | 风险 |
+| --- | --- |
+| `GetActivePMDesign` / `GetActivePMSelection` 是全局命令，直接返回句柄 | 中 |
+| 组件 occurrence 的 `GetObjectType` 返回字符串 `occDbComponent` | **高**——示例只判等，没有枚举其他取值 |
+| 迭代器耗尽时 `Next` 返回空字符串 | 中 |
+| 迭代器用 `delete` 方法释放（而非 `Delete` 或引用计数） | 中 |
+| pin/port occurrence 提供 `GetName`、`GetNumber`、`GetPartOccurrence` | **高**——`GetPartOccurrence` 是推测的父对象访问器 |
+| `GetSelectedObjects` 直接返回句柄列表，而不是迭代器 | 中 |
+
+验收时建议先用 CLI 逐条打印这些调用的真实返回值，再跑示例。
+
 ## 已知的验收环境限制
 
 用于验证的虚拟机装的是 OrCAD SPB 16.6，其 Capture 链接 `tcl84.dll`（Tcl 8.4.15），
