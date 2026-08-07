@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import queue
+import shlex
 import subprocess
 import sys
 import threading
@@ -24,6 +25,12 @@ CLI = ROOT / "capture_tcl_cli.py"
 TCL_BRIDGE = ROOT / "captureAiBridge.tcl"
 SCRIPT = "puts hello; expr {6 * 7}"
 NONCE = "integration-test-nonce"
+# The bridge sources need Tcl 8.6 (dict, lassign, {*}, try/finally). Where the
+# interpreter on PATH is older, point CAPTURE_TCL_TCLSH at a suitable one. The
+# value may carry leading arguments, but it must resolve to the process that
+# actually runs Tcl: the server authenticates the Capture PID, so a wrapper
+# script that spawns a child interpreter would report a PID the server rejects.
+TCLSH = shlex.split(os.environ.get("CAPTURE_TCL_TCLSH", "tclsh"))
 
 
 def _request_json(
@@ -380,7 +387,7 @@ def test_real_server_accepts_a_tcl_tick_result_post_with_its_command_id_header(t
         encoding="utf-8",
     )
     tcl_process = subprocess.Popen(
-        ["tclsh", str(bootstrap_file), str(ready_file)],
+        [*TCLSH, str(bootstrap_file), str(ready_file)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
