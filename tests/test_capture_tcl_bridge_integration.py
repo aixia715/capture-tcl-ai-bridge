@@ -495,8 +495,9 @@ def test_real_server_accepts_a_tcl_tick_result_post_with_its_command_id_header(t
         port = urllib.parse.urlsplit(descriptor["baseUrl"]).port
         assert port is not None
         ready_file.write_text(
+            # The bridge parses JSON itself; requiring tcllib's json here would
+            # drag in its "dict" dependency, which Tcl 8.4 does not ship.
             "package require http\n"
-            "package require json\n"
             f"source {{{TCL_BRIDGE.as_posix()}}}\n"
             f"set ::CaptureAiBridgePort {port}\n"
             f"set ::CaptureAiBridgeBaseUrl {{{descriptor['baseUrl']}}}\n"

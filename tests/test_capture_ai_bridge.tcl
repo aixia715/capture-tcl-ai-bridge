@@ -31,6 +31,32 @@ proc checkTrue {description value} {
     }
 }
 
+# lrepeat is Tcl 8.5+; this test builds oversized fixture lists with it below.
+# The bridge under test never calls lrepeat, so this shim lives here rather
+# than in captureAiBridge.tcl's compatibility section.
+if {[llength [info commands ::lrepeat]] == 0} {
+    proc ::lrepeat {count item} {
+        set result {}
+        for {set i 0} {$i < $count} {incr i} {
+            lappend result $item
+        }
+        return $result
+    }
+}
+
+# lsearch -index is Tcl 8.5+; this test only ever uses it to count captured
+# request/call log entries whose Nth element matches a value, so a small
+# counting helper replaces every such call below.
+proc ::captureAiCountByIndex {list index value} {
+    set count 0
+    foreach entry $list {
+        if {[lindex $entry $index] eq $value} {
+            incr count
+        }
+    }
+    return $count
+}
+
 set beforeAfter [after info]
 source $bridgeFile
 check {source preserves explicit Python path} $::CaptureAiBridgePythonPath $repoRoot
@@ -67,7 +93,6 @@ check {public lifecycle status proc exists} [llength [info commands CaptureAiBri
 check {public lifecycle stop proc exists} [llength [info commands CaptureAiBridgeStop]] 1
 
 if {[llength [info commands ::_captureAiResolvePythonPath]] > 0} {
-    package require json
     set manifestRoot [file normalize [file join [pwd] capture-ai-install-manifest-[pid]]]
     file mkdir $manifestRoot
     set oldLocalAppDataExists [info exists ::env(LOCALAPPDATA)]
@@ -234,7 +259,9 @@ set ::CaptureAiBridgePendingResultGeneration {}
 set chinese "\u4E2D\u6587"
 set ni "\u4F60"
 set controls [format "\"\\\\\b\f\n\r\t%c%s" 1 $chinese]
-set escapedControlPrefix {"\"\\\b\f\n\r\t\u0001}
+# $controls carries two literal backslashes, so valid JSON escapes each of
+# them: four backslash characters, not two.
+set escapedControlPrefix {"\"\\\\\b\f\n\r\t\u0001}
 set expectedControlJson "${escapedControlPrefix}${chinese}\""
 check {JSON quote controls and unicode} [_captureAiJsonQuote $controls] $expectedControlJson
 check {JSON quote empty} [_captureAiJsonQuote {}] {""}
@@ -323,7 +350,7 @@ foreach {lone label} [list $highSurrogate high $lowSurrogate low] {
 }
 
 rename ::puts ::captureAiNativePuts
-proc ::captureAiAliasTarget {args} { return [list alias-target {*}$args] }
+proc ::captureAiAliasTarget {args} { return [concat [list alias-target] $args] }
 interp alias {} ::puts {} ::captureAiAliasTarget
 set savedAlias [interp alias {} ::puts]
 set ::CaptureAiBridgeFieldLimit -1
@@ -396,11 +423,18 @@ check {error has Tcl code} [dict get $errorResult returnCode] 1
 check {error preserves result} [dict get $errorResult result] {specific failure}
 checkTrue {error preserves errorInfo} [expr {[string first {detail line} [dict get $errorResult errorInfo]] >= 0}]
 check {error preserves errorCode Tcl list} [dict get $errorResult errorCode] {MY CODE}
-checkTrue {error records errorLine} [expr {[dict get $errorResult errorLine] ne {}}]
+# Tcl 8.4's catch has no options dictionary and therefore no -errorline, so
+# Capture 16.6 reports a null errorLine. The design calls for extracting
+# -errorline "when present", so assert whichever the interpreter can supply.
+set haveErrorLine [expr {![catch {catch {} _captureAiLineProbeResult _captureAiLineProbeOptions}]}]
+unset -nocomplain _captureAiLineProbeResult _captureAiLineProbeOptions
+check {error records errorLine only where catch reports one} \
+    [expr {[dict get $errorResult errorLine] ne {}}] $haveErrorLine
 foreach {script expectedLine label} [list \
     "error first-line" 1 first \
     "set first 1\nerror second-line" 2 second \
     "set first 1\nset second 2\nerror third-line" 3 third] {
+    if {!$haveErrorLine} { set expectedLine {} }
     set lineResult [_captureAiExecuteScript $script]
     check "global catch reports exact $label script error line" \
         [dict get $lineResult errorLine] $expectedLine
@@ -432,7 +466,7 @@ proc ::captureAiCompletionPuts {args} {
 }
 proc ::captureAiRunCompletionDirect {} {
     uplevel #0 {
-        set code [catch {puts completion} value options]
+        set code [_captureAiCatch {puts completion} value options]
         list $code $value $options
     }
 }
@@ -443,7 +477,7 @@ foreach mode {return break continue error} {
     set ::captureAiCompletionMode $mode
     lassign [::captureAiRunCompletionDirect] directCode directValue directOptions
     set bridgedCompletion [_captureAiExecuteScript {
-        set code [catch {puts completion} value options]
+        set code [_captureAiCatch {puts completion} value options]
         list $code $value $options
     }]
     set bridgedValues [dict get $bridgedCompletion result]
@@ -460,7 +494,7 @@ foreach completionCheck $completionChecks {
 }
 
 rename ::puts ::captureAiNativePuts
-proc ::captureAiConflictPuts {args} { return [list conflict {*}$args] }
+proc ::captureAiConflictPuts {args} { return [concat [list conflict] $args] }
 rename ::captureAiConflictPuts ::puts
 set conflictPutsBody [info body ::puts]
 proc ::_captureAiBridgeOriginalPuts {} { return collision }
@@ -865,7 +899,7 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     set ::captureAiRequests {}
     _captureAiTick
     check {lost response retry does not re-execute} $::captureAiLostResponseExecutions 1
-    check {lost response retry does not GET} [llength [lsearch -all -inline -index 0 $::captureAiRequests GET]] 0
+    check {lost response retry does not GET} [::captureAiCountByIndex $::captureAiRequests 0 GET] 0
     check {lost response retry POSTs identical JSON} [lindex [lindex $::captureAiRequests 0] 2] $lostResponsePayload
     check {lost response retry clears pending after acknowledgement} $::CaptureAiBridgePendingResultId {}
     unset -nocomplain ::captureAiResultPostFailures ::captureAiSimulateDeliveredBeforeFailure
@@ -898,7 +932,7 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     set stoppedTickCode [catch {_captureAiTick 30} stoppedTickError]
     check {stop during claim is contained} $stoppedTickCode 0
     check {stop during claim does not execute script} [info exists ::captureAiUnexpectedExecution] 0
-    check {stop during claim does not post result} [llength [lsearch -all -inline -index 1 $::captureAiRequests /internal/result]] 0
+    check {stop during claim does not post result} [::captureAiCountByIndex $::captureAiRequests 1 /internal/result] 0
     check {stop during claim does not reschedule old tick} [llength $::captureAiAfterCalls] 0
 
     set ::CaptureAiBridgeGeneration 40
@@ -915,7 +949,7 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     set restartedTickCode [catch {_captureAiTick 40} restartedTickError]
     check {restart during claim is contained} $restartedTickCode 0
     check {old session does not execute after restart} [info exists ::captureAiOldSessionExecuted] 0
-    check {old session does not post after restart} [llength [lsearch -all -inline -index 1 $::captureAiRequests /internal/result]] 0
+    check {old session does not post after restart} [::captureAiCountByIndex $::captureAiRequests 1 /internal/result] 0
     check {old session does not schedule into new lifecycle} [llength $::captureAiAfterCalls] 0
 
     set ::CaptureAiBridgeGeneration 45
@@ -931,7 +965,7 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     unset -nocomplain ::captureAiScriptContinuedAfterStop
     _captureAiTick 45
     check {script can complete locally after stopping bridge} [info exists ::captureAiScriptContinuedAfterStop] 1
-    check {script-triggered stop prevents result POST} [llength [lsearch -all -inline -index 1 $::captureAiRequests /internal/result]] 0
+    check {script-triggered stop prevents result POST} [::captureAiCountByIndex $::captureAiRequests 1 /internal/result] 0
     check {script-triggered stop prevents reschedule} [llength $::captureAiAfterCalls] 0
 
     set ::CaptureAiBridgeGeneration 47
@@ -947,7 +981,7 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     unset -nocomplain ::captureAiResultStopExecuted
     _captureAiTick 47
     check {result-stop script executes once} $::captureAiResultStopExecuted 1
-    check {result is posted exactly once before reentrant stop} [llength [lsearch -all -inline -index 1 $::captureAiRequests /internal/result]] 1
+    check {result is posted exactly once before reentrant stop} [::captureAiCountByIndex $::captureAiRequests 1 /internal/result] 1
     check {stop during result POST prevents reschedule} [llength $::captureAiAfterCalls] 0
     check {stop during result POST clears pending id} $::CaptureAiBridgePendingResultId {}
     check {stop during result POST clears pending JSON} $::CaptureAiBridgePendingResultJson {}
@@ -1090,7 +1124,9 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     set dumpPath [file join [pwd] capture-ai-pending-dump.json]
     _captureAiStorePendingResult 200 dump-id {"id":"dump-id"}
     CaptureAiBridgeDumpPendingResult $dumpPath
-    set dumpChannel [open $dumpPath rb]
+    # Tcl 8.4's open rejects the combined "rb" access mode Tcl 8.5+ allows;
+    # -translation binary below already does what the "b" suffix would.
+    set dumpChannel [open $dumpPath r]
     fconfigure $dumpChannel -encoding utf-8 -translation binary
     set dumpText [read $dumpChannel]
     close $dumpChannel
@@ -1112,7 +1148,6 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
 }
 
 if {[llength [info commands ::_captureAiLoadDescriptor]] > 0} {
-    package require json
     set descriptorFile [file join [pwd] capture-ai-bridge-descriptor.tmp]
     set descriptorChannel [open $descriptorFile w]
     fconfigure $descriptorChannel -encoding utf-8
@@ -1162,8 +1197,13 @@ if {[llength [info commands ::_captureAiLoadDescriptor]] > 0} {
 
 if {[llength [info commands ::_captureAiRequest]] > 0} {
     package require http
-    package require json
     foreach command {geturl status ncode data cleanup} {
+        # This Tcl 8.4 build registers the http package through the old
+        # tclPkgSetup autoloader: the commands don't exist until first
+        # referenced, so `rename` finds nothing without forcing the load
+        # first. auto_load is a harmless no-op on 8.6, where they already
+        # exist eagerly.
+        catch {auto_load ::http::$command}
         rename ::http::$command ::http::captureAiReal[string totitle $command]
     }
     proc ::http::geturl {url args} {
@@ -1213,7 +1253,10 @@ if {[llength [info commands ::_captureAiRequest]] > 0} {
     set ::captureAiHttpStatus 500
     set ::captureAiHttpData [encoding convertto utf-8 \
         {{"ok":false,"error":{"code":"SERVER_ERROR","message":"server failed"},"id":"cmd-http","state":"completed"}}]
-    set non2xxCode [catch {_captureAiRequest GET /v1/health} non2xxMessage non2xxOptions]
+    # The 3-arg options-dict form of catch is Tcl 8.5+; the bridge's own
+    # _captureAiCatch shim (native catch on 8.5+, hand-built options on 8.4)
+    # already covers both interpreters.
+    set non2xxCode [_captureAiCatch {_captureAiRequest GET /v1/health} non2xxMessage non2xxOptions]
     check {HTTP non-2xx is an error} $non2xxCode 1
     check {HTTP non-2xx exposes typed remote error code} \
         [dict get $non2xxOptions -errorcode] \
@@ -1231,7 +1274,8 @@ if {[llength [info commands ::_captureAiRequest]] > 0} {
 
     rename ::http::geturl ::http::captureAiWorkingGeturl
     proc ::http::geturl {url args} { error {simulated connection failure} }
-    set geturlFailureCode [catch {_captureAiRequest GET /v1/health} geturlFailure geturlFailureOptions]
+    set geturlFailureCode [_captureAiCatch {_captureAiRequest GET /v1/health} \
+        geturlFailure geturlFailureOptions]
     rename ::http::geturl {}
     rename ::http::captureAiWorkingGeturl ::http::geturl
     check {HTTP transport exception is an error} $geturlFailureCode 1
@@ -1362,7 +1406,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
         check {stop during health request is contained} $stoppedConnectCode 0
         check {stop during health request stays inactive} $::CaptureAiBridgeActive 0
         check {stop during health request stays disconnected} $::CaptureAiBridgeConnecting 0
-        check {stop during health request does not schedule} [llength [lsearch -all -inline -index 0 $::captureAiLifecycleAfterCalls $::CaptureAiBridgePollMs]] 0
+        check {stop during health request does not schedule} [::captureAiCountByIndex $::captureAiLifecycleAfterCalls 0 $::CaptureAiBridgePollMs] 0
         rename ::_captureAiRequest {}
         rename ::captureAiRealRequestForConnect ::_captureAiRequest
         rename ::_captureAiLoadDescriptor {}
@@ -1554,7 +1598,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
             [lindex $args end] eq $::captureAiFailDeletePath} {
             error {injected unlink failure}
         }
-        return [uplevel 1 [list ::captureAiRealFile $subcommand {*}$args]]
+        return [uplevel 1 [concat [list ::captureAiRealFile $subcommand] $args]]
     }
     check {unlink failure keeps revocation in retry state} \
         [_captureAiRevokeLaunch] retry
@@ -1595,7 +1639,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
             [lindex $args end] eq $::captureAiFailDeletePath} {
             error {injected managed unlink failure}
         }
-        return [uplevel 1 [list ::captureAiRealFile $subcommand {*}$args]]
+        return [uplevel 1 [concat [list ::captureAiRealFile $subcommand] $args]]
     }
     _captureAiFinishStop 74 39
     check {managed unlink failure stays blocked} $::CaptureAiBridgeStopping 1

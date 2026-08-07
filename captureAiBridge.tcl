@@ -34,6 +34,389 @@ if {![info exists ::CaptureAiBridgePollingHalted]} { set ::CaptureAiBridgePollin
 if {![info exists ::CaptureAiBridgeProtocolError]} { set ::CaptureAiBridgeProtocolError {} }
 if {![info exists ::CaptureAiBridgePythonPath]} { set ::CaptureAiBridgePythonPath {} }
 
+# --- Tcl 8.4 compatibility -------------------------------------------------
+#
+# OrCAD Capture 16.6 embeds Tcl 8.4.15, which has no dict, no lassign and no
+# try. Capture 17.4 embeds 8.6, which has all three. Each shim is defined only
+# when the interpreter lacks the command, so on 17.4 the native implementations
+# are used untouched and both versions run the same bridge source.
+#
+# The dict shim covers only the subcommands this module and its examples use.
+# It relies on a Tcl dictionary being, at the value level, a list of alternating
+# keys and values, so the shim's results interchange with native dictionaries.
+
+if {[llength [info commands ::dict]] == 0} {
+    proc ::dict {subcommand args} {
+        switch -exact -- $subcommand {
+            create {
+                if {[llength $args] % 2 != 0} {
+                    return -code error \
+                        {wrong # args: should be "dict create ?key value ...?"}
+                }
+                return $args
+            }
+            get {
+                if {[llength $args] < 1} {
+                    return -code error \
+                        {wrong # args: should be "dict get dictionary ?key ...?"}
+                }
+                set value [lindex $args 0]
+                foreach key [lrange $args 1 end] {
+                    if {[llength $value] % 2 != 0} {
+                        return -code error \
+                            {missing value to go with key}
+                    }
+                    set found 0
+                    # A dictionary keeps the last value written for a key.
+                    foreach {candidate candidateValue} $value {
+                        if {$candidate eq $key} {
+                            set next $candidateValue
+                            set found 1
+                        }
+                    }
+                    if {!$found} {
+                        return -code error "key \"$key\" not known in dictionary"
+                    }
+                    set value $next
+                }
+                return $value
+            }
+            exists {
+                if {[llength $args] < 2} {
+                    return -code error \
+                        {wrong # args: should be "dict exists dictionary key ?key ...?"}
+                }
+                set value [lindex $args 0]
+                foreach key [lrange $args 1 end] {
+                    if {[catch {llength $value} length] || $length % 2 != 0} {
+                        return 0
+                    }
+                    set found 0
+                    foreach {candidate candidateValue} $value {
+                        if {$candidate eq $key} {
+                            set next $candidateValue
+                            set found 1
+                        }
+                    }
+                    if {!$found} { return 0 }
+                    set value $next
+                }
+                return 1
+            }
+            keys {
+                if {[llength $args] < 1 || [llength $args] > 2} {
+                    return -code error \
+                        {wrong # args: should be "dict keys dictionary ?pattern?"}
+                }
+                set pattern *
+                if {[llength $args] == 2} { set pattern [lindex $args 1] }
+                set keys {}
+                foreach {candidate candidateValue} [lindex $args 0] {
+                    if {[lsearch -exact $keys $candidate] < 0 &&
+                        [string match $pattern $candidate]} {
+                        lappend keys $candidate
+                    }
+                }
+                return $keys
+            }
+            replace {
+                set pairs [lrange $args 1 end]
+                if {[llength $pairs] % 2 != 0} {
+                    return -code error \
+                        {wrong # args: should be "dict replace dictionary ?key value ...?"}
+                }
+                set result [lindex $args 0]
+                foreach {key value} $pairs {
+                    set replaced 0
+                    set rebuilt {}
+                    foreach {candidate candidateValue} $result {
+                        if {$candidate eq $key} {
+                            lappend rebuilt $candidate $value
+                            set replaced 1
+                        } else {
+                            lappend rebuilt $candidate $candidateValue
+                        }
+                    }
+                    if {!$replaced} { lappend rebuilt $key $value }
+                    set result $rebuilt
+                }
+                return $result
+            }
+            default {
+                return -code error \
+                    "unsupported dict subcommand \"$subcommand\" in the Tcl 8.4 shim"
+            }
+        }
+    }
+}
+
+if {[llength [info commands ::lassign]] == 0} {
+    proc ::lassign {values args} {
+        set index 0
+        foreach name $args {
+            uplevel 1 [list set $name [lindex $values $index]]
+            incr index
+        }
+        return [lrange $values $index end]
+    }
+}
+
+# Tcl 8.5 added the options-dictionary form of catch. Rather than lose the
+# structured -errorinfo/-errorcode the bridge reports, wrap both forms behind
+# one helper. On 8.4 the options dictionary is rebuilt from the global error
+# variables; -errorline simply does not exist there, so a Capture 16.6 result
+# reports a null errorLine.
+if {[catch {catch {} _captureAiProbeResult _captureAiProbeOptions}]} {
+    proc _captureAiCatch {script resultName optionsName} {
+        upvar 1 $resultName result
+        upvar 1 $optionsName options
+        set code [catch {uplevel 1 $script} result]
+        set options [list -code $code -level 0]
+        if {$code == 1} {
+            lappend options -errorinfo $::errorInfo -errorcode $::errorCode
+        }
+        return $code
+    }
+    # Evaluating the submitted script needs the raw command, not this wrapper:
+    # an extra stack frame would make -errorline relative to the wrapper.
+    set ::CaptureAiBridgeCatchCommand _captureAiCatch
+} else {
+    proc _captureAiCatch {script resultName optionsName} {
+        upvar 1 $resultName result
+        upvar 1 $optionsName options
+        return [catch {uplevel 1 $script} result options]
+    }
+    set ::CaptureAiBridgeCatchCommand catch
+}
+unset -nocomplain _captureAiProbeResult _captureAiProbeOptions
+
+if {[llength [info commands ::try]] == 0} {
+    # Only "try BODY finally SCRIPT" and "try BODY on error {resultVar
+    # optionsVar} SCRIPT finally SCRIPT" are shimmed; those are the two forms
+    # this module uses (_captureAiTick needs the on-error clause to decide
+    # whether a poll failure is retryable), and guessing at trap or multiple
+    # on/on-error handlers would be worse than refusing them.
+    proc ::try {body args} {
+        set haveOnError 0
+        set onErrorVars {}
+        set onErrorScript {}
+        set rest $args
+        if {[llength $rest] >= 4 && [lindex $rest 0] eq {on} && [lindex $rest 1] eq {error}} {
+            set haveOnError 1
+            set onErrorVars [lindex $rest 2]
+            set onErrorScript [lindex $rest 3]
+            set rest [lrange $rest 4 end]
+        }
+        set finallyScript {}
+        if {[llength $rest] == 2 && [lindex $rest 0] eq {finally}} {
+            set finallyScript [lindex $rest 1]
+        } elseif {[llength $rest] != 0} {
+            return -code error \
+                {the Tcl 8.4 try shim supports only: try BODY ?on error {resultVar optionsVar} SCRIPT? ?finally SCRIPT?}
+        }
+        set code [catch {uplevel 1 $body} result]
+        set savedInfo $::errorInfo
+        set savedCode $::errorCode
+        if {$code == 1 && $haveOnError} {
+            if {[llength $onErrorVars] >= 1} {
+                uplevel 1 [list set [lindex $onErrorVars 0] $result]
+            }
+            if {[llength $onErrorVars] >= 2} {
+                uplevel 1 [list set [lindex $onErrorVars 1] \
+                    [list -code error -level 0 -errorinfo $savedInfo -errorcode $savedCode]]
+            }
+            set code [catch {uplevel 1 $onErrorScript} result]
+            if {$code == 1} {
+                set savedInfo $::errorInfo
+                set savedCode $::errorCode
+            }
+        }
+        set finallyCode [catch {uplevel 1 $finallyScript} finallyResult]
+        if {$finallyCode != 0} {
+            # A failing cleanup replaces the original outcome, matching 8.6.
+            return -code $finallyCode $finallyResult
+        }
+        if {$code == 1} {
+            return -code error -errorinfo $savedInfo -errorcode $savedCode $result
+        }
+        return -code $code $result
+    }
+}
+
+# --- JSON ------------------------------------------------------------------
+#
+# The module parses JSON itself rather than requiring tcllib's json package.
+# That package needs a "dict" package on 8.4 which OrCAD does not ship, and it
+# needs TCLLIBPATH pointing into the Cadence tree, so depending on it would make
+# the bridge fail to start on a stock Capture install. Values map exactly the
+# way tcllib's json2dict maps them: objects to dictionaries, arrays to lists,
+# true/false/null to those literal words, and numbers to their source text.
+
+proc _captureAiJsonSkipSpace {text indexName} {
+    upvar 1 $indexName index
+    set length [string length $text]
+    while {$index < $length} {
+        switch -exact -- [string index $text $index] {
+            { } - "\t" - "\n" - "\r" { incr index }
+            default { return }
+        }
+    }
+}
+
+proc _captureAiJsonParseString {text indexName} {
+    upvar 1 $indexName index
+    set length [string length $text]
+    if {[string index $text $index] ne "\""} {
+        error {Capture AI bridge JSON expected a string.}
+    }
+    incr index
+    set decoded {}
+    while {1} {
+        if {$index >= $length} {
+            error {Capture AI bridge JSON has an unterminated string.}
+        }
+        set char [string index $text $index]
+        if {$char eq "\""} {
+            incr index
+            return $decoded
+        }
+        if {$char ne "\\"} {
+            append decoded $char
+            incr index
+            continue
+        }
+        incr index
+        if {$index >= $length} {
+            error {Capture AI bridge JSON has an unterminated escape.}
+        }
+        set escape [string index $text $index]
+        incr index
+        switch -exact -- $escape {
+            "\"" { append decoded "\"" }
+            "\\" { append decoded "\\" }
+            "/"  { append decoded "/" }
+            b    { append decoded "\b" }
+            f    { append decoded "\f" }
+            n    { append decoded "\n" }
+            r    { append decoded "\r" }
+            t    { append decoded "\t" }
+            u {
+                set hex [string range $text $index [expr {$index + 3}]]
+                if {![regexp {^[0-9a-fA-F]{4}$} $hex]} {
+                    error {Capture AI bridge JSON has an invalid \u escape.}
+                }
+                incr index 4
+                append decoded [format %c [scan $hex %x]]
+            }
+            default {
+                error "Capture AI bridge JSON has an invalid escape \"\\$escape\"."
+            }
+        }
+    }
+}
+
+proc _captureAiJsonParseNumber {text indexName} {
+    upvar 1 $indexName index
+    set length [string length $text]
+    set start $index
+    while {$index < $length &&
+           [string first [string index $text $index] {-+.0123456789eE}] >= 0} {
+        incr index
+    }
+    set token [string range $text $start [expr {$index - 1}]]
+    if {![regexp {^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][-+]?[0-9]+)?$} $token]} {
+        error {Capture AI bridge JSON has an invalid value.}
+    }
+    return $token
+}
+
+proc _captureAiJsonParseValue {text indexName} {
+    upvar 1 $indexName index
+    _captureAiJsonSkipSpace $text index
+    if {$index >= [string length $text]} {
+        error {Capture AI bridge JSON ended unexpectedly.}
+    }
+    set char [string index $text $index]
+    if {$char eq "\{"} { return [_captureAiJsonParseObject $text index] }
+    if {$char eq "\["} { return [_captureAiJsonParseArray $text index] }
+    if {$char eq "\""} { return [_captureAiJsonParseString $text index] }
+    foreach literal {true false null} {
+        set stop [expr {$index + [string length $literal] - 1}]
+        if {[string range $text $index $stop] eq $literal} {
+            set index [expr {$stop + 1}]
+            return $literal
+        }
+    }
+    return [_captureAiJsonParseNumber $text index]
+}
+
+proc _captureAiJsonParseObject {text indexName} {
+    upvar 1 $indexName index
+    incr index
+    set result {}
+    _captureAiJsonSkipSpace $text index
+    if {[string index $text $index] eq "\}"} {
+        incr index
+        return $result
+    }
+    while {1} {
+        _captureAiJsonSkipSpace $text index
+        set key [_captureAiJsonParseString $text index]
+        _captureAiJsonSkipSpace $text index
+        if {[string index $text $index] ne ":"} {
+            error {Capture AI bridge JSON object is missing a colon.}
+        }
+        incr index
+        lappend result $key [_captureAiJsonParseValue $text index]
+        _captureAiJsonSkipSpace $text index
+        set char [string index $text $index]
+        if {$char eq ","} {
+            incr index
+            continue
+        }
+        if {$char eq "\}"} {
+            incr index
+            return $result
+        }
+        error {Capture AI bridge JSON object is malformed.}
+    }
+}
+
+proc _captureAiJsonParseArray {text indexName} {
+    upvar 1 $indexName index
+    incr index
+    set result {}
+    _captureAiJsonSkipSpace $text index
+    if {[string index $text $index] eq "\]"} {
+        incr index
+        return $result
+    }
+    while {1} {
+        lappend result [_captureAiJsonParseValue $text index]
+        _captureAiJsonSkipSpace $text index
+        set char [string index $text $index]
+        if {$char eq ","} {
+            incr index
+            continue
+        }
+        if {$char eq "\]"} {
+            incr index
+            return $result
+        }
+        error {Capture AI bridge JSON array is malformed.}
+    }
+}
+
+proc _captureAiJsonParse {text} {
+    set index 0
+    set value [_captureAiJsonParseValue $text index]
+    _captureAiJsonSkipSpace $text index
+    if {$index != [string length $text]} {
+        error {Capture AI bridge JSON has trailing content.}
+    }
+    return $value
+}
+
 proc _captureAiJsonQuote {value} {
     set encoded {"}
     set length [string length $value]
@@ -59,7 +442,7 @@ proc _captureAiJsonQuote {value} {
         }
         switch -- $scalar {
             {"}  { append encoded {\"} }
-            {\\} { append encoded {\\\\} }
+            \\   { append encoded {\\} }
             \b   { append encoded {\b} }
             \f   { append encoded {\f} }
             \n   { append encoded {\n} }
@@ -243,15 +626,39 @@ proc _captureAiClearCaptureState {} {
         ::_captureAiBridgeStderrStopped
 }
 
+# Tcl 8.4's `rename` does not carry a command's interp-alias binding to its
+# new name: the renamed command survives in `info commands` but can no
+# longer be invoked, and `interp alias` no longer reports it. Tcl 8.6 renames
+# aliases correctly. Route every puts-shuffling rename through these helpers
+# so an aliased puts (as Capture may install, or as tests simulate) survives
+# on both interpreters.
+proc _captureAiMoveCommand {from to} {
+    set aliasTarget [interp alias {} $from]
+    if {$aliasTarget ne {}} {
+        interp alias {} $from {}
+        interp alias {} $to {} $aliasTarget
+    } else {
+        rename $from $to
+    }
+}
+
+proc _captureAiDeleteCommand {name} {
+    if {[interp alias {} $name] ne {}} {
+        interp alias {} $name {}
+    } else {
+        rename $name {}
+    }
+}
+
 proc _captureAiRestorePuts {original} {
     if {[llength [info commands ::puts]] > 0} {
         trace remove execution ::puts leave _captureAiTeePuts
-        rename ::puts {}
+        _captureAiDeleteCommand ::puts
     }
     if {[llength [info commands $original]] == 0} {
         error {unable to restore the original puts command}
     }
-    rename $original ::puts
+    _captureAiMoveCommand $original ::puts
 }
 
 proc _captureAiExecuteScript {script} {
@@ -270,23 +677,23 @@ proc _captureAiExecuteScript {script} {
     set original ::_captureAiBridgeOriginalPuts
     _captureAiResetCaptureState
     set movedOriginal 0
-    set installCode [catch {
+    set installCode [_captureAiCatch {
         if {[llength [info commands $original]] > 0} {
             error {capture puts staging command already exists}
         }
-        rename ::puts $original
+        _captureAiMoveCommand ::puts $original
         set movedOriginal 1
         interp alias {} ::puts {} $original
         trace add execution ::puts leave _captureAiTeePuts
     } installResult installOptions]
 
     if {$installCode != 0} {
-        set restoreCode [catch {
+        set restoreCode [_captureAiCatch {
             if {$movedOriginal && [llength [info commands $original]] > 0} {
                 if {[llength [info commands ::puts]] > 0} {
-                    rename ::puts {}
+                    _captureAiDeleteCommand ::puts
                 }
-                rename $original ::puts
+                _captureAiMoveCommand $original ::puts
             }
         } restoreResult restoreOptions]
         _captureAiClearCaptureState
@@ -312,13 +719,15 @@ proc _captureAiExecuteScript {script} {
         # Evaluate catch itself at global level.  This makes -errorline relative
         # to the submitted script rather than this bridge procedure's body.
         set returnCode [uplevel #0 \
-            [list catch $script $resultVariable $optionsVariable]]
+            [list $::CaptureAiBridgeCatchCommand $script $resultVariable \
+                $optionsVariable]]
         set result [set $resultVariable]
         set executionOptions [set $optionsVariable]
     } finally {
         unset -nocomplain $resultVariable $optionsVariable
     }
-    set restoreCode [catch {_captureAiRestorePuts $original} restoreResult restoreOptions]
+    set restoreCode [_captureAiCatch {_captureAiRestorePuts $original} \
+        restoreResult restoreOptions]
 
     set stdout $::_captureAiBridgeStdout
     set stderr $::_captureAiBridgeStderr
@@ -359,7 +768,9 @@ proc _captureAiEffectiveMetadataLimit {} {
     }
     # Keep the JSON request safely below the server's 160 MiB body limit even
     # if a hot-sourced session retained an unexpectedly large configuration.
-    return [expr {min($::CaptureAiBridgeMetadataLimit, 4194304)}]
+    # expr's min()/max() are Tcl 8.5+; Tcl 8.4 needs the ternary spelled out.
+    set limit $::CaptureAiBridgeMetadataLimit
+    return [expr {$limit < 4194304 ? $limit : 4194304}]
 }
 
 proc _captureAiUtf8ListPrefix {values byteLimit} {
@@ -429,7 +840,7 @@ proc _captureAiRequest {method path {payload {}} {extraHeaders {}}} {
     if {$::CaptureAiBridgeToken eq {}} {
         error {Capture AI bridge token is unavailable.}
     }
-    if {$method ni {GET POST} || ![string match {/*} $path]} {
+    if {[lsearch -exact {GET POST} $method] < 0 || ![string match {/*} $path]} {
         error {Invalid Capture AI bridge request.}
     }
 
@@ -440,7 +851,8 @@ proc _captureAiRequest {method path {payload {}} {extraHeaders {}}} {
         error {Invalid Capture AI bridge request headers.}
     }
     foreach {headerName headerValue} $extraHeaders {
-        if {[string tolower $headerName] in {authorization x-capture-pid host}} {
+        if {[lsearch -exact {authorization x-capture-pid host} \
+                [string tolower $headerName]] >= 0} {
             error {Capture AI bridge request cannot override protected headers.}
         }
         lappend headers $headerName $headerValue
@@ -449,34 +861,40 @@ proc _captureAiRequest {method path {payload {}} {extraHeaders {}}} {
         -headers $headers \
         -timeout 1500 \
         -binary true]
+    # http 2.5.3 (Tcl 8.4, Capture 16.6) has no -method option; it selects POST
+    # from the presence of -query and GET otherwise, which is all this bridge
+    # needs. Newer http packages behave the same way for these two verbs.
     if {$method eq "POST"} {
         lappend requestOptions \
-            -method POST \
             -type {application/json; charset=utf-8} \
             -query [encoding convertto utf-8 $payload]
-    } else {
-        lappend requestOptions -method GET
     }
 
     set httpToken {}
     try {
+        # `return -code error` defaults to a deferred (-level 1) return: it
+        # only becomes a real error once it crosses an actual `proc` call
+        # boundary. On Tcl 8.4 the try shim runs this body via `uplevel`, not
+        # a proc call, so a deferred return here would surface as a plain
+        # TCL_RETURN and this whole request would look like it "succeeded"
+        # with the error message as its result. `error` raises immediately
+        # on every Tcl version and survives uplevel/catch cleanly, so it is
+        # used instead everywhere in this function's try body.
         set getCode [catch {
-            ::http::geturl "${::CaptureAiBridgeBaseUrl}${path}" {*}$requestOptions
+            eval [linsert $requestOptions 0 ::http::geturl \
+                "${::CaptureAiBridgeBaseUrl}${path}"]
         } requestToken]
         if {$getCode != 0} {
-            return -code error -errorcode {CAPTURE_AI_BRIDGE TRANSPORT} \
-                [_captureAiSafeError $requestToken]
+            error [_captureAiSafeError $requestToken] {} {CAPTURE_AI_BRIDGE TRANSPORT}
         }
         set httpToken $requestToken
         if {[catch {::http::status $httpToken} transportStatus] ||
             $transportStatus ne "ok"} {
-            return -code error -errorcode {CAPTURE_AI_BRIDGE TRANSPORT} \
-                {Capture AI bridge HTTP transport failed.}
+            error {Capture AI bridge HTTP transport failed.} {} {CAPTURE_AI_BRIDGE TRANSPORT}
         }
         if {[catch {::http::ncode $httpToken} statusCode] ||
             [catch {::http::data $httpToken} responseBytes]} {
-            return -code error -errorcode {CAPTURE_AI_BRIDGE TRANSPORT} \
-                {Capture AI bridge HTTP transport failed.}
+            error {Capture AI bridge HTTP transport failed.} {} {CAPTURE_AI_BRIDGE TRANSPORT}
         }
         set response [encoding convertfrom utf-8 $responseBytes]
         if {$statusCode < 200 || $statusCode >= 300} {
@@ -484,7 +902,7 @@ proc _captureAiRequest {method path {payload {}} {extraHeaders {}}} {
             set responseId {}
             set responseState {}
             set remoteMessage "Capture AI bridge returned HTTP $statusCode."
-            if {![catch {::json::json2dict $response} errorBody]} {
+            if {![catch {_captureAiJsonParse $response} errorBody]} {
                 if {[dict exists $errorBody error code]} {
                     set remoteCode [dict get $errorBody error code]
                 }
@@ -498,14 +916,13 @@ proc _captureAiRequest {method path {payload {}} {extraHeaders {}}} {
                     set responseState [dict get $errorBody state]
                 }
             }
-            return -code error \
-                -errorcode [list CAPTURE_AI_BRIDGE HTTP $statusCode $remoteCode $responseId $responseState] \
-                [_captureAiSafeError $remoteMessage]
+            error [_captureAiSafeError $remoteMessage] {} \
+                [list CAPTURE_AI_BRIDGE HTTP $statusCode $remoteCode $responseId $responseState]
         }
         if {$response eq {}} {
             return {}
         }
-        return [::json::json2dict $response]
+        return [_captureAiJsonParse $response]
     } finally {
         if {$httpToken ne {}} {
             ::http::cleanup $httpToken
@@ -545,8 +962,11 @@ proc _captureAiScheduleTick {{generation {}} {delay {}}} {
 proc _captureAiSchedulePollRetry {generation} {
     set delay $::CaptureAiBridgeRetryDelayMs
     _captureAiScheduleTick $generation $delay
-    set ::CaptureAiBridgeRetryDelayMs [expr {
-        min($::CaptureAiBridgeRetryMaxMs, $delay * 2)}]
+    # expr's min() is Tcl 8.5+; Tcl 8.4 needs the ternary spelled out.
+    set doubled [expr {$delay * 2}]
+    set retryMax $::CaptureAiBridgeRetryMaxMs
+    set ::CaptureAiBridgeRetryDelayMs \
+        [expr {$retryMax < $doubled ? $retryMax : $doubled}]
 }
 
 proc _captureAiReportPollError {fingerprint message} {
@@ -603,7 +1023,7 @@ proc _captureAiPendingResultIsCurrent {generation} {
 proc _captureAiPostPendingResult {generation} {
     set pendingId $::CaptureAiBridgePendingResultId
     set pendingJson $::CaptureAiBridgePendingResultJson
-    set postCode [catch {
+    set postCode [_captureAiCatch {
         _captureAiRequest POST /internal/result $pendingJson \
             [list X-Capture-Command-Id $::CaptureAiBridgePendingResultId]
     } postMessage postOptions]
@@ -631,8 +1051,8 @@ proc _captureAiPostPendingResult {generation} {
         set responseId [lindex $errorCode 4]
         set responseState [lindex $errorCode 5]
         set fingerprint "HTTP:$statusCode:$remoteCode"
-        if {$statusCode in {400 413} &&
-            $remoteCode in {INVALID_RESULT REQUEST_TOO_LARGE} &&
+        if {[lsearch -exact {400 413} $statusCode] >= 0 &&
+            [lsearch -exact {INVALID_RESULT REQUEST_TOO_LARGE} $remoteCode] >= 0 &&
             $responseId eq $pendingId && $responseState eq "completed"} {
             _captureAiReportPollError $fingerprint $postMessage
             _captureAiClearPendingResult
@@ -679,7 +1099,7 @@ proc _captureAiTick {{generation {}}} {
                 return
             }
         }
-        set commandCode [catch {
+        set commandCode [_captureAiCatch {
             _captureAiRequest GET /internal/command
         } command commandOptions]
         if {$commandCode != 0} {
@@ -733,7 +1153,9 @@ proc CaptureAiBridgeDumpPendingResult {path} {
         $::CaptureAiBridgePendingResultJson eq {}} {
         error {Capture AI bridge has no pending result to dump.}
     }
-    set channel [open $path wb]
+    # Tcl 8.4's `open` rejects the combined "wb" access mode Tcl 8.5+ allows;
+    # -translation binary below already does what the "b" suffix would.
+    set channel [open $path w]
     try {
         fconfigure $channel -encoding utf-8 -translation binary
         puts -nonewline $channel $::CaptureAiBridgePendingResultJson
@@ -761,10 +1183,6 @@ proc _captureAiReadInstallManifest {path} {
         return {}
     }
     set parseCode [catch {
-        # Required here rather than relying on an earlier caller, so the
-        # manifest reader stays usable on its own; an unavailable package
-        # falls back to the default path and CaptureAiBridgeStart reports it.
-        package require json
         set channel [open $path r]
         try {
             fconfigure $channel -encoding utf-8
@@ -772,7 +1190,7 @@ proc _captureAiReadInstallManifest {path} {
         } finally {
             close $channel
         }
-        set manifest [::json::json2dict $raw]
+        set manifest [_captureAiJsonParse $raw]
         foreach key {schemaVersion project pythonTarget} {
             if {![dict exists $manifest $key]} {
                 error "install manifest is missing $key"
@@ -810,9 +1228,24 @@ proc _captureAiResolvePythonPath {} {
 }
 
 proc _captureAiCreateLaunchSignals {generation} {
-    set template [file join $::env(TEMP) \
-        "capture_tcl_bridge_launch_[pid]_${generation}_XXXXXXXX"]
-    set channel [file tempfile launchFile $template]
+    # Tcl 8.4 has no [file tempfile], so create the file with an exclusive open
+    # and retry on the unlikely name collision. O_EXCL is what makes this safe;
+    # a name that already exists is never reused.
+    set launchFile {}
+    set channel {}
+    for {set attempt 0} {$attempt < 64} {incr attempt} {
+        set candidate [file join $::env(TEMP) \
+            [format "capture_tcl_bridge_launch_%d_%s_%08x" \
+                [pid] $generation [expr {int(rand() * 0x7fffffff)}]]]
+        if {![catch {open $candidate {WRONLY CREAT EXCL}} opened]} {
+            set launchFile $candidate
+            set channel $opened
+            break
+        }
+    }
+    if {$channel eq {}} {
+        error {Capture AI bridge could not create its launch signal file.}
+    }
     set noncePart [format %08x [expr {int(rand() * 0x7fffffff)}]]
     set nonce "${noncePart}-[clock clicks]"
     try {
@@ -1075,7 +1508,7 @@ proc _captureAiLoadDescriptor {{path {}}} {
     } finally {
         close $channel
     }
-    set descriptor [::json::json2dict $raw]
+    set descriptor [_captureAiJsonParse $raw]
     foreach key {service protocolVersion baseUrl token capturePid serverPid} {
         if {![dict exists $descriptor $key]} {
             error "Capture AI bridge descriptor is missing $key."
@@ -1197,10 +1630,6 @@ proc CaptureAiBridgeStart {} {
     }
     if {[catch {package require http} packageError]} {
         puts stderr "Capture AI bridge requires Tcl http package: $packageError"
-        return
-    }
-    if {[catch {package require json} packageError]} {
-        puts stderr "Capture AI bridge requires Tcl json package: $packageError"
         return
     }
     set pythonRoot [_captureAiResolvePythonPath]
