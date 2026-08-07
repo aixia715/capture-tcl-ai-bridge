@@ -65,6 +65,7 @@ Capture 验收**。当前状态：
 | 迭代器用 `delete` 方法释放（而非 `Delete` 或引用计数） | 中 |
 | pin/port occurrence 提供 `GetName`、`GetNumber`、`GetPartOccurrence` | **高**——`GetPartOccurrence` 是推测的父对象访问器 |
 | `GetSelectedObjects` 直接返回句柄列表，而不是迭代器 | 中 |
+| 后缀标记作用在 **Value** 字段（`*` 空贴约定），而不是 RefDes | 中——若实际约定是 RefDes，只需换目标字段，脚本结构不变 |
 
 验收时建议先用 CLI 逐条打印这些调用的真实返回值，再跑示例。
 
