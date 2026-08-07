@@ -106,6 +106,58 @@ if {[llength [info commands ::_captureAiResolvePythonPath]] > 0} {
     check {relative manifest Python path falls back to standalone default} \
         [_captureAiResolvePythonPath] {C:/tclpython}
 
+    proc _captureAiWriteManifest {path body} {
+        set channel [open $path w]
+        fconfigure $channel -encoding utf-8
+        puts -nonewline $channel $body
+        close $channel
+    }
+
+    set manifestTarget [string map [list {\\} {/}] \
+        [file join $manifestRoot manifest-target]]
+    foreach {label body} [list \
+        {manifest missing schemaVersion} \
+            [format {{"project":"capture-tcl-ai-bridge","pythonTarget":"%s"}} \
+                $manifestTarget] \
+        {manifest missing project} \
+            [format {{"schemaVersion":1,"pythonTarget":"%s"}} $manifestTarget] \
+        {manifest missing pythonTarget} \
+            {{"schemaVersion":1,"project":"capture-tcl-ai-bridge"}} \
+        {manifest with unsupported schema version} \
+            [format \
+                {{"schemaVersion":2,"project":"capture-tcl-ai-bridge","pythonTarget":"%s"}} \
+                $manifestTarget] \
+        {manifest owned by another project} \
+            [format {{"schemaVersion":1,"project":"tcl-bom","pythonTarget":"%s"}} \
+                $manifestTarget] \
+        ] {
+        _captureAiWriteManifest $manifestPath $body
+        check "$label falls back to standalone default" \
+            [_captureAiResolvePythonPath] {C:/tclpython}
+    }
+
+    file delete -force -- $manifestPath
+    check {absent manifest falls back to standalone default} \
+        [_captureAiResolvePythonPath] {C:/tclpython}
+
+    # A stale TCLBOM global must not influence the standalone bridge.
+    set ::TclPythonPath [file join $manifestRoot legacy-target]
+    check {legacy TclPythonPath is ignored} \
+        [_captureAiResolvePythonPath] {C:/tclpython}
+    unset ::TclPythonPath
+
+    unset ::env(LOCALAPPDATA)
+    check {absent LOCALAPPDATA yields no manifest path} \
+        [_captureAiInstallManifestPath] {}
+    check {absent LOCALAPPDATA falls back to standalone default} \
+        [_captureAiResolvePythonPath] {C:/tclpython}
+    set ::env(LOCALAPPDATA) $manifestRoot
+
+    check {resolving the Python path starts nothing} \
+        [list [after info] $::CaptureAiBridgeActive $::CaptureAiBridgeConnecting] \
+        [list $beforeAfter 0 0]
+
+    rename _captureAiWriteManifest {}
     file delete -force -- $manifestRoot
     if {$oldLocalAppDataExists} {
         set ::env(LOCALAPPDATA) $oldLocalAppData
