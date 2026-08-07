@@ -129,6 +129,7 @@ Capture 16.6 的 Tcl 是 8.4，它的 `catch` 没有选项字典，因而没有 
 - [docs/troubleshooting.md](docs/troubleshooting.md) —— 端口占用、描述文件过期、
   路径解析、HTTP 400、pending dump
 - [docs/tcl-cookbook.md](docs/tcl-cookbook.md) —— 中文 Capture Tcl 示例手册
+- [docs/acceptance-checklist.md](docs/acceptance-checklist.md) —— 真实 Capture 验收清单
 - [MIGRATION.md](MIGRATION.md) —— 从 TCLBOM 迁移的来源与验收状态
 
 ## 开发
