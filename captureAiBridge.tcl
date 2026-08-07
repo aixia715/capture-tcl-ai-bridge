@@ -761,6 +761,10 @@ proc _captureAiReadInstallManifest {path} {
         return {}
     }
     set parseCode [catch {
+        # Required here rather than relying on an earlier caller, so the
+        # manifest reader stays usable on its own; an unavailable package
+        # falls back to the default path and CaptureAiBridgeStart reports it.
+        package require json
         set channel [open $path r]
         try {
             fconfigure $channel -encoding utf-8
