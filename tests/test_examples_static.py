@@ -26,6 +26,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
+COOKBOOK = ROOT / "docs" / "tcl-cookbook.md"
 
 READ_ONLY_EXAMPLES = (
     "list_components.tcl",
@@ -105,3 +106,21 @@ def test_task_7_and_task_8_examples_are_present() -> None:
     present = {path.name for path in EXAMPLES.glob("*.tcl")}
     missing = set(ALL_EXAMPLES) - present
     assert not missing, f"missing examples: {sorted(missing)}"
+
+
+def test_cookbook_documents_exactly_the_examples_on_disk() -> None:
+    # Independent of the byte-for-byte drift check in test_docs_contract.py:
+    # this only asks whether the *set* of documented filenames matches the
+    # set on disk, using its own regex, so a bug in one check does not hide
+    # the other. Adding an example without documenting it, or leaving a
+    # deleted example's entry behind, must fail here even if the cookbook
+    # content test elsewhere has a bug.
+    assert COOKBOOK.is_file(), "missing docs/tcl-cookbook.md"
+    text = COOKBOOK.read_text(encoding="utf-8")
+    documented = set(
+        re.findall(r"<!-- BEGIN EXAMPLE SOURCE: ([A-Za-z0-9_.]+\.tcl) -->", text)
+    )
+    on_disk = {path.name for path in EXAMPLES.glob("*.tcl")}
+    assert documented == on_disk, (
+        f"documented={sorted(documented)} on_disk={sorted(on_disk)}"
+    )
