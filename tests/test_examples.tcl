@@ -59,7 +59,7 @@ proc fx::makeHandle {prefix dispatcher} {
 proc fx::resetAll {} {
     variable counter
     set counter 0
-    foreach arrayName {occRef occValue occPath occType occChildren \
+    foreach arrayName {occRef occValue occPath occType occChildren occRejectWrite \
             iterItems iterIndex iterAlive \
             netName netPins netPorts \
             pinName pinNumber pinParent \
@@ -74,6 +74,10 @@ proc fx::resetAll {} {
     set ::fx::iterDeletedHandles {}
     set ::fx::activeDesign {}
     set ::fx::activeSelection {}
+    # Write-suite safety counters: the read-only Task 7 examples never
+    # touch these commands and the Task 8 write examples must not either.
+    set ::fx::refreshPartsCalls 0
+    set ::fx::designSaveCalls 0
 }
 fx::resetAll
 
@@ -125,6 +129,16 @@ proc fx::makeOccurrence {reference value path type children} {
     return $handle
 }
 
+# A write that Capture accepts (SetPartValue returns normally) but that
+# does not actually stick -- the value stays the old one. This exists so
+# the write-suite examples' "read back and error if it did not take"
+# behaviour has something to trip over.
+proc fx::makeStubbornOccurrence {reference value path type children} {
+    set handle [fx::makeOccurrence $reference $value $path $type $children]
+    set ::fx::occRejectWrite($handle) 1
+    return $handle
+}
+
 proc fx::occDispatch {handle method argsList} {
     switch -exact -- $method {
         GetReference    { return $::fx::occRef($handle) }
@@ -134,7 +148,9 @@ proc fx::occDispatch {handle method argsList} {
         NewChildrenIter { return [fx::makeListIter $::fx::occChildren($handle)] }
         SetPartValue {
             incr ::fx::setPartValueCalls
-            set ::fx::occValue($handle) [lindex $argsList 0]
+            if {![info exists ::fx::occRejectWrite($handle)] || !$::fx::occRejectWrite($handle)} {
+                set ::fx::occValue($handle) [lindex $argsList 0]
+            }
             return {}
         }
         default { error "fake occurrence: unsupported method \"$method\"" }
@@ -207,6 +223,10 @@ proc fx::designDispatch {handle method argsList} {
     switch -exact -- $method {
         GetRootOccurrence { return $::fx::designRoot($handle) }
         NewFlatNetsIter   { return [fx::makeListIter $::fx::designFlatNets($handle)] }
+        Save {
+            incr ::fx::designSaveCalls
+            return {}
+        }
         default { error "fake design: unsupported method \"$method\"" }
     }
 }
@@ -229,6 +249,14 @@ proc fx::selectionDispatch {handle method argsList} {
 # object), so the fixture installs them at global scope too.
 proc ::GetActivePMDesign {} { return $::fx::activeDesign }
 proc ::GetActivePMSelection {} { return $::fx::activeSelection }
+
+# RefreshParts and a bare Save are the two commands the write examples must
+# never call (RefreshParts is a TCLBOM helper this project deliberately
+# does not depend on; Save would silently commit an unreviewed edit to
+# disk). Both a global Save and $design Save are wired to the same counter
+# above so a script has nowhere to hide either spelling.
+proc ::RefreshParts {} { incr ::fx::refreshPartsCalls; return {} }
+proc ::Save {} { incr ::fx::designSaveCalls; return {} }
 
 # --- suites --------------------------------------------------------------
 
@@ -449,12 +477,141 @@ proc suite_topology {} {
     }
 }
 
+proc fx::buildUniqueValueCollisionTree {} {
+    # R1 and C3 share a Value ("10k") but have different refdes. Only C3 is
+    # the write target, so a naive "find by value" implementation would
+    # wrongly touch R1 too; this tree exists to catch that mistake.
+    set r1 [fx::makeOccurrence R1 10k /U1/R1 occDbComponent {}]
+    set u1 [fx::makeOccurrence {} {} /U1 occDbPage [list $r1]]
+    set c3 [fx::makeOccurrence C3 10k /U2/C3 occDbComponent {}]
+    set u2 [fx::makeOccurrence {} {} /U2 occDbPage [list $c3]]
+    set root [fx::makeOccurrence {} {} / occDbPage [list $u1 $u2]]
+    return [list $root $r1 $c3]
+}
+
+proc fx::buildStubbornTargetTree {} {
+    # C3's SetPartValue is accepted but silently does not stick --
+    # set_component_value.tcl must notice the mismatched read-back and
+    # error instead of reporting success.
+    set c3 [fx::makeStubbornOccurrence C3 10k /U1/C3 occDbComponent {}]
+    set u1 [fx::makeOccurrence {} {} /U1 occDbPage [list $c3]]
+    set root [fx::makeOccurrence {} {} / occDbPage [list $u1]]
+    return [list $root $c3]
+}
+
 proc suite_write {} {
-    # Task 8 fills this suite in with set_component_value.tcl and the
-    # suffix-mutation examples. Until then it is a deliberate no-op so that
-    # `tclsh tests/test_examples.tcl` (no suite argument) succeeds today and
-    # keeps succeeding once Task 8 starts editing this proc.
-    puts {PASS: write (placeholder, Task 8 fills this in)}
+    # -- set_component_value.tcl ------------------------------------------
+
+    # Unique match, with a same-valued sibling under a different refdes:
+    # only the target occurrence changes.
+    fx::resetAll
+    lassign [fx::buildUniqueValueCollisionTree] root r1 c3
+    set ::fx::activeDesign [fx::makeDesign $root {}]
+    lassign [fx::runExample set_component_value.tcl] code message output
+    check {set_component_value.tcl succeeds on a unique refdes} $code 0
+    check {set_component_value.tcl prints refdes/before/after} \
+        $output [list [dict create refdes C3 before 10k after 100nF]]
+    check {set_component_value.tcl mutates exactly one occurrence} \
+        $::fx::setPartValueCalls 1
+    check {set_component_value.tcl leaves the target changed} [$c3 GetPartValue] 100nF
+    check {set_component_value.tcl leaves the same-value sibling untouched} \
+        [$r1 GetPartValue] 10k
+
+    # Duplicate matches: zero writes, error names COMPONENT_NOT_UNIQUE.
+    fx::resetAll
+    lassign [fx::buildDuplicateC3Tree] rootDup r1Dup c3u1Dup c3u2Dup
+    set ::fx::activeDesign [fx::makeDesign $rootDup {}]
+    lassign [fx::runExample set_component_value.tcl] code message output
+    checkTrue {set_component_value.tcl errors on a duplicate refdes} [expr {$code != 0}]
+    checkTrue {set_component_value.tcl duplicate error says COMPONENT_NOT_UNIQUE} \
+        [expr {[string first COMPONENT_NOT_UNIQUE $message] >= 0}]
+    check {set_component_value.tcl does not write on a duplicate match} \
+        $::fx::setPartValueCalls 0
+
+    # Zero matches: zero writes, error names COMPONENT_NOT_FOUND.
+    fx::resetAll
+    set r1None [fx::makeOccurrence R1 10k /U1/R1 occDbComponent {}]
+    set u1None [fx::makeOccurrence {} {} /U1 occDbPage [list $r1None]]
+    set rootNone [fx::makeOccurrence {} {} / occDbPage [list $u1None]]
+    set ::fx::activeDesign [fx::makeDesign $rootNone {}]
+    lassign [fx::runExample set_component_value.tcl] code message output
+    checkTrue {set_component_value.tcl errors when nothing matches} [expr {$code != 0}]
+    checkTrue {set_component_value.tcl no-match error says COMPONENT_NOT_FOUND} \
+        [expr {[string first COMPONENT_NOT_FOUND $message] >= 0}]
+    check {set_component_value.tcl does not write when nothing matches} \
+        $::fx::setPartValueCalls 0
+
+    # A write Capture accepts but that does not take must be caught by the
+    # read-back check, not reported as success.
+    fx::resetAll
+    lassign [fx::buildStubbornTargetTree] rootStubborn c3Stubborn
+    set ::fx::activeDesign [fx::makeDesign $rootStubborn {}]
+    lassign [fx::runExample set_component_value.tcl] code message output
+    checkTrue {set_component_value.tcl errors when the read-back does not match} \
+        [expr {$code != 0}]
+    check {set_component_value.tcl still attempted the write once} \
+        $::fx::setPartValueCalls 1
+
+    # -- mark_selected_suffix.tcl -------------------------------------------
+
+    fx::resetAll
+    set markA [fx::makeOccurrence R1 10k /R1 occDbComponent {}]
+    set markB [fx::makeOccurrence R2 22k* /R2 occDbComponent {}]
+    set markGraphic [fx::makeOccurrence {} {} /wire1 occDbGraphic {}]
+    set ::fx::activeSelection [fx::makeSelection [list $markA $markA $markB $markGraphic]]
+
+    lassign [fx::runExample mark_selected_suffix.tcl] code message output
+    check {mark_selected_suffix.tcl runs without error} $code 0
+    check {mark_selected_suffix.tcl marks the unmarked component once} \
+        [lindex $output 0] [dict create refdes R1 before 10k after 10k*]
+    check {mark_selected_suffix.tcl reports changed/skipped} \
+        [lindex $output 1] [dict create changed 1 skipped 1]
+    check {mark_selected_suffix.tcl dedupes a doubly-selected occurrence} \
+        $::fx::setPartValueCalls 1
+    check {mark_selected_suffix.tcl leaves an already-marked value alone} \
+        [$markB GetPartValue] 22k*
+
+    # Idempotency: a second run over the same (now-marked) selection must
+    # not stack a second suffix on top of the first.
+    lassign [fx::runExample mark_selected_suffix.tcl] code2 message2 output2
+    check {mark_selected_suffix.tcl re-run makes no further writes} \
+        $::fx::setPartValueCalls 1
+    check {mark_selected_suffix.tcl re-run reports nothing changed} \
+        [lindex $output2 0] [dict create changed 0 skipped 2]
+    check {mark_selected_suffix.tcl re-run does not produce a double suffix} \
+        [$markA GetPartValue] 10k*
+
+    # -- remove_selected_suffix.tcl -----------------------------------------
+
+    fx::resetAll
+    set rmMarked [fx::makeOccurrence R3 10k* /R3 occDbComponent {}]
+    set rmMid [fx::makeOccurrence R4 1*0k /R4 occDbComponent {}]
+    set rmPlain [fx::makeOccurrence R5 4k7 /R5 occDbComponent {}]
+    set rmGraphic [fx::makeOccurrence {} {} /wire2 occDbGraphic {}]
+    set ::fx::activeSelection [fx::makeSelection \
+        [list $rmMarked $rmMarked $rmMid $rmPlain $rmGraphic]]
+
+    lassign [fx::runExample remove_selected_suffix.tcl] code3 message3 output3
+    check {remove_selected_suffix.tcl runs without error} $code3 0
+    check {remove_selected_suffix.tcl strips exactly one trailing suffix} \
+        [lindex $output3 0] [dict create refdes R3 before 10k* after 10k]
+    check {remove_selected_suffix.tcl reports changed/skipped} \
+        [lindex $output3 1] [dict create changed 1 skipped 2]
+    check {remove_selected_suffix.tcl dedupes a doubly-selected occurrence} \
+        $::fx::setPartValueCalls 1
+    check {remove_selected_suffix.tcl leaves a mid-string suffix alone} \
+        [$rmMid GetPartValue] 1*0k
+    check {remove_selected_suffix.tcl leaves an unsuffixed value alone} \
+        [$rmPlain GetPartValue] 4k7
+
+    # -- shared write-suite safety net --------------------------------------
+
+    checkTrue {write suite never calls RefreshParts} [expr {$::fx::refreshPartsCalls == 0}]
+    checkTrue {write suite never saves the design} [expr {$::fx::designSaveCalls == 0}]
+
+    if {!$::fail} {
+        puts {PASS: write}
+    }
 }
 
 # --- driver ----------------------------------------------------------------
