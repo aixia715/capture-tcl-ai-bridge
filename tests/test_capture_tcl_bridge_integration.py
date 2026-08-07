@@ -367,7 +367,7 @@ def test_real_server_fake_capture_and_real_cli_round_trip(tmp_path):
                     for path in cleanup_paths:
                         path.unlink(missing_ok=True)
 
-    readme = (ROOT / "readme.md").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for required in (
         "CaptureAiBridgeStart",
         "CaptureAiBridgeStatus",

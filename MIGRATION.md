@@ -39,7 +39,23 @@ remains compatible with the existing `capture_tcl_bridge.json` contract.
 
 ## Acceptance boundary
 
-An unresolved HTTP 400 defect remains at this baseline.  This import does not
-claim HTTP or real-OrCAD Capture acceptance.  `tcl_bom` remains the rollback
-source until real Capture acceptance is completed; do not delete its worktree
-or source files as part of this migration.
+`capture-tcl-ai-bridge` 现在是这份代码的唯一维护位置，但**尚未通过真实 OrCAD
+Capture 验收**。当前状态：
+
+| 项目 | 状态 |
+| --- | --- |
+| `/internal/result` 确定性 4xx 导致刷屏与永久 busy | 自动测试已修复，真实 Capture **待验收** |
+| JSON 写出未转义反斜杠（Windows 路径产生非法 JSON） | 自动测试已修复，真实 Capture **待验收** |
+| Tcl 8.4 / OrCAD 16.6 兼容 | 自动测试已通过（8.4 与 8.6 双跑），真实 Capture **待验收** |
+| 安装与卸载脚本 | 自动测试与临时目录 smoke 已通过 |
+
+自动测试不等于真实验收。在真实 Capture 中签收之前，`tcl_bom` 仍是回退来源；
+不要把它的工作树或源文件作为本次迁移的一部分删除。
+
+## 已知的验收环境限制
+
+用于验证的虚拟机装的是 OrCAD SPB 16.6，其 Capture 链接 `tcl84.dll`（Tcl 8.4.15），
+整个 SPB_16.6 树中没有任何 8.5/8.6 运行时，`http` 包为 2.5.3（不支持 `-method`）。
+桥因此加入了 Tcl 8.4 兼容层和自带 JSON 解析器，两个 Capture 版本共用同一份源码。
+Tcl 8.4 的 `catch` 没有选项字典，所以 16.6 上 `errorLine` 恒为 `null`；
+这是记录在案的平台差异，不是缺陷。
