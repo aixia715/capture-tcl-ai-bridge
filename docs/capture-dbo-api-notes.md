@@ -91,6 +91,48 @@ if { $lObjType == $::DboBaseObject_DRAWN_INSTANCE ||
 
 因此"对选中器件做修改"和"遍历设计里的 occurrence"不能共用同一套访问代码。
 
+## 基类方法 vs 类型专属方法（决定要不要转型）
+
+这条区分直接决定会不会崩。`DboBaseObject` 的方法对**任何**句柄都安全，
+不需要转型；类型专属方法必须先判类型再转型。
+
+| 安全（基类，任何句柄可用） | 需要转型 |
+| --- | --- |
+| `GetObjectType`、`GetTypeString`、`GetName`、`GetId` | `GetReference` |
+| `GetEffectivePropStringValue` | `GetPathName` |
+| `SetEffectivePropStringValue` | `IsPrimitive` |
+| | `NewChildrenIter` |
+
+完整的基类方法表可以故意在基类句柄上调一个不存在的方法逼出来——报错会把
+`Must be one of: ...` 全列出来。
+
+**推论：属性读写不需要转型。** 因此对选择集对象取值/改值完全走基类路径，
+既简单又没有崩溃风险。
+
+## 写属性
+
+写入用 `SetEffectivePropStringValue`（**不是** `SetPropStringValue`，那个不存在）。
+两个参数都是 CString 输入，返回状态对象。范例见
+`capCustomSamples\capCommServerMethods.tcl`、`capUtils\capSearchExecute.tcl`：
+
+```tcl
+set lNameC  [DboTclHelper_sMakeCString "Value"]
+set lValueC [DboTclHelper_sMakeCString $newValue]
+set lStatus [$lObject SetEffectivePropStringValue $lNameC $lValueC]
+if { [$lStatus OK] != 1 } { ... }
+$lStatus -delete
+```
+
+## 常用属性名
+
+| 属性名 | 含义 |
+| --- | --- |
+| `Value` | 器件值 |
+| `Part Reference` | 位号（页面级对象上取位号用这个，见 `capCIS.tcl`） |
+
+occurrence 上取位号可以用类型专属的 `GetReference`；页面级选择集对象上
+没有 `GetReference`，用 `GetEffectivePropStringValue "Part Reference"`。
+
 ## 遍历 occurrence 层次（权威范例：capRecurseParts.tcl）
 
 ```tcl
@@ -168,17 +210,26 @@ delete_DboDesignFlatNetsIter $lFlatNetsIter
 （没有 `GetActivePMSelection` 这个东西）：
 
 ```tcl
-set lSelObjs [GetSelectedObjects]
-foreach lObj $lSelObjs {
+foreach lObj [GetSelectedObjects] {
     set lObjType [DboBaseObject_GetObjectType $lObj]
-    # 必须先判类型再转型，否则崩溃
+    if { $lObjType != $::DboBaseObject_DRAWN_INSTANCE &&
+         $lObjType != $::DboBaseObject_PLACED_INSTANCE } { continue }
+    # 只用基类方法（属性读写），不需要转型
 }
 ```
+
+**注意判的是 12/13，不是 11。** 放置在页面上的器件是 `DRAWN_INSTANCE` 或
+`PLACED_INSTANCE`；`PART_INSTANCE`(11) 匹配不到选中的器件。
+`capGUIUtils\capRotate.tcl` 和 `capAutoLoad\capPSpiceSourceApp.tcl` 都是这么判的。
 
 ## 已确认不存在的方法
 
 `GetPath`、`GetActivePMSelection`、`DboFlatNet_NewPinOccurrencesIter`、
+`SetPropStringValue`、`DboObjectToDboPartInstance`、`GetPartOccurrence`、
 迭代器的 `delete` 方法、迭代器的 `Next` 方法。
+
+（后三个是本项目重写时凭类比编出来的名字，在 Cadence 自带脚本里零命中，
+**不要使用**。）
 
 层次路径改用 `GetPathName`，出参约定同 `GetReference`（见 `capUtils\capPdfUtil.tcl`）：
 
