@@ -52,22 +52,29 @@ Capture 验收**。当前状态：
 自动测试不等于真实验收。在真实 Capture 中签收之前，`tcl_bom` 仍是回退来源；
 不要把它的工作树或源文件作为本次迁移的一部分删除。
 
-## 待真实 Capture 确认的 Dbo API 假设
+## Dbo API 假设：已实测，全部推翻
 
-`examples/*.tcl` 是对着**模拟的** Dbo 接口写并测试的，没有链接真实 Capture。
-下面这些形状必须在真实验收时逐条确认；任何一条不成立，对应示例就要改：
+`examples/*.tcl` 第一版是对着**模拟的** Dbo 接口写的。2026-08-08 在真实
+Capture 16.6 上实测，六条假设**无一成立**：
 
-| 假设 | 风险 |
+| 原假设 | 实测结果 |
 | --- | --- |
-| `GetActivePMDesign` / `GetActivePMSelection` 是全局命令，直接返回句柄 | 中 |
-| 组件 occurrence 的 `GetObjectType` 返回字符串 `occDbComponent` | **高**——示例只判等，没有枚举其他取值 |
-| 迭代器耗尽时 `Next` 返回空字符串 | 中 |
-| 迭代器用 `delete` 方法释放（而非 `Delete` 或引用计数） | 中 |
-| pin/port occurrence 提供 `GetName`、`GetNumber`、`GetPartOccurrence` | **高**——`GetPartOccurrence` 是推测的父对象访问器 |
-| `GetSelectedObjects` 直接返回句柄列表，而不是迭代器 | 中 |
-| 后缀标记作用在 **Value** 字段（`*` 空贴约定），而不是 RefDes | 中——若实际约定是 RefDes，只需换目标字段，脚本结构不变 |
+| `GetActivePMSelection` 返回选择集 | 不存在；实际是全局命令 `GetSelectedObjects` |
+| `GetObjectType` 返回 `occDbComponent` | 返回**整数**，具名常量形如 `$::DboBaseObject_PART_CELL` |
+| 迭代器 `Next` 返回空字符串表示结束 | 方法名是 `NextOccurrence`/`NextFlatNet` 等，哨兵是字符串 `"NULL"` |
+| 迭代器用 `delete` 方法释放 | 用全局函数 `delete_<迭代器类>` |
+| pin/port 父访问器 `GetPartOccurrence` | 未确认；`DboFlatNet` 上根本没有 `NewPinOccurrencesIter` |
+| 后缀标记作用在 Value 字段 | 仍待确认 |
 
-验收时建议先用 CLI 逐条打印这些调用的真实返回值，再跑示例。
+另外还发现三条第一版完全没有的约定：几乎所有调用都要 `DboState` 参数、
+字符串出参必须用 `DboTclHelper_sMakeCString` 分配、基类句柄必须先用
+`DboOccurrenceToDboInstOccurrence` 显式转型。
+
+**最严重的一条**：类型专属函数不做类型检查，喂错类型的句柄会让 Capture
+进程**直接闪退**而不是报错。探测过程中已实际触发过一次。
+
+正确的调用约定见 [docs/capture-dbo-api-notes.md](docs/capture-dbo-api-notes.md)，
+来源是实测加 Cadence 自带脚本。示例与 fixture 需按该文件重写。
 
 ## 已知的验收环境限制
 
