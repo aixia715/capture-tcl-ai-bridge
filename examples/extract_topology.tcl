@@ -23,15 +23,24 @@
 # "self" and rejects any argument at all. Sibling methods on one class are
 # not safe to write alike.
 #
-# What is still NOT confirmed is what fields a net occurrence itself
-# exposes -- refdes, pin name, pin number, owning component: none of it
-# verified. Guessing a type-specific method name is a crash risk, because
-# a wrong call on a real object does not raise a Tcl error, it takes
-# Capture down. So this script stops at counting how many net occurrences
-# a net has and never calls a method on a net-occurrence handle. To go
-# further, probe first:
-#   catch {DboNetOccurrence_GetName} probeResult   ;# zero args: safe
-# and read the signature out of the SWIG error before calling anything.
+# KNOWN LIMITATION -- this script is not yet fit for its stated purpose.
+#
+# Run against a real design it prints net names and, per net, the names of
+# the port occurrences on it. Those names come back as pin numbers ("1",
+# "2"), and nothing here reports which component each pin belongs to. Real
+# topology extraction needs "net N1 connects R1 pin 1 to U1 pin 3"; what
+# this produces is "net N1 has a pin 1 and a pin 2", which cannot be acted
+# on. The net-occurrence count is likewise reported but not useful: it is 1
+# for every net, so a net occurrence is not the per-pin object it was
+# assumed to be.
+#
+# Closing the gap needs the accessor that walks from a port occurrence back
+# to its owning component occurrence, which is not confirmed. Probe it
+# before writing any of it -- zero-argument calls are safe and print the
+# real signature, whereas calling a type-specific method on a wrongly-typed
+# handle crashes Capture outright:
+#   puts [lsort [info commands DboPortOccurrence_*]]
+#   catch {DboPortOccurrence_GetInstOccurrence} probeResult
 #
 # Two safety rules from docs/capture-dbo-api-notes.md drive the shape below:
 #   1. Every call that takes a DboState can fail, and an unchecked failure

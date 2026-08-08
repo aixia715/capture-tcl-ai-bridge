@@ -77,6 +77,15 @@ Capture 16.6 上实测，六条假设**无一成立**：
 正确的调用约定见 [docs/capture-dbo-api-notes.md](docs/capture-dbo-api-notes.md)，
 来源是实测加 Cadence 自带脚本。示例与 fixture 需按该文件重写。
 
+## 已知限制：extract_topology.tcl 尚不可用
+
+真机验证显示该示例能跑完不报错，但输出**达不到它的用途**：只有网络名和引脚
+编号，没有引脚所属的器件位号，因此无法回答"这条网络连了哪些器件的哪些脚"。
+`netOccurrenceCount` 恒为 1，说明 net occurrence 不是逐引脚的对象。
+
+补齐需要"从 port occurrence 回到所属器件 occurrence"的访问器，该 API 尚未确认。
+文件头部记录了安全的探测方式。其余六个示例不受影响。
+
 ## 已知的验收环境限制
 
 用于验证的虚拟机装的是 OrCAD SPB 16.6，其 Capture 链接 `tcl84.dll`（Tcl 8.4.15），
