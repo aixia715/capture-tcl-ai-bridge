@@ -57,7 +57,13 @@ Content-Type: application/json
 
 同一时刻只允许一条命令处于 pending 或 executing。第二条提交得到
 HTTP 409 与稳定错误码 `BRIDGE_BUSY`。Capture 未连接时是 HTTP 503 与
-`CAPTURE_DISCONNECTED`。非法 JSON、缺失或非字符串的 `script`、超限脚本
+`CAPTURE_DISCONNECTED`。
+
+**已有命令处于 `executing` 时，busy 优先于 disconnected。** Capture 在自己的
+Tcl/UI 线程上执行脚本，因此任何超过心跳窗口（5 秒）的脚本都会让心跳暂停，
+直到它跑完。此时报 `CAPTURE_DISCONNECTED` 会让调用方以为桥没了而放弃，
+但正确的动作是等待——而一条已被 Capture 领取的命令本身就证明 Capture 在。
+仅仅排队（`queued`）尚未被领取的命令不构成这种证明，仍按连接状态判断。非法 JSON、缺失或非字符串的 `script`、超限脚本
 得到 HTTP 400 或 413。脚本上限为 1 MiB UTF-8。
 
 请求最多等待 **30 秒**。Tcl 执行完成即返回 HTTP 200，无论 Tcl 本身成功与否。

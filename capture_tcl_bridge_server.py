@@ -770,7 +770,16 @@ async def execute(request: Request) -> JSONResponse:
     with bridge.lock:
         if bridge.shutting_down:
             return error_response(503, "SERVER_SHUTTING_DOWN", "Server is shutting down.")
-        if not bridge.connected():
+        # A command that Capture has already claimed is proof Capture was
+        # there, and it explains a missing heartbeat by itself: scripts run on
+        # Capture's Tcl/UI thread, so anything lasting longer than the
+        # heartbeat window stops the heartbeat until it finishes. Reporting
+        # that as CAPTURE_DISCONNECTED would tell a caller the bridge is gone
+        # when the right response is to wait, so busy wins while a script is
+        # executing. A merely queued command proves nothing and still falls
+        # through to the connection check.
+        executing = bridge.active is not None and bridge.active["state"] == "executing"
+        if not executing and not bridge.connected():
             return error_response(503, "CAPTURE_DISCONNECTED", "Capture is not connected.")
         if bridge.active is not None:
             return error_response(409, "BRIDGE_BUSY", "Capture already has an active command.")

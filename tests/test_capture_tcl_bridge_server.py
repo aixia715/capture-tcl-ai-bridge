@@ -449,6 +449,37 @@ def test_execute_returns_disconnected_before_queueing(client):
     }
 
 
+def test_execute_reports_busy_not_disconnected_while_a_script_runs(client):
+    """A running script blocks Capture's event loop, so heartbeats stop.
+
+    Capture executes on its Tcl/UI thread, so any script lasting longer than
+    the heartbeat window silently stops the heartbeat. Reporting that as
+    CAPTURE_DISCONNECTED tells a caller the bridge is gone when the truth is
+    "wait, something is running" - the opposite of the action it should take.
+    A claimed, executing command is itself proof Capture was there.
+    """
+    bridge.bridge.active = {"id": "abc", "script": "after 45000", "state": "executing"}
+
+    response = client.post(
+        "/v1/execute", headers=bridge_headers(), json={"script": "puts hello"}
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "BRIDGE_BUSY"
+
+
+def test_execute_still_reports_disconnected_for_an_unclaimed_command(client):
+    """A queued command proves nothing: Capture may never have picked it up."""
+    bridge.bridge.active = {"id": "abc", "script": "puts hello", "state": "queued"}
+
+    response = client.post(
+        "/v1/execute", headers=bridge_headers(), json={"script": "puts hello"}
+    )
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "CAPTURE_DISCONNECTED"
+
+
 def test_execute_validates_request_shape_before_connection_state(client):
     response = client.post("/v1/execute", headers=bridge_headers(), json=["puts hello"])
 
