@@ -1,0 +1,250 @@
+
+<html><head><title>Creating OrCAD TCL Application</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2020-03-19" />
+<meta name="CreateTime" content="1584621426" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="An introductory guide to OrCAD TCL." />
+<meta name="DocTitle" content="Getting Started with OrCAD TCL" />
+<meta name="DocType" content="Getting Started" />
+<meta name="FileTitle" content="Creating OrCAD TCL Application" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="orcadtclgsg" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2020-03-19" />
+<meta name="ModifiedTime" content="1584621426" />
+<meta name="NextFile" content="" />
+<meta name="Group" content="OrCAD Capture TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Guidelines_for_New_OrCAD_TCL_Applications.html" />
+<meta name="Product" content="OrCAD Capture,Allegro Design Entry CIS," />
+<meta name="ProductFamily" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2012-2020 Cadence Design Systems Inc." />
+<meta name="Title" content="Getting Started with OrCAD TCL -- Creating OrCAD TCL Application" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="orcadtclgsg174" />
+<meta name="confluence-version" content="6.13.3" />
+<meta name="ecms-plugin-version" content="03.30.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    </head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="orcadtclgsgTOC.html">Contents</a></li><li><a class="prev" href="Guidelines_for_New_OrCAD_TCL_Applications.html" title="Guidelines_for_New_OrCAD_TCL_Applications">Guidelines_for_New_OrCAD_TCL_A ...</a></li><li style="float: right;"><a class="viewPrint" href="orcadtclgsg.pdf">View/Print PDF</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>Getting Started with OrCAD TCL<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <div style="width: 100%; font-size: 32px; text-align: left;               font-weight: bold;">6</div>
+<h1 style="margin: 4px 0 4px;"><span>Creating OrCAD TCL Application</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>In the chapter <a href="Basics_of_the_TCL_Language.html">Basics of the TCL Language</a>, we got accustomed to some basics related to the TCL commands. These basics will help us understand some of the advanced concepts that we will use to create our first OrCAD TCL application in this chapter. We will cover the following topics that are required to create an OrCAD TCL application:</p>
+<ol><li>My First TCL source file<ol><li>Creating a logic that solves our problem</li><li>Running the script from Command Window by sourcing mechanism</li><li>Making the TCL source file accessible from the OrCAD Capture GUI</li></ol></li><li>Generating the TCL source file package</li><li>Adding a new autoload script for the new TCL application</li><li>Encrypting the TCL package to protect intellectual property rights</li></ol><h1 id="CreatingOrCADTCLApplication-MyFirstTCLSourceFile">My First TCL Source File</h1>
+
+<p>You can create your first TCL source file using Notepad, NotePad++, Sublime Text, or any other text editor that you are comfortable with. Remember to save the source file with the<code> .tcl</code> file extension.</p>
+
+<p>In chapter 2, you have created the<strong> capNewTclApp</strong> folder at&#160;<code>&lt;installation&gt;\tools\capture\tclscripts</code>, now you will create your first TCL source file in this folder. Let&#39;s name the source file<code><strong> myFirstApp.tcl</strong></code>.</p>
+<h2 id="CreatingOrCADTCLApplication-CreatingtheLogic">Creating the Logic</h2>
+
+<p>In the following source file, there are some TCL commands to rotate a single part&#39;s placed instance to 180 degrees. You can copy and paste the following code and save it in <code><strong>myFirstApp.tcl</strong></code>.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>myFirstApp.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: text; gutter: true; theme: Confluence" data-theme="Confluence">namespace eval ::capRotate {
+    proc capRotatePart {} {
+        set lobj [GetSelectedObjects]
+        set ltype [$lobj GetObjectType]
+        if { $ltype == $::DboBaseObject_PLACED_INSTANCE &amp;&amp; [llength $lobj] == 1} {
+                Rotate
+                Rotate
+        }    
+    }
+ }</pre>
+</div>
+</div>
+<h2 id="CreatingOrCADTCLApplication-SourcingtheTCLSourceFile">Sourcing the TCL Source File</h2>
+
+<p>Now let&#39;s source your First TCL source file in OrCAD Capture and execute it to verify the desired results.</p>
+<div class="confluence-information-macro confluence-information-macro-note"><span class="aui-icon aui-icon-small aui-iconfont-warning confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>You can open any OrCAD Capture design to verify the output, but in this section <code><strong>FULLADD.DSN</strong></code> is used. The <strong><code>FULLADD.DSN</code></strong> file is located at <code>&lt;Cadence_Installation&gt;\tools\capture\samples</code>.</p>
+</div>
+</div>
+
+<p>To source a TCL source file in OrCAD Capture, do the following:</p>
+<ol><li>Select <em>View&#160;&#8211; Command Window</em> to open the Command Window in OrCAD Capture. <br /><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768358/266768370.png" data-linked-resource-container-id="266768358" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="capture_commad_window.png" data-linked-resource-id="266768370" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768358/266768370.png" /></span></li><li>Type <code>source {TCL source file absolute path}</code> in the Command Window and press <code>Enter</code>.&#160;<br />For example, the<strong> capNewTclApp</strong> folder is located at <code>&lt;Cadence_Installation&gt;\tools\capture\tclscripts</code> and we have saved <strong><code>myFirstApp.tcl</code></strong> in&#160;<strong>capNewTclApp</strong>. Therefore, the source command can be typed as <code>source </code><code>{&lt;Cadence_Installation&gt;\tools\capture\tclscripts\capNewTclApp\myFirstApp.tcl}.</code><br /><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768358/266768368.png" data-linked-resource-container-id="266768358" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="source_command.png" data-linked-resource-id="266768368" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768358/266768368.png" /></span></li><li>Open the <strong><code>FULLADDER.DSN</code></strong> file in OrCAD Capture and select any part&#39;s placed instance, such as&#160;the <code>U1A</code> OR Gate in the <code>FULLADD</code> schematic page.<br /><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768358/266768367.png" data-linked-resource-container-id="266768358" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="Selecting_Object.png" data-linked-resource-id="266768367" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768358/266768367.png" /></span></li><li>Type <code>::capRotate::capRotatePart</code> in the Command Window and press <code>Enter</code>.<br /><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768358/266768362.png" data-linked-resource-container-id="266768358" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="After_Rotation2.png" data-linked-resource-id="266768362" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768358/266768362.png" /></span></li><li>
+<p>Again type&#160;<code>::capRotate::capRotatePart</code> in the Command Window.</p>
+<div class="confluence-information-macro confluence-information-macro-tip"><span class="aui-icon aui-icon-small aui-iconfont-approve confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>You can also access the last executed command in the Command Window using the up (↑) and down (↓) arrow of the keyboard.</p>
+</div>
+</div>
+
+<p><br /><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768358/266768363.png" data-linked-resource-container-id="266768358" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="After_Rotatation_Again2.png" data-linked-resource-id="266768363" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768358/266768363.png" /></span><br /><br />You have successfully sourced the TCL source file in the OrCAD Capture current session and executed the file to rotate the selected part&#39;s placed instance by 180 degree twice. In the next section, you will learn to add GUI option in OrCAD Capture for your TCL solution.</p>
+</li></ol><h2 id="CreatingOrCADTCLApplication-AccessingtheTCLSourceFilefromOrCADCaptureGUI">Accessing the TCL Source File from OrCAD Capture GUI</h2>
+
+<p>You can make your TCL solution more user-friendly by adding a menu option for your TCL solution in the OrCAD GUI.</p>
+
+<p>As per requirements, menu option(s) for TCL solution(s) can be added in Schematic Editor or Project Manager. In this section, we will add the TCL solution in the Schematic Editor pop-up menu as it is easier to select any option from the pop-up menu when a part is selected.</p>
+
+<p>You can copy and paste the following TCL code in the <strong><code>myFirstApp.tcl</code></strong> file and save it. Do not forget to delete the previous TCL code before adding the following one.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>myFirstApp.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: text; gutter: true; theme: Confluence" data-theme="Confluence">namespace eval ::capRotate {
+    namespace export capRotatePart
+    namespace export capRotatePartEnabler
+    RegisterAction &quot;Rotate 180 degree&quot; &quot;::capRotate::capRotatePartEnabler&quot; &quot;Shift+R&quot; &quot;::capRotate::capRotatePart&quot; &quot;Schematic&quot;
+}
+proc ::capRotate::capRotatePartEnabler  {} {
+    set lEnableRotate 0
+    set lSelObjs [GetSelectedObjects]
+    set lObjType [DboBaseObject_GetObjectType $lSelObjs]
+    if { ($lObjType == $::DboBaseObject_PLACED_INSTANCE) &amp;&amp; ([llength $lSelObjs] == 1)} {
+        
+        set lEnableRotate 1
+    }
+    return $lEnableRotate
+}
+proc ::capRotate::capRotatePart  {} {
+        set lobj [GetSelectedObjects]
+        set ltype [$lobj GetObjectType]
+        if { $ltype == $::DboBaseObject_PLACED_INSTANCE &amp;&amp; [llength $lobj] == 1} {
+            
+                Rotate
+                Rotate
+        }    
+    }</pre>
+</div>
+</div>
+
+<p>Once you have updated the <code><strong>myFirstApp.tcl</strong></code> file, open the <strong>FULLADD.DSN</strong> file in OrCAD Capture and do the following steps:</p>
+<ol><li>Source the TCL source file in the Command Window using the <code>source</code> command. For example,&#160;<code>source </code><code>{&lt;Cadence_Installation&gt;\tools\capture\tclscripts\capNewTclApp\myFirstApp.tcl}</code>.</li><li>Select the <code>U1A</code> OR Gate in the <code>FULLADD</code> schematic page and right-click.</li><li>In the pop-up menu, select <em>More - Rotate 180 degree</em>.<br />You can notice that the selected part, that is, U1A OR Gate, gets rotated by 180 degrees.<br /><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768358/266768361.png" data-linked-resource-container-id="266768358" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="After_UI.png" data-linked-resource-id="266768361" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768358/266768361.png" /></span></li><li>Again right-click and select <em>More - Rotate 180 degree</em> in the pop-up menu.<br />You can again notice that the part rotated by 180 degrees.</li></ol>
+<p>After adding a menu option in OrCAD Capture GUI you can notice that you still need to source the TCL source file, that is&#160;<strong><code>myFirstApp.tcl</code></strong>, from the Command Window. Let&#39;s generate a package for the <strong><code>myFirstApp.tcl</code></strong> file to remove the sourcing step that needs to be followed when the TCL source file is accessed.</p>
+<h1 id="CreatingOrCADTCLApplication-GeneratingtheTCLsourcefilepackage">Generating the TCL source file package</h1>
+
+<p>Sometimes running the source commands on the Command Window gets tedious and cumbersome if you want to share your automation solutions with other designers. You can make the process more smooth and easy by making a package of the TCL source file that you want to share with other designers. Once you have made the package, you can easily access your TCL solution using the&#160;<code>package require {Package Name}</code> command from the Command Window.</p>
+
+<p>Before you can generate a package for your TCL source file, add the following code at the top of your existing code in the <strong><code>myFirstApp.tcl</code></strong> TCL file.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: text; gutter: false; theme: Confluence" data-theme="Confluence">package provide myFirstAppPackage 1.0 </pre>
+</div>
+</div>
+
+<p>To generate a package for your TCL source file, that is, <code><strong>myFirstApp.tcl</strong></code>, do the following steps:</p>
+<ol><li>Open the Windows Command Prompt and change the directory to the <strong>capNewTclApp</strong> folder.</li><li>Type the <code>tclsh</code> command.<br />The prompt changes to percent sign (%).</li><li>Type the <code>pkg_mkIndex -verbose capNewTclApp</code> command and press <code>Enter</code>.<br />A success message is displayed in the command prompt.<br /><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768358/266768360.png" data-linked-resource-container-id="266768358" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="Success_package.png" data-linked-resource-id="266768360" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768358/266768360.png" /></span><br />You can also browse the <strong>capNewTclApp</strong> folder and see that the <code><strong>pkgIndex.tcl</strong></code> file is present in the folder.</li><li>
+<p>Open the <code><strong>pkgIndex.tcl</strong></code> file and view the content inside it.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>pkgIndex.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: java; gutter: true; theme: Confluence" data-theme="Confluence"># Tcl package index file, version 1.1
+# This file is generated by the &quot;pkg_mkIndex&quot; command
+# and sourced either when an application starts up or
+# by a &quot;package unknown&quot; script.  It invokes the
+# &quot;package ifneeded&quot; command to set up package-related
+# information so that packages will be loaded automatically
+# in response to &quot;package require&quot; commands.  When this
+# script is sourced, the variable $dir must contain the
+# full path name of this file&#39;s directory.
+
+package ifneeded myFirstAppPackage 1.0 [list source [file join $dir myFirstApp.tcl]]</pre>
+</div>
+</div>
+
+<p>You can see that the&#160;<code>package ifneeded</code> command checks the package name and version, and sources <code>myFirstApp.tcl</code> from a directory path, that is, the absolute path of the TCL source file.</p>
+</li></ol>
+<p>Once you have generated the package of the <strong><code>myFirstApp.tcl</code></strong> file, you can access the package from the OrCAD Capture Command Window using the <code>package require myFirstAppPackage</code> command. You can now access the package and use the TCL solution in OrCAD Capture GUI.</p>
+<h1 id="CreatingOrCADTCLApplication-Auto-loadingtheTCLapplicationpackage">Auto-loading the TCL application package</h1>
+
+<p>You have created your first TCL application package and other designers are quite happy with your TCL solution. But you do not want to type the <code>package require myFirstAppPackage</code> command every time you use your TCL solution. Therefore, the best way to do that is to automatically load your TCL solution into OrCAD Capture during launch time.&#160;</p>
+
+<p>To get the&#160;<code>myFirstAppPackage</code> package automatically loaded into OrCAD Capture, you need to add an initialization TCL file in the <strong>capAutoLoad</strong> folder, which is located at,<code>&lt;Cadence_Installation&gt;\tools\capture\tclscripts</code>.</p>
+
+<p>To add an initialization TCL file in the <strong>capAutoLoad</strong> folder, do the following steps:</p>
+<ol><li>Create a new TCL file in the <strong>capAutoLoad</strong> folder and name it <code><strong>capNewTclAppInit.tcl</strong></code>.</li><li>
+<p>Add the following code in <code><strong>capNewTclAppInit.tcl</strong></code> and save it.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>capNewTclAppInit.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: java; gutter: true; theme: Confluence" data-theme="Confluence">#/////////////////////////////////////////////////////////////////////////////////
+#  WARRANTY: NONE. THIS PROGRAM WAS WRITTEN AS &quot;SHAREWARE&quot; AND IS AVAILABLE AS IS
+#            AND MAY NOT WORK AS ADVERTISED IN ALL ENVIRONMENTS. THERE IS NO
+#            SUPPORT FOR THIS PROGRAM
+#      NOTE: YOU ARE STRONGLY ADVISED TO BACKUP YOUR DESIGN
+#            BEFORE RUNNING THIS PROGRAM
+#  TCL file: capNewTclAppInit.tcl
+#/////////////////////////////////////////////////////////////////////////////////
+
+proc capMyFirstApp_capLaunch { args } {
+    if { [catch {package require myFirstAppPackage}] } {
+    } 
+}
+capMyFirstApp_capLaunch</pre>
+</div>
+</div>
+</li><li>
+<p>Open OrCAD Capture.</p>
+<div class="confluence-information-macro confluence-information-macro-note"><span class="aui-icon aui-icon-small aui-iconfont-warning confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>If you have an OrCAD Capture session already opened in your machine. Close it and launch a new OrCAD Capture session.</p>
+</div>
+</div>
+
+<p>You can notice that the <code><strong>capNewTclAppInit.tcl</strong></code> file, which is your TCL solution&#39;s initialization file, is loaded in OrCAD Capture during initialization.<br /><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768358/266768359.png" data-linked-resource-container-id="266768358" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="Auto_Load_Feature.png" data-linked-resource-id="266768359" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768358/266768359.png" /></span></p>
+</li></ol>
+<p>You can now use your first OrCAD TCL application that is GUI-based and user-friendly, and automatically gets loaded in OrCAD Capture at initialization. Now, there is no need to type any command in the Command Window to access the package, your TCL solution is available in the Schematic Editor pop-up menu after OrCAD Capture launch.</p>
+<h1 id="CreatingOrCADTCLApplication-EncryptingtheTCLsolution">Encrypting the TCL solution</h1>
+
+<p>You have created your first OrCAD TCL application and you are really proud of it. Everyone in the team is using your solution and completing the tedious manual task automatically in a short span of time. But there is always a chance that the solution gets shared with a person who does not belong to your team and you do not want your logic to be read by that person.</p>
+
+<p>There could be a situation where you just want the encrypted binary solution to be available to everyone in your team. To do this, you just need to type some commands in the Command Window and your TCL solution gets converted into an encrypted binary file.</p>
+<div class="confluence-information-macro confluence-information-macro-warning"><span class="aui-icon aui-icon-small aui-iconfont-error confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>After you generate an encrypted binary file, save the original TCL file in a secure location for later use. If you discard the original file, there is no way to recover it from the encrypted binary.</p>
+</div>
+</div>
+<div class="confluence-information-macro confluence-information-macro-note"><span class="aui-icon aui-icon-small aui-iconfont-warning confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>To encrypt the TCL script, the <code>orcad::encrypt</code> command is not supported in the 17.2-2016 release and onwards. The TCL file encrypted in 16.6 release using the <code>orcad::encrypt</code> command are loadable in 17.2-2016 (and onwards) using the <code>orcad::load</code> command.</p>
+</div>
+</div>
+
+<p>Do the following steps to install ActivaState TCL Development Kit and generate the .tbc file:</p>
+<ol><li>Install ActiveTcl (from ActiveState)&#160;that supports TCL 8.6 or lower on your machine.</li><li>Run the following command on the command prompt after successful installation of the DevKit: <code>tclcompiler86.exe &lt;TCL File Path&gt;<br /></code>The output file is&#160; encrypted and has <code>.tbc</code> extension.</li><li>Browse the <strong>capNewTCLApp</strong> folder and open <code><strong>myFirstApp.tbc</strong></code> in any text editor. You can notice that the content of the encrypted binary file is really difficult to read and understand.</li><li>
+<p>Open <strong><code>pkgIndex.tcl</code></strong> and change <strong><code>myFirstApp.tcl</code></strong> to <strong><code>myFirstApp.tbc</code></strong> in the TCL source code and save it.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>pkgIndex.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: java; gutter: true; theme: Confluence" data-theme="Confluence"># Tcl package index file, version 1.1
+# This file is generated by the &quot;pkg_mkIndex&quot; command
+# and sourced either when an application starts up or
+# by a &quot;package unknown&quot; script.  It invokes the
+# &quot;package ifneeded&quot; command to set up package-related
+# information so that packages will be loaded automatically
+# in response to &quot;package require&quot; commands.  When this
+# script is sourced, the variable $dir must contain the
+# full path name of this file&#39;s directory.
+
+package ifneeded myFirstAppPackage 1.0 [list source [file join $dir myFirstApp.tbc]]</pre>
+</div>
+</div>
+</li><li>Once you have generated <strong><code>myFirstApp.tbc</code></strong> and made the changes in <strong><code>pkgIndex.tcl</code></strong>. Relaunch OrCAD Capture to use your TCL solution.<br /><br /></li></ol>
+<p>Once you complete the steps, your TCL solution is encrypted and safe. After encryption, you can share the TCL script with your team members and other designers without worrying about the logic being stolen.</p>
+
+<p>Using this guide, you have created your First OrCAD TCL Application. If you want to learn more about OrCAD TCL application development, refer to the following documents:</p>
+<ul><li>OrCAD Capture Information Model</li><li>OrCAD Capture Sample TCL Scripts<br /><br /></li></ul>
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Guidelines_for_New_OrCAD_TCL_Applications.html" id="prev" title="Guidelines_for_New_OrCAD_TCL_Applications">Guidelines_for_New_OrCAD_TCL_A ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" /></body></html>

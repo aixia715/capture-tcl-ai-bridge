@@ -1,0 +1,738 @@
+
+<html><head><title>Basic OrCAD TCL Sample Snippets</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2020-03-19" />
+<meta name="CreateTime" content="1584621419" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="This document provides basic scripts that can be used to do basic tasks in OrCAD Capture." />
+<meta name="DocTitle" content="OrCAD TCL Sample Scripts" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="Basic OrCAD TCL Sample Snippets" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="orctclsample" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2020-03-19" />
+<meta name="ModifiedTime" content="1584621419" />
+<meta name="NextFile" content="Introduction_to_Basic_OrCAD_TCL_Scripts.html" />
+<meta name="Group" content="OrCAD Capture TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Overview.html" />
+<meta name="Product" content="OrCAD Capture,Allegro Design Entry CIS," />
+<meta name="ProductFamily" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2012-2020 Cadence Design Systems Inc." />
+<meta name="Title" content="OrCAD TCL Sample Scripts -- Basic OrCAD TCL Sample Snippets" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="orcadtclsample174" />
+<meta name="confluence-version" content="6.13.3" />
+<meta name="ecms-plugin-version" content="03.30.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    </head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="orctclsampleTOC.html">Contents</a></li><li><a class="prev" href="Overview.html" title="Overview">Overview</a></li><li style="float: right;"><a class="viewPrint" href="orctclsample.pdf">View/Print PDF</a></li><li style="float: right;margin-right: 25px;"><a class="nextd" href="Introduction_to_Basic_OrCAD_TCL_Scripts.html" title="Introduction_to_Basic_OrCAD_TCL_Scripts">Introduction_to_Basic_OrCAD_TC ...</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>OrCAD TCL Sample Scripts<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <div style="width: 100%; font-size: 32px; text-align: left;               font-weight: bold;">2</div>
+<h1 style="margin: 4px 0 4px;"><span>Basic OrCAD TCL Sample Snippets</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>This chapter provides OrCAD TCL scripts that you can use to do basic tasks in OrCAD Capture. You can paste most of the scripts as is to the Command Window to get the results. Some of the scripts have placeholders for custom code to get results.</p>
+<h2 id="BasicOrCADTCLSampleSnippets-GettingthecurrentCapturesession">Getting the current Capture session</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lSession $::DboSession_s_pDboSession 
+DboSession -this $lSession</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Creatinganewsession">Creating a new session</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lSession [DboTclHelper_sCreateSession]</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-OpeningadesignintheCapturesession">Opening a design in the Capture session</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lStatus [DboState] 
+# set pDesignPath d:/spb172/tools/capture/samples/fulladd.dsn &lt;- EXAMPLE 
+set lDesignPath [DboTclHelper_sMakeCString $pDesignPath] 
+set lDesign [$lSession GetDesignAndSchematics $lDesignPath $lStatus]</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughallopendesignsinthesession">Iterating through all open designs in the session</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lDesignsIter [$lSession NewDesignsIter $lStatus] 
+#get the first design 
+set lDesign [$lDesignsIter NextDesign $lStatus] 
+set lNullObj NULL while { $lDesign!= $lNullObj} { 
+    #placeholder: do your processing on $lDesign 
+    #get the next design 
+    set lDesign [$lDesignsIter NextDesign $lStatus] 
+} 
+delete_DboSessionDesignsIter $lDesignsIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Gettingschematicofadesign">Getting schematic of a design</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence"># set pSchematicName SCHEMATIC1  EXAMPLE 
+set lSchematicName [DboTclHelper_sMakeCString $pSchematicName] 
+set lSchematic [$lDesign GetSchematic $lSchematicName $lStatus]</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughallschematicsofadesign">Iterating through all schematics of a design</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lSchematicIter [$lDesign NewViewsIter $lStatus $::IterDefs_SCHEMATICS]
+#get the first schematic view
+set lView [$lSchematicIter NextView $lStatus]
+set lNullObj NULL
+while { $lView != $lNullObj} {
+    #dynamic cast from DboView to DboSchematic
+    set lSchematic [DboViewToDboSchematic $lView]
+    #placeholder: do your processing on $lSchematic
+    #get the next schematic view
+    set lView [$lSchematicIter NextView  $lStatus]
+}
+delete_DboLibViewsIter $lSchematicIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Gettingpageofaschematic">Getting page of a schematic</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence"># set pPageName PAGE1 &lt;- EXAMPLE 
+set lPageName [DboTclHelper_sMakeCString $pPageName] 
+set lPage [$lSchematic GetPage $lPageName $lStatus]</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughallpagesofaschematic">Iterating through all pages of a schematic</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lPagesIter [$lSchematic NewPagesIter $lStatus]
+#get the first page
+set lPage [$lPagesIter NextPage $lStatus]
+set lNullObj NULL
+while {$lPage!=$lNullObj} {
+    #placeholder: do your processing on $lPage
+    #get the next page
+    set lPage [$lPagesIter NextPage $lStatus]
+}
+delete_DboSchematicPagesIter $lPagesIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughallpartinstancesofapage">Iterating through all part instances of a page</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lPartInstsIter [$lPage NewPartInstsIter $lStatus]
+
+#get the first part inst
+set lInst [$lPartInstsIter NextPartInst $lStatus]
+
+while {$lInst!=$lNullObj} {
+    #dynamic cast from DboPartInst to DboPlacedInst
+    set lPlacedInst [DboPartInstToDboPlacedInst $lInst]
+
+    if {$lPlacedInst != $lNullObj} {
+        #placeholder: do your processing on $lPlacedInst
+    
+    }
+    #get the next part inst
+    set lInst [$lPartInstsIter NextPartInst $lStatus]
+}
+delete_DboPagePartInstsIter $lPartInstsIter&#160;</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughallhierarchicalinstancesofapage">Iterating through all hierarchical instances of a page</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lPartInstsIter [$lPage NewPartInstsIter $lStatus]
+
+#get the first part inst
+set lInst [$lPartInstsIter NextPartInst $lStatus]
+
+while {$lInst!=$lNullObj} {
+    #dynamic cast from DboPartInst to DboDrawnInst
+    set lDrawnInst [DboPartInstToDboDrawnInst $lInst]
+
+    if {$lDrawnInst != $lNullObj} {
+      #placeholder: do your processing on $lDrawnInst
+}
+
+ #get the next part inst
+ set lInst [$lPartInstsIter NextPartInst $lStatus]
+}
+
+delete_DboPagePartInstsIter $lPartInstsIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughallwiresinapage">Iterating through all wires in a page</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lWiresIter [$lPage NewWiresIter $lStatus] 
+
+#get the first wire set 
+lWire [$lWiresIter NextWire $lStatus] 
+set lNullObj NULL 
+
+while {$lWire != $lNullObj} { 
+
+ set lObjectType [$lWire GetObjectType] 
+ if {$lObjectType == $::DboBaseObject_WIRE_SCALAR} { 
+  #placeholder: do your processing on Wire scalar $lWire 
+ } elseif {$lObjectType == $::DboBaseObject_WIRE_BUS} { 
+  #placeholder: do your processing on Wire Bus $lWire 
+ } 
+ 
+ #get the next wire set 
+ lWire [$lWiresIter NextWire $lStatus] 
+} 
+
+delete_DboPageWiresIter $lWiresIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughallglobalsinapage">Iterating through all globals in a page</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lGlobalsIter [$lPage NewGlobalsIter $lStatus] 
+
+#get the first global set 
+lGlobal [$lGlobalsIter NextGlobal $lStatus] 
+
+while { $lGlobal!=$lNullObj } { 
+
+ #placeholder: do your processing on $lGlobal 
+
+ #get the next global set 
+ lGlobal [$lGlobalsIter NextGlobal $lStatus] 
+} 
+
+delete_DboPageGlobalsIter $lGlobalsIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughalltitle-blocksinapage">Iterating through all title-blocks in a page</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lTitleBlocksIter [$lPage NewTitleBlocksIter $lStatus] 
+
+#get the first title block set 
+
+lTitle [$lTitleBlocksIter NextTitleBlock $lStatus] 
+
+while {$lTitle!=$lNullObj} { 
+
+ #placeholder: do your processing on $lTitle 
+
+ #get the next title block set 
+ lTitle [$lTitleBlocksIter NextTitleBlock $lStatus] 
+
+} 
+
+delete_DboPageTitleBlocksIter $lTitleBlocksIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughallportsinapage">Iterating through all ports in a page</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lPortsIter [$lPage NewPortsIter $lStatus] 
+
+#get the first port of the page 
+set lPort [$lPortsIter NextPort $lStatus] 
+
+while {$lPort!=$lNullObj} { 
+
+ #placeholder: do your processing on $lPort 
+
+ #get the next port of the page 
+ set lPort [$lPortsIter NextPort $lStatus] 
+} 
+
+delete_DboPagePortsIter $lPortsIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughalloff-pagesinapage">Iterating through all off-pages in a page</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lOffPagesIter [$lPage NewOffPageConnectorsIter $lStatus $::IterDefs_ALL] 
+
+#get the first off-page of the page 
+set lOffPage [$lOffPagesIter NextOffPageConnector $lStatus] 
+
+while {$lOffPage!=$lNullObj} { 
+
+ #placeholder: do your processing on $lOffPage 
+
+ #get the next off-page of the page 
+ set lOffPage [$lOffPagesIter NextOffPageConnector $lStatus] 
+} 
+
+delete_DboPageOffPageConnectorsIter $lOffPagesIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughallgraphicsinapage">Iterating through all graphics in a page</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lCommentsIter [$lPage NewCommentGraphicsIter $lStatus] 
+
+#get the first graphics of the page 
+set lGraphic [$lCommentsIter NextCommentGraphic $lStatus] 
+while {$lGraphic!=$lNullObj} { 
+
+ set lType [$lGraphic GetObjectType] 
+ if {$lType == $::DboBaseObject_GRAPHIC_BOX_INST} { 
+  set lBoxInst [DboGraphicInstanceToDboGraphicBoxInst $lGraphic] 
+  
+  #placeholder: do your processing on $lBoxInst 
+ } elseif {$lType == $::DboBaseObject_GRAPHIC_LINE_INST} { 
+  set lLineInst [DboGraphicInstanceToDboGraphicLineInst $lGraphic] 
+
+  #placeholder: do your processing on $lLineInst 
+ } elseif {$lType == $::DboBaseObject_GRAPHIC_ELLIPSE_INST} { 
+  set lEllipseInst [DboGraphicInstanceToDboGraphicEllipseInst $lGraphic] 
+
+  #placeholder: do your processing on $lEllipseInst 
+ } elseif {$lType == $::DboBaseObject_GRAPHIC_ARC_INST} { 
+
+  set lArcInst [DboGraphicInstanceToDboGraphicArcInst $lGraphic] 
+
+  #placeholder: do your processing on $lArcInst 
+ } elseif {$lType == $::DboBaseObject_GRAPHIC_POLYLINE_INST} { 
+ 
+  set lPolylineInst [DboGraphicInstanceToDboGraphicPolylineInst $lGraphic] 
+
+  #placeholder: do your processing on $lPolylineInst 
+ } elseif {$lType == $::DboBaseObject_GRAPHIC_POLYGON_INST} { 
+  set $lPolygonInst [DboGraphicInstanceToDboGraphicPolygonInst $lGraphic] 
+
+  #placeholder: do your processing on $lPolygonInst 
+ } elseif {$lType == $::DboBaseObject_GRAPHIC_BITMAP_INST} { 
+  set lBitMapInst [DboGraphicInstanceToDboGraphicBitMapInst $lGraphic] 
+
+  #placeholder: do your processing on $lBitMapInst 
+ } elseif {$lType == $::DboBaseObject_GRAPHIC_COMMENTTEXT_INST} { 
+  set lTextInst [DboGraphicInstanceToDboGraphicCommentTextInst $lGraphic] 
+
+  #placeholder: do your processing on $lTextInst 
+ } 
+ #get the next graphics of the page 
+ set lGraphic [$lCommentsIter NextCommentGraphic $lStatus]
+}
+
+delete_DboPageCommentGraphicsIter $lCommentsIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughallpinsofapartinstanceordrawninstance">Iterating through all pins of a part instance or drawn instance</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lIter [$lInst NewPinsIter $lStatus] 
+
+set lNullObj NULL 
+
+#get the first pin of the part 
+set lPin [$lIter NextPin $lStatus] 
+
+while {$lPin !=$lNullObj } { 
+
+ #placeholder: do your processing on $lPin 
+
+ #get the next pin of the part 
+ set lPin [$lIter NextPin $lStatus] 
+} 
+
+delete_DboPartInstPinsIter $lIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughallaliasesofawire">Iterating through all aliases of a wire</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lAliasIter [$lWire NewAliasesIter $lStatus] 
+
+#get the first alias of wire 
+set lAlias [$lAliasIter NextAlias $lStatus] 
+
+while { $lAlias!=$lNullObj} { 
+
+ #placeholder: do your processing on $lAlias 
+
+ #get the next alias of wire 
+ set lAlias [$lAliasIter NextAlias $lStatus] 
+} 
+
+delete_DboWireAliasesIter $lAliasIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughallflatnetsinadesign">Iterating through all flat nets in a design</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lFlatNetsIter [$pDesign NewFlatNetsIter $lStatus] 
+
+#get the first flat net of design 
+set lFlatNet [$lFlatNetsIter NextFlatNet $lStatus] 
+
+while {$lFlatNet!=$lNullObj} { 
+
+ #placeholder: do your processing on $lFlatNet 
+ set lNetName [DboTclHelper_sMakeCString] 
+ $lFlatNet GetName $lNetName 
+
+ #get the next flat net of design
+ set lFlatNet [$lFlatNetsIter NextFlatNet $lStatus] 
+} 
+
+delete_DboDesignFlatNetsIter $lFlatNetsIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughalluserpropertiesofanyobject">Iterating through all user properties of any object</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lPropsIter [$lObject NewUserPropsIter $lStatus] 
+
+set lNullObj NULL 
+
+#get the first user property on the object 
+set lUProp [$lPropsIter NextUserProp $lStatus] 
+
+while {$lUProp !=$lNullObj } { 
+
+ #placeholder: do your processing on $lUProp 
+ set lName [DboTclHelper_sMakeCString] 
+ 
+ set lValue [DboTclHelper_sMakeCString] 
+ 
+ $lUProp GetName $lName 
+ $lUProp GetStringValue $lValue 
+
+ #get the next user property on the object 
+ set lUProp [$lPropsIter NextUserProp $lStatus] 
+} 
+
+delete_DboUserPropsIter $lPropsIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughalldisplaypropertiesofanyobject">Iterating through all display properties of any object</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lPropsIter [$lObject NewDisplayPropsIter $lStatus] 
+set lNullObj NULL 
+
+#get the first display property on the object 
+set lDProp [$lPropsIter NextProp $lStatus] 
+
+while {$lDProp !=$lNullObj } { 
+
+ #placeholder: do your processing on $lDProp 
+ #get the name 
+ set lName [DboTclHelper_sMakeCString] 
+ $lDProp GetName $lName 
+
+ #get the location 
+ set lLocation [$lDProp GetLocation $lStatus] 
+
+ #get the rotation 
+ set lRot [$lDProp GetRotation $lStatus] 
+
+ #get the font 
+ set lFont [DboTclHelper_sMakeLOGFONT] 
+ set lStatus [$lDProp GetFont $::DboLib_DEFAULT_FONT_PROPERTY $lFont]
+
+ #get the color 
+ set lColor [$lDProp GetColor $lStatus] 
+
+ #get the next display property on the object 
+ set lDProp [$lPropsIter NextProp $lStatus] 
+
+} 
+
+delete_DboDisplayPropsIter $lPropsIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Changingadisplaypropertyofanyobject">Changing a display property of any object</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">proc ConvertUserToDoc { pPage pUser } {
+ set lDocDouble [expr &quot;[$pPage GetPhysicalGranularity] * $pUser + 0.5&quot;]
+ set lDoc [expr &quot;round($lDocDouble)&quot;]
+ return $lDoc
+}
+proc AddDisplayProperty {} {
+ # Get the selected objects
+ set lSelObjs1 [GetSelectedObjects]
+ set lObj1 [lindex $lSelObjs1 0]
+ set lPropNameCStr [DboTclHelper_sMakeCString &quot;ASSEMBLY&quot;]
+ set lPropValueCStr [DboTclHelper_sMakeCString &quot;NC&quot;]
+ set lStatus [$lObj1 SetEffectivePropStringValue $lPropNameCStr $lPropValueCStr]
+ set varNullObj NULL
+ set pDispProp [$lObj1 GetDisplayProp $lPropNameCStr $lStatus]
+ set lStatus [DboState]
+ if { $pDispProp == $varNullObj } {
+  set rotation 0
+  set logfont [DboTclHelper_sMakeLOGFONT]
+  set color $::DboValue_DEFAULT_OBJECT_COLOR
+  #set displocation [DboTclHelper_sMakeCPoint [expr $xlocation] [expr $ylocation]]
+  if {[catch {set lPickPosition [GetLastMouseClickPointOnPage]} lResult] } {
+   set lX 0 set lY 0
+   set displocation [DboTclHelper_sMakeCPoint $intX $intY]
+ 
+  } else {
+
+   set page [$lObj1 GetOwner]
+   set lX [ConvertUserToDoc $page [lindex $lPickPosition 0]]
+   set lY [ConvertUserToDoc $page [lindex $lPickPosition 1]]
+   set displocation [DboTclHelper_sMakeCPoint $lX $lY]
+   }
+  set pNewDispProp [$lObj1 NewDisplayProp $lStatus $lPropNameCStr $displocation $rotation $logfont $color]
+
+  #DO_NOT_DISPLAY    = 0,
+  #VALUE_ONLY    = 1,
+  #NAME_AND_VALUE    = 2,
+  #NAME_ONLY    = 3,
+  #BOTH_IF_VALUED    = 4,
+   $pNewDispProp SetDisplayType $::DboValue_NAME_AND_VALUE
+ 
+ } else {
+  $pDispProp SetDisplayType $::DboValue_NAME_ONLY
+ }
+}</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughalleffectivepropertiesofanyobject">Iterating through all effective properties of any object</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lPropsIter [$lObject NewEffectivePropsIter $lStatus] 
+set lNullObj NULL 
+
+#create the input/output parameters 
+set lPrpName [DboTclHelper_sMakeCString] 
+set lPrpValue [DboTclHelper_sMakeCString] 
+set lPrpType [DboTclHelper_sMakeDboValueType] 
+set lEditable [DboTclHelper_sMakeInt] 
+
+#get the first effective property 
+set lStatus [$lPropsIter NextEffectiveProp $lPrpName $lPrpValue $lPrpType $lEditable] 
+
+while {[$lStatus OK] == 1} { 
+
+ #placeholder: do your processing for $lPrpName $lPrpValue $lPrpType $lEditable 
+
+ #get the next effective property 
+ set lStatus [$lPropsIter NextEffectiveProp $lPrpName $lPrpValue $lPrpType $lEditable] 
+
+} 
+
+delete_DboEffectivePropsIter $lPropsIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Gettingattributesofapartordrawninstance">Getting attributes of a part or drawn instance</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">#get the name
+set lName [DboTclHelper_sMakeCString]
+$lInst GetName $lName
+
+#get the location point
+set lLocation [$lInst GetLocation $lStatus]
+
+#get the location x
+set lStartx [DboTclHelper_sGetCPointX $lLocation]
+
+#get the location y
+set lStarty [DboTclHelper_sGetCPointY $lLocation]
+
+#get the source library name
+set lLibName [DboTclHelper_sMakeCString]
+$lInst GetSourceLibName $lLibName
+
+#get the device designator
+set lDeviceDesignator [DboTclHelper_sMakeCString]
+$lInst GetReferenceDesignator $lDeviceDesignator
+
+#get the rotation
+set lRot [$lInst GetRotation $lStatus]
+
+#get the contents lib name
+set lContentsLibName [DboTclHelper_sMakeCString]
+$lInst GetContentsLibName $lContentsLibName
+
+#get the contents view name
+set lContentsViewName [DboTclHelper_sMakeCString]
+$lInst GetContentsViewName $lContentsViewName
+
+#get the contents view type
+set lType [$lInst GetContentsViewType $lStatus]
+
+#get the primitive type
+set lPrimitiveType [$lInst GetIsPrimitiveProp $lStatus]
+
+#get the part value
+set lValue [DboTclHelper_sMakeCString]
+$lInst GetPartValue $lValue
+
+#get the reference
+set lReferenceName [DboTclHelper_sMakeCString]
+$lInst GetReference $lReferenceName
+
+#get the bounding box on the page
+set lBBox [$lInst GetOffsetBoundingBox $lStatus]
+
+#get the top-left of the bbox
+set lTopLeft [DboTclHelper_sGetCRectTopLeft $lBBox]
+
+#get the bottom-right of the bbox
+set lBottomRight [DboTclHelper_sGetCRectBottomRight $lBBox]
+
+#get the x1
+set lStartx [DboTclHelper_sGetCPointX $lTopLeft]
+
+#get the y1
+set lStarty [DboTclHelper_sGetCPointY $lTopLeft]
+
+#get the x2
+set lEndx [DboTclHelper_sGetCPointX $lBottomRight]
+
+#get the y2
+set lEndy [DboTclHelper_sGetCPointY $lBottomRight]</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Gettingwireattributes">Getting wire attributes</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">#get the name
+set lName [DboTclHelper_sMakeCString]
+$lWire GetName $lName
+
+#get the net name
+set lNetName [DboTclHelper_sMakeCString]
+$lWire GetNetName $lNetName
+
+#get the start point
+set  lStart [$lWire GetStartPoint $lStatus]
+set lStartx [DboTclHelper_sGetCPointX $lStart]
+set lStarty [DboTclHelper_sGetCPointY $lStart]
+
+#get the end point
+set lEnd [$lWire GetEndPoint $lStatus]
+set lEndx [DboTclHelper_sGetCPointX $lEnd]
+set lEndy [DboTclHelper_sGetCPointY $lEnd]
+
+#get the color
+set lColor [$lWire GetColor $lStatus]
+
+#get the net
+set lNet [$lWire GetNet $lStatus]</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Gettingrootinstanceoccurrenceofadesign">Getting root instance occurrence of a design</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lRootOcc [$lDesign GetRootOccurrence $lStatus]</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingthroughtheinstanceoccurrencehierarchy">Iterating through the instance occurrence hierarchy</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">proc traverse_hierarchy { lInstOcc } {
+
+ set lStatus [DboState]
+ set lNullObj NULL
+
+ set lInstOccIter [$lInstOcc NewChildrenIter $lStatus $::IterDefs_INSTS]
+
+ #get the first child occurrence
+ set lChildOcc [$lInstOccIter NextOccurrence $lStatus]
+
+ while { $lChildOcc!= $lNullObj} {
+ 
+  #get the DboInstOccurrence pointer from DboOccurrence pointer
+  set lChildInstOcc [DboOccurrenceToDboInstOccurrence $lChildOcc]
+
+  # placeholder: do your processing on $lChildInstOcc
+
+  # do a recursion of the procedure call for $lChildInstOcc
+  traverse_hierarchy $lChildInstOcc
+
+  #get the next child occurrence
+  set lChildOcc [$lInstOccIter NextOccurrence $lStatus]
+
+}
+
+delete_DboOccurrenceChildrenIter $lInstOccIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingportoccurrenceswithinaninstanceoccurrence">Iterating port occurrences within an instance occurrence</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lPortOccIter [$pInstOcc NewChildrenIter $lStatus $::IterDefs_PORTS]
+
+#get the first child port occurrence
+set lPortOcc [$lPortOccIter NextOccurrence $lStatus]
+
+while { $lPortOcc!= $lNullObj} {
+ 
+ # placeholder: do your processing on $lPortOcc
+
+ #get the next child port occurrence
+ set lPortOcc [$lPortOccIter NextOccurrence $lStatus]
+
+}
+
+delete_DboOccurrenceChildrenIter $lPortOccIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingoff-pageoccurrenceswithinaninstanceoccurrence">Iterating off-page occurrences within an instance occurrence</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lOffpageOccIter [$pInstOcc NewChildrenIter $lStatus  $::IterDefs_OFFPAGES]
+
+#get the first child offpage occurrence
+set lOffpageOcc [$lOffpageOccIter NextOccurrence $lStatus]
+
+while { $lOffpageOcc!= $lNullObj} {
+ # placeholder: do your processing on $lOffpageOcc
+ 
+ #get the next child offpage occurrence
+ set lOffpageOcc [$lOffpageOccIter NextOccurrence $lStatus]
+}
+
+delete_DboOccurrenceChildrenIter $lOffpageOccIter</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingnetoccurrenceswithinaninstanceoccurrence">Iterating net occurrences within an instance occurrence</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lNetOccIter [$pInstOcc NewChildrenIter $lStatus  $::IterDefs_NETS]
+
+#get the first child Net occurrence
+set lNetOcc [$lNetOccIter NextOccurrence $lStatus]
+
+while { $lNetOcc!= $lNullObj} {
+ # placeholder: do your processing on $lNetOcc
+
+ #get the next child Net occurrence
+ set lNetOcc [$lNetOccIter NextOccurrence $lStatus]
+}
+
+delete_DboOccurrenceChildrenIter $lNetOccIter&#160;</pre>
+</div>
+</div>
+<h2 id="BasicOrCADTCLSampleSnippets-Iteratingtitle-blockoccurrenceswithinaninstanceoccurrence">Iterating title-block occurrences within an instance occurrence</h2>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lTitleBlockOccIter [$pInstOcc NewChildrenIter $lStatus  $::IterDefs_TITLEBLOCKS]
+
+#get the first child TitleBlock occurrence
+set lTitleBlockOcc [$lTitleBlockOccIter NextOccurrence $lStatus]
+
+while { $lTitleBlockOcc!= $lNullObj} {
+ # placeholder: do your processing on $lTitleBlockOcc
+
+ #get the next child TitleBlock occurrence
+ set lTitleBlockOcc [$lTitleBlockOccIter NextOccurrence $lStatus]
+
+}
+
+delete_DboOccurrenceChildrenIter $lTitleBlockOccIter&#160;</pre>
+</div>
+</div>
+
+<p>&#160;</p>
+
+<p>&#160;</p>
+
+<p>&#160;</p>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Overview.html" id="prev" title="Overview">Overview</a></em></b><b><em><a href="Introduction_to_Basic_OrCAD_TCL_Scripts.html" id="nex" title="Introduction_to_Basic_OrCAD_TCL_Scripts">Introduction_to_Basic_OrCAD_TC ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" /></body></html>

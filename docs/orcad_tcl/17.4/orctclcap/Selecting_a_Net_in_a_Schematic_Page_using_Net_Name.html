@@ -1,0 +1,95 @@
+
+<html><head><title>Selecting a Net in a Schematic Page using Net Name</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2020-03-19" />
+<meta name="CreateTime" content="1584621432" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="Provides most common TCL scripts that can be directly used." />
+<meta name="DocTitle" content="OrCAD Capture TCL Solutions" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="Selecting a Net in a Schematic Page using Net Name" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="orctclcap" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2020-03-19" />
+<meta name="ModifiedTime" content="1584621432" />
+<meta name="NextFile" content="Setting_the_Implementation_Type_on_a_Part_to_a_Specfic_Value.html" />
+<meta name="Group" content="OrCAD Capture TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Listing_Properties_of_the_Selected_Object_in_a_Schematic_Page.html" />
+<meta name="Product" content="OrCAD Capture,Allegro Design Entry CIS," />
+<meta name="ProductFamily" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2012-2020 Cadence Design Systems Inc." />
+<meta name="Title" content="OrCAD Capture TCL Solutions -- Selecting a Net in a Schematic Page using Net Name" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="orcadcaptcl174" />
+<meta name="confluence-version" content="6.13.3" />
+<meta name="ecms-plugin-version" content="03.30.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    </head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="orctclcapTOC.html">Contents</a></li><li><a class="prev" href="Listing_Properties_of_the_Selected_Object_in_a_Schematic_Page.html" title="Listing_Properties_of_the_Selected_Object_in_a_Schematic_Page">Listing_Properties_of_the_Sele ...</a></li><li style="float: right;"><a class="viewPrint" href="orctclcap.pdf">View/Print PDF</a></li><li style="float: right;margin-right: 25px;"><a class="nextd" href="Setting_the_Implementation_Type_on_a_Part_to_a_Specfic_Value.html" title="Setting_the_Implementation_Type_on_a_Part_to_a_Specfic_Value">Setting_the_Implementation_Typ ...</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>OrCAD Capture TCL Solutions<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <h1 style="margin: 4px 0 4px;"><span>Selecting a Net in a Schematic Page using Net Name</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>You can select a net in an active schematic page using a net name. To run the script, do the following in the Capture command window:</p>
+<ol><li>Source the TCL script, such as <code>source {D:/dispNetByName.tcl}</code></li><li>Run <code>capSelectNetByName &lt;Net Alias Name&gt;</code>, such as <code>capSelectNetByName alias1</code>.</li></ol>
+<p>&#160;</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>dispNetByBame.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">proc capSelectNetByName { pNetName } {
+    # requires schematic view to be active 
+    if { [IsSchematicViewActive] != 1 } {
+        set lReturnValue [list &quot;No schematic view active&quot;]
+        return $lReturnValue
+    }
+    
+    set NetName $pNetName
+    set lStatus [DboState]
+    set lNullObj NULL
+    set lNetName [DboTclHelper_sMakeCString $NetName]
+    set lPage [GetActivePage]
+    set pNet [$lPage GetNet $lNetName $lStatus]
+    if { $pNet!=$lNullObj } {
+        DboNetWiresIter lWiresIter $pNet $::IterDefs_ALL
+        set lWire [lWiresIter NextWire $lStatus]
+        while {$lWire!=$lNullObj} {
+        set pId [$lWire GetId $lStatus]
+        SelectObjectById $pId
+        set lWire [lWiresIter NextWire $lStatus]
+        }
+    }
+}</pre>
+</div>
+</div>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Listing_Properties_of_the_Selected_Object_in_a_Schematic_Page.html" id="prev" title="Listing_Properties_of_the_Selected_Object_in_a_Schematic_Page">Listing_Properties_of_the_Sele ...</a></em></b><b><em><a href="Setting_the_Implementation_Type_on_a_Part_to_a_Specfic_Value.html" id="nex" title="Setting_the_Implementation_Type_on_a_Part_to_a_Specfic_Value">Setting_the_Implementation_Typ ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" /></body></html>

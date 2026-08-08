@@ -1,0 +1,343 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN" "http://www.w3.org/MarkUp/Wilbur/HTML32.dtd">
+<html xmlns="http://www.w3.org/MarkUp/Wilbur/HTML32.dtd">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+    <title>Table of Contents</title><META NAME="Approver" CONTENT="Technical Publications">
+<META NAME="Approver" CONTENT="Technical Publications">
+<META NAME="Author" CONTENT="Technical Publications">
+<META NAME="CreateDate" CONTENT="2020-03-19">
+<META NAME="CreateTime" CONTENT="1584621424">
+<META NAME="DataType" CONTENT="Manuals">
+<META NAME="Description" CONTENT="This document provides basic scripts that can be used to do basic tasks in OrCAD Capture.">
+<META NAME="DocTitle" CONTENT="OrCAD TCL Sample Scripts">
+<META NAME="DocType" CONTENT="Reference">
+<META NAME="FileTitle" CONTENT="Table of Contents">
+<META NAME="FileType" CONTENT="TOC">
+<META NAME="Keyword" CONTENT="orctclsample">
+<META NAME="Language" CONTENT="English">
+<META NAME="ModifiedDate" CONTENT="2020-03-19">
+<META NAME="ModifiedTime" CONTENT="1584621424">
+<META NAME="NextFile" CONTENT="Overview.html">
+<META NAME="Group" CONTENT="OrCAD Capture TCL Scripting">
+<META NAME="Platform" CONTENT="Silicon-Package-Board Co-Design,">
+<META NAME="PrevFile" CONTENT="">
+<META NAME="Product" CONTENT="OrCAD Capture,Allegro Design Entry CIS,">
+<META NAME="ProductFamily" CONTENT="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design,">
+<META NAME="ProductVersion" CONTENT="17.4-2019">
+<META NAME="RightsManagement" CONTENT="Copyright 2012-2020 Cadence Design Systems Inc.">
+<META NAME="Title" CONTENT="OrCAD TCL Sample Scripts -- Table of Contents">
+<META NAME="Version" CONTENT="17.4-2019">
+<META NAME="Renderer" CONTENT="WIKI">
+<META NAME="SpaceKey" CONTENT="orcadtclsample174">
+<META NAME="confluence-version" CONTENT="6.13.3">
+<META NAME="ecms-plugin-version" CONTENT="03.30.005">
+
+ <style>
+  p, dl, dd {
+  line-height: 1.25;
+  margin-top: 7px;
+  margin-bottom: 7px;
+  }
+   dd {
+   display: block;
+    }</style>
+
+    <script type="text/javascript" src="styles/jquery.js"></script>
+    <script type="text/javascript">
+      $.noConflict();
+      jQuery( document ).ready(function ( $ ) {
+
+          $("div").find("h2>a:nth-child(2)").parent().addClass("demo expand");
+          $("h2.demo").parent().before("<div class='showTree expand'></div>");
+
+          $("h2.demo").nextUntil("h2.demo").toggleClass("expand");  
+          $(".showTree").attr('title','Collapse All');
+
+          $(".demo").click(function(){
+            var h2 = this;
+            $(h2).toggleClass("expand");
+            $(h2).nextUntil("h2").toggleClass("hidden");        
+            })  
+
+          $(".showTree").click(function(){
+            $(".showTree").toggleClass("expand");
+            if($(".showTree").hasClass("expand")){
+            $(this).attr('title','Collapse All');
+            $("h2.demo").addClass("expand");
+            $("h2.demo").nextUntil("h2.demo").removeClass("hidden");  
+            }
+            else{
+            $(this).attr('title','Expand All');
+            $("h2.demo").removeClass("expand");
+            $("h2.demo").nextUntil("h2.demo").addClass("hidden");  
+
+            }    
+            });
+      });
+
+    </script>
+<style>
+  .showTree:before{content:'+';display: inline-block;margin:-5px -20px -15px 0px;font-size:16pt;font-weight:bold;color:green;background: #e8e8e8;
+  width: 23px;
+  height: 23px;
+  text-align: center;
+  border: 1px solid green;}
+  .showTree.expand:before{content:'-';}
+
+  .demo:before{background:#5896ff;margin-right: 10px;border-radius:50%;color:#fff;content:'\276f';font-size:8pt;display: inline-block;padding: 1px 0;
+    text-align: center;
+    height: 15px;
+    width: 16px;}
+
+  .demo ~ p {
+    margin-left: 32px;
+  }
+
+  .showTree+div>h2:first-child {
+     display: none;
+   }
+   .showTree.expand+div>h2:first-child { 
+     display:block;
+   }
+
+  dd {
+    margin-left: 60px;
+  }
+
+  @-moz-document url-prefix() {
+    dd {
+      margin-inline-start: 20px;
+    }
+    dl {
+      margin-inline-start: 40px;
+    }
+  }
+
+  h2.demo.expand:before{
+    -webkit-transform: rotate(90deg);
+    -moz-transform: rotate(90deg);
+    -o-transform: rotate(90deg);
+    -ms-transform: rotate(90deg);
+    transform: rotate(90deg);
+    padding: 1px 1px;
+    width: 15px;
+  }
+  h2.demo:before{
+  }
+  .hidden{
+    display:none;
+  }
+  p, dl, dd {
+    line-height: 1.25;
+    margin-top: 7px;
+    margin-bottom: 7px;
+  }
+
+  .docHeadr {  
+    color: #666; 
+    padding: 7px 0 10px 42px;
+    background: url(./images/file2.png) no-repeat 10px 6px; 
+    background-size: 25px 25px; 
+  } 
+
+
+  nav.blueHead ul { 
+    padding: 0;
+    margin: 0; 
+  }   
+  .docHeadr>img { 
+    width: 90px; 
+    float: right; 
+    margin: 4px 15px; 
+  }  
+  nav.blueHead {background: #26abe4;} 
+  nav.blueHead a{ color: #fff;text-decoration: none;padding: 5px 24px;}    
+  nav.blueHead ul{ 
+    padding: 0; 
+    margin: 0; 
+  }     
+  nav.blueHead li{ 
+    display: inline-block; 
+    padding: 12px 5px;
+    margin: 0 15px;  
+  }  
+  footer nav.blueHead li { 
+    padding: 8px 5px; 
+  } 
+  .blueHead a.prev { 
+    background: url(./images/arrows2.png) no-repeat 0px center;background-size: 24px 24px; 
+  }
+  .blueHead a.content{
+    background: url(./images/document-content.png) no-repeat 0px center;background-size: 20px 20px; 
+  }  
+
+  .blueHead a.viewPrint{ 
+    background: url(./images/printerV.png) no-repeat 0px center;background-size: 20px 20px; 
+  } 
+
+  .blueHead a.nextd{
+  background: url(./images/arrows.png) no-repeat right center;background-size: 24px 24px; 
+  } 
+
+  footer a { 
+  text-decoration: none;   
+  color: #336699;    
+  font-size: 10.5pt;
+  }  
+  footer>div {  
+  font-size: 80%; 
+  color: #666;  
+  margin: 5px; 
+  text-align: center; 
+  border-top: 1px solid #eee;    
+  } 
+  footer nav {  
+  margin: 20px;
+}
+footer a#prev, footer a#nex {                                                                                                
+  color: #000;                                                                                                               
+  background: url(./images/left-arrowB.png) no-repeat left center;                                                          
+  background-size: 20px 20px;                                                                                                
+  padding: 1px 25px;                                                                                                         
+  opacity: 0.7;                                                                                                              
+  font-size: 10.5pt;                                                                                                         
+}                                                                                                                            
+
+footer a#nex {                                                                                                               
+  background: url(./images/right-arrowB.png) no-repeat right center;                                                        
+  background-size: 20px 20px;                                                                                                
+  float: right;                                                                                                              
+  margin: 0;                                                                                                                 
+}   
+</style>
+
+  </head>
+  <body style="background-color: #FFFFFF;">
+    <a name="pagetop"></a>
+    <a name="firstpage"></a>
+    <!-- Begin Buttons -->
+    <header>                                                                                                                 
+    <div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>                                 
+    <nav class="blueHead">                                                                                                 
+    <ul>                                                                                                                 
+      <li><a class="content">Contents</a></li>                                                        
+      <li><a href="titlecopy.html" class="prev" title="Titlecopy">titlecopy</a></li>                                                                                                       
+      <li style="float: right;"><a href="orctclsample.pdf" class="viewPrint">View/Print PDF</a></li>                               
+      <li style="float: right;margin-right: 25px;"><a href="Overview.html" class="nextd" title="Next">Next</a></li>                                                                         
+
+    </ul>                                                                                                                
+    </nav>                                                                                                                 
+    </header> 
+    <!-- End Buttons -->
+    <div style="margin-left:5%;">
+    <p>
+    <p>
+      <h4>
+        <center>
+          <font >
+            <div>OrCAD TCL Sample Scripts</div>
+            <font >
+              <div>Product Version 17.4-2019  October 2019</div>
+            </font>
+          </font>
+        </center>
+      </h4>
+      <br>
+    </p><h1>Contents</h1>
+    <div>
+      <h2><a href="Overview.html" title="Overview" name="99512"><font color="#0000ff"><u>1</u></font>
+</a></h2>
+      <h2> <a name=""></a><a href="Overview.html" title="Overview" name="853051"><font color="#0000ff"><u>Overview</u></font></a><font color="#000000">  </font><font color="#000000"></font></h2>
+      <h2><a href="Basic_OrCAD_TCL_Sample_Snippets.html" title="Basic OrCAD TCL Sample Snippets" name="99512"><font color="#0000ff"><u>2</u></font>
+</a></h2>
+      <h2> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html" title="Basic OrCAD TCL Sample Snippets" name="853051"><font color="#0000ff"><u>Basic OrCAD TCL Sample Snippets</u></font></a><font color="#000000">  </font><font color="#000000"></font></h2>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-GettingthecurrentCapturesession" title="Getting the current Capture session" name="46284"><font color="#0000ff"><u>Getting the current Capture session</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Creatinganewsession" title="Creating a new session" name="46284"><font color="#0000ff"><u>Creating a new session</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-OpeningadesignintheCapturesession" title="Opening a design in the Capture session" name="46284"><font color="#0000ff"><u>Opening a design in the Capture session</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughallopendesignsinthesession" title="Iterating through all open designs in the session" name="46284"><font color="#0000ff"><u>Iterating through all open designs in the session</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Gettingschematicofadesign" title="Getting schematic of a design" name="46284"><font color="#0000ff"><u>Getting schematic of a design</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughallschematicsofadesign" title="Iterating through all schematics of a design" name="46284"><font color="#0000ff"><u>Iterating through all schematics of a design</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Gettingpageofaschematic" title="Getting page of a schematic" name="46284"><font color="#0000ff"><u>Getting page of a schematic</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughallpagesofaschematic" title="Iterating through all pages of a schematic" name="46284"><font color="#0000ff"><u>Iterating through all pages of a schematic</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughallpartinstancesofapage" title="Iterating through all part instances of a page" name="46284"><font color="#0000ff"><u>Iterating through all part instances of a page</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughallhierarchicalinstancesofapage" title="Iterating through all hierarchical instances of a page" name="46284"><font color="#0000ff"><u>Iterating through all hierarchical instances of a page</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughallwiresinapage" title="Iterating through all wires in a page" name="46284"><font color="#0000ff"><u>Iterating through all wires in a page</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughallglobalsinapage" title="Iterating through all globals in a page" name="46284"><font color="#0000ff"><u>Iterating through all globals in a page</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughalltitle-blocksinapage" title="Iterating through all title-blocks in a page" name="46284"><font color="#0000ff"><u>Iterating through all title-blocks in a page</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughallportsinapage" title="Iterating through all ports in a page" name="46284"><font color="#0000ff"><u>Iterating through all ports in a page</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughalloff-pagesinapage" title="Iterating through all off-pages in a page" name="46284"><font color="#0000ff"><u>Iterating through all off-pages in a page</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughallgraphicsinapage" title="Iterating through all graphics in a page" name="46284"><font color="#0000ff"><u>Iterating through all graphics in a page</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughallpinsofapartinstanceordrawninstance" title="Iterating through all pins of a part instance or drawn instance" name="46284"><font color="#0000ff"><u>Iterating through all pins of a part instance or drawn instance</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughallaliasesofawire" title="Iterating through all aliases of a wire" name="46284"><font color="#0000ff"><u>Iterating through all aliases of a wire</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughallflatnetsinadesign" title="Iterating through all flat nets in a design" name="46284"><font color="#0000ff"><u>Iterating through all flat nets in a design</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughalluserpropertiesofanyobject" title="Iterating through all user properties of any object" name="46284"><font color="#0000ff"><u>Iterating through all user properties of any object</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughalldisplaypropertiesofanyobject" title="Iterating through all display properties of any object" name="46284"><font color="#0000ff"><u>Iterating through all display properties of any object</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Changingadisplaypropertyofanyobject" title="Changing a display property of any object" name="46284"><font color="#0000ff"><u>Changing a display property of any object</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughalleffectivepropertiesofanyobject" title="Iterating through all effective properties of any object" name="46284"><font color="#0000ff"><u>Iterating through all effective properties of any object</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Gettingattributesofapartordrawninstance" title="Getting attributes of a part or drawn instance" name="46284"><font color="#0000ff"><u>Getting attributes of a part or drawn instance</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Gettingwireattributes" title="Getting wire attributes" name="46284"><font color="#0000ff"><u>Getting wire attributes</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Gettingrootinstanceoccurrenceofadesign" title="Getting root instance occurrence of a design" name="46284"><font color="#0000ff"><u>Getting root instance occurrence of a design</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingthroughtheinstanceoccurrencehierarchy" title="Iterating through the instance occurrence hierarchy" name="46284"><font color="#0000ff"><u>Iterating through the instance occurrence hierarchy</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingportoccurrenceswithinaninstanceoccurrence" title="Iterating port occurrences within an instance occurrence" name="46284"><font color="#0000ff"><u>Iterating port occurrences within an instance occurrence</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingoff-pageoccurrenceswithinaninstanceoccurrence" title="Iterating off-page occurrences within an instance occurrence" name="46284"><font color="#0000ff"><u>Iterating off-page occurrences within an instance occurrence</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingnetoccurrenceswithinaninstanceoccurrence" title="Iterating net occurrences within an instance occurrence" name="46284"><font color="#0000ff"><u>Iterating net occurrences within an instance occurrence</u></font></a></p>
+      <p> <a name=""></a><a href="Basic_OrCAD_TCL_Sample_Snippets.html#BasicOrCADTCLSampleSnippets-Iteratingtitle-blockoccurrenceswithinaninstanceoccurrence" title="Iterating title-block occurrences within an instance occurrence" name="46284"><font color="#0000ff"><u>Iterating title-block occurrences within an instance occurrence</u></font></a></p>
+      <h2><a href="Introduction_to_Basic_OrCAD_TCL_Scripts.html" title="Introduction to Basic OrCAD TCL Scripts" name="99512"><font color="#0000ff"><u>3</u></font>
+</a></h2>
+      <h2> <a name=""></a><a href="Introduction_to_Basic_OrCAD_TCL_Scripts.html" title="Introduction to Basic OrCAD TCL Scripts" name="853051"><font color="#0000ff"><u>Introduction to Basic OrCAD TCL Scripts</u></font></a><font color="#000000">  </font><font color="#000000"></font></h2>
+      <dd> <a name=""></a><a href="Introduction_to_Basic_OrCAD_TCL_Scripts.html#IntroductiontoBasicOrCADTCLScripts-VerifyingTCLVersionandTCLInstallation" title="Verifying TCL Version and TCL Installation" name="46288"><font color="#0000ff"><u>Verifying TCL Version and TCL Installation</u></font></a></dd>
+      <p> <a name=""></a><a href="Introduction_to_Basic_OrCAD_TCL_Scripts.html#IntroductiontoBasicOrCADTCLScripts-VerifyingSystemInformationusingTCL" title="Verifying System Information using TCL" name="46284"><font color="#0000ff"><u>Verifying System Information using TCL</u></font></a></p>
+      <p> <a name=""></a><a href="Introduction_to_Basic_OrCAD_TCL_Scripts.html#IntroductiontoBasicOrCADTCLScripts-ReadingandWritingCSVFilesusingTCL" title="Reading and Writing CSV Files using TCL" name="46284"><font color="#0000ff"><u>Reading and Writing CSV Files using TCL</u></font></a></p>
+      <p> <a name=""></a><a href="Introduction_to_Basic_OrCAD_TCL_Scripts.html#IntroductiontoBasicOrCADTCLScripts-ReadingandWritingSKILLorLispFilesusingTCL" title="Reading and Writing SKILL or Lisp Files usingTCL" name="46284"><font color="#0000ff"><u>Reading and Writing SKILL or Lisp Files usingTCL</u></font></a></p>
+      <p> <a name=""></a><a href="Introduction_to_Basic_OrCAD_TCL_Scripts.html#IntroductiontoBasicOrCADTCLScripts-WritingJSONStringusingTCL" title="Writing JSON String using TCL" name="46284"><font color="#0000ff"><u>Writing JSON String using TCL</u></font></a></p>
+      <p> <a name=""></a><a href="Introduction_to_Basic_OrCAD_TCL_Scripts.html#IntroductiontoBasicOrCADTCLScripts-ReadingJSONStringusingTCL" title="Reading JSON String using TCL" name="46284"><font color="#0000ff"><u>Reading JSON String using TCL</u></font></a></p>
+      <h2><a href="TCL_Programming_with_OrCAD_Capture_Database.html" title="TCL Programming with OrCAD Capture Database" name="99512"><font color="#0000ff"><u>4</u></font>
+</a></h2>
+      <h2> <a name=""></a><a href="TCL_Programming_with_OrCAD_Capture_Database.html" title="TCL Programming with OrCAD Capture Database" name="853051"><font color="#0000ff"><u>TCL Programming with OrCAD Capture Database</u></font></a><font color="#000000">  </font><font color="#000000"></font></h2>
+      <p> <a name=""></a><a href="TCL_Programming_with_OrCAD_Capture_Database.html#TCLProgrammingwithOrCADCaptureDatabase-CreatingaCaptureSessionandOpeningaDesign" title="Creating a Capture Session and Opening a Design" name="46284"><font color="#0000ff"><u>Creating a Capture Session and Opening a Design</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programming_with_OrCAD_Capture_Database.html#TCLProgrammingwithOrCADCaptureDatabase-OpeningLibraryandListingPackages" title="Opening Library and Listing Packages" name="46284"><font color="#0000ff"><u>Opening Library and Listing Packages</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programming_with_OrCAD_Capture_Database.html#TCLProgrammingwithOrCADCaptureDatabase-FollowingClass(IsA)Hierarchies" title="Following Class (IsA) Hierarchies" name="46284"><font color="#0000ff"><u>Following Class (IsA) Hierarchies</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programming_with_OrCAD_Capture_Database.html#TCLProgrammingwithOrCADCaptureDatabase-TraversingDesignObjectInstances" title="Traversing Design Object Instances" name="46284"><font color="#0000ff"><u>Traversing Design Object Instances</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programming_with_OrCAD_Capture_Database.html#TCLProgrammingwithOrCADCaptureDatabase-TraversingDesignObjectOccurrences" title="Traversing Design Object Occurrences" name="46284"><font color="#0000ff"><u>Traversing Design Object Occurrences</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programming_with_OrCAD_Capture_Database.html#TCLProgrammingwithOrCADCaptureDatabase-ListingCachewithDateorTime" title="Listing Cache with Date or Time" name="46284"><font color="#0000ff"><u>Listing Cache with Date or Time</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programming_with_OrCAD_Capture_Database.html#TCLProgrammingwithOrCADCaptureDatabase-GeneratingFlatNetsList" title="Generating Flat Nets List" name="46284"><font color="#0000ff"><u>Generating Flat Nets List</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programming_with_OrCAD_Capture_Database.html#TCLProgrammingwithOrCADCaptureDatabase-IteratingObjectproperties" title="Iterating Object properties" name="46284"><font color="#0000ff"><u>Iterating Object properties</u></font></a></p>
+      <h2><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html" title="TCL Programmimg with OrCAD Capture GUI Interface" name="99512"><font color="#0000ff"><u>5</u></font>
+</a></h2>
+      <h2> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html" title="TCL Programmimg with OrCAD Capture GUI Interface" name="853051"><font color="#0000ff"><u>TCL Programmimg with OrCAD Capture GUI Interface</u></font></a><font color="#000000">  </font><font color="#000000"></font></h2>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-AddingMenutoOrCADCapture" title="Adding Menu to OrCAD Capture" name="46284"><font color="#0000ff"><u>Adding Menu to OrCAD Capture</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-SettingBasicApplicationStructurewithMenu" title="Setting Basic Application Structure with Menu" name="46284"><font color="#0000ff"><u>Setting Basic Application Structure with Menu</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-AccessingSession,Design,andPageObjectsinCapture" title="Accessing Session, Design, and Page Objects in Capture" name="46284"><font color="#0000ff"><u>Accessing Session, Design, and Page Objects in Capture</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-UsingRecordandReplayCommands" title="Using Record and Replay Commands" name="46284"><font color="#0000ff"><u>Using Record and Replay Commands</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-AccessingOrCADDatabaseObjectsfromGUI" title="Accessing OrCAD Database Objects from GUI" name="46284"><font color="#0000ff"><u>Accessing OrCAD Database Objects from GUI</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-ReadingandUpdatingPartReferencefromOccurrenceofSelectedinstances" title="Reading and Updating Part Reference from Occurrence of Selected instances" name="46284"><font color="#0000ff"><u>Reading and Updating Part Reference from Occurrence of Selected instances</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-MakingaPropertyVisible" title="Making a Property Visible" name="46284"><font color="#0000ff"><u>Making a Property Visible</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-MakingaPropertyInvisible" title="Making a Property Invisible" name="46284"><font color="#0000ff"><u>Making a Property Invisible</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-ModifyingProperties" title="Modifying Properties" name="46284"><font color="#0000ff"><u>Modifying Properties</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-DeletingProperties" title="Deleting Properties" name="46284"><font color="#0000ff"><u>Deleting Properties</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-PlacingaPartinaCaptureDesign" title="Placing a Part in a Capture Design" name="46284"><font color="#0000ff"><u>Placing a Part in a Capture Design</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-ImportingandExportingofXMLandTCLCodeforaCaptureLibrary" title="Importing and Exporting of XML and TCL Code for a Capture Library" name="46284"><font color="#0000ff"><u>Importing and Exporting of XML and TCL Code for a Capture Library</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-ImportingandExportingXMLandTCLCodeforaDesign" title="Importing and Exporting XML and TCL Code for a Design" name="46284"><font color="#0000ff"><u>Importing and Exporting XML and TCL Code for a Design</u></font></a></p>
+      <p> <a name=""></a><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html#TCLProgrammimgwithOrCADCaptureGUIInterface-UsingCallbacks" title="Using Callbacks" name="46284"><font color="#0000ff"><u>Using Callbacks</u></font></a></p>
+
+
+    </div>
+    <br>
+    <br>
+    <a href="#pagetop">Return to top of page</a>
+    <br>
+  </div>
+   
+    <footer>                                                                                                               
+    <nav class="navigation">                                                                                             
+    <b><em><a href="#pagetop" id="prev" title="TOC">^ </a></em></b>  
+    <b><em><a href="Overview.html" id="nex" title="Next">Next</a></em></b>  
+    </nav>  
+    <div>  
+      For further assistance, contact <a href="https://support.cadence.com" >Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.                               
+    </div>  
+    </footer>
+     
+    <br>
+  </body>
+</html>

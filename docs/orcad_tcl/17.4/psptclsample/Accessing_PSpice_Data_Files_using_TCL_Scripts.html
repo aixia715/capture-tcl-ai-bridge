@@ -1,0 +1,265 @@
+
+<html><head><title>Accessing PSpice Data Files using TCL Scripts</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2022-08-28" />
+<meta name="CreateTime" content="1661753342" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="PSpice TCL Sample Scripts" />
+<meta name="DocTitle" content="PSpice TCL Sample Scripts" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="Accessing PSpice Data Files using TCL Scripts" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="new_topic" content="" />
+<meta name="spotlight_topic" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="psptclsample" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2022-08-28" />
+<meta name="ModifiedTime" content="1661753342" />
+<meta name="NextFile" content="Performing_PSpice_Advanaced_Analysis_Simulations_using_TCL_Scripts.html" />
+<meta name="Group" content="PSpice TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Modifying_Parameters_in_PSpice_using_TCL_Scripts.html" />
+<meta name="c_product" content="PSpice,Allegro PSpice Simulator," />
+<meta name="Product" content="PSpice,Allegro PSpice Simulator," />
+<meta name="ProductFamily" content="PSpice,Allegro PSpice Simulator," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2022 Cadence Design Systems Inc." />
+<meta name="Title" content="PSpice TCL Sample Scripts -- Accessing PSpice Data Files using TCL Scripts" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="psptclsample174" />
+<meta name="confluence-version" content="7.4.1" />
+<meta name="ecms-plugin-version" content="04.10.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushXml.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushPython.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    
+<script>
+  document.addEventListener("DOMContentLoaded", function(event) {
+    document.querySelectorAll("img").forEach((img, index) => {
+   img.addEventListener("click", (e) => { 
+    document.querySelector("#cad_image_modal").classList.add("opac");
+      document.querySelector("#cad_image_modal_center").innerHTML = `<img style="position:absolute;top:0;bottom:0;left:0;right:0; margin: auto;max-height: 96%;max-width: 96%;" src="${e.target.src}">`;});});});
+</script>
+
+<style>
+ img{cursor:pointer;
+ }
+ #cad_image_modal{
+ position:fixed;left:0;top:0;width:100%;background:#00000099;overflow:hidden;height:0;opacity:0;transition: height 0ms 1s, opacity 1s 0ms;
+ }
+ #cad_image_modal.opac{height: 100%;opacity: 1;transition: height 0ms 0ms, opacity 1s 0ms;
+ }
+ #cad_image_modal span{
+  position:fixed;right:10px;top:10px;cursor:pointer;color:#fff;
+ }
+ </style>
+
+</head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="psptclsampleTOC.html">Contents</a></li><li><a class="prev" href="Modifying_Parameters_in_PSpice_using_TCL_Scripts.html" title="Modifying_Parameters_in_PSpice_using_TCL_Scripts">Modifying_Parameters_in_PSpice ...</a></li><li style="float: right;"><a class="viewPrint" href="psptclsample.pdf">View/Print PDF</a></li><li style="float: right;margin-right: 25px;"><a class="nextd" href="Performing_PSpice_Advanaced_Analysis_Simulations_using_TCL_Scripts.html" title="Performing_PSpice_Advanaced_Analysis_Simulations_using_TCL_Scripts">Performing_PSpice_Advanaced_An ...</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>PSpice TCL Sample Scripts<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <div style="width: 100%; font-size: 32px; text-align: left;               font-weight: bold;">4</div>
+<h1 style="margin: 4px 0 4px;"><span>Accessing PSpice Data Files using TCL Scripts</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>In this chapter , you will see some sample TCL scripts that will be used to access the .dat file. The output of the .dat file will be displayed on the PSpice command window.</p>
+
+<p>Following are the sample TCL scripts that can be used to access PSpice .dat file:</p>
+<ul><li>Direct Access API</li><li>Evaluating an Expression</li><li>Creating an AC Data File</li><li>Reading a Multi-sectioned Data File<br /><br /></li></ul><div class="confluence-information-macro confluence-information-macro-note"><span class="aui-icon aui-icon-small aui-iconfont-warning confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>Remember the following points before you source the TCL script file in PSpice command window:</p>
+<ul><li>The present working directory(<code>pwd</code>) in the command window is same as the circuit file directory.</li><li>The path changes in the script are aligned to your system.</li></ul></div>
+</div>
+<h2 id="AccessingPSpiceDataFilesusingTCLScripts-AccessingaPSpiceDataFile">Accessing a PSpice Data File</h2>
+
+<p>Source the following TCL scripts in PSpice command window to access the PSpice data file:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Direct Access API</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="brush: perl; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">#Direct Access API
+load [file normalize &quot;D:/Cadence/SPB_17.2/tools/bin/orPIOData64.dll&quot;]
+# Create an object of the PIOData object
+orPIOObject objFile
+#load the data file for evualation
+set filePath &quot;D:/Cadence/SPB_17.2/tools/pspice/capture_samples/advanls/bpf/bpf-PSpiceFiles/SCHEMATIC1/transient/transient.dat&quot;
+objFile loadFile $filePath
+#Get the number of block. For monte carlo runs 1 to 10 this will return 10
+objFile getNumberofBlocks
+#Set the active block number
+objFile setBlock 0
+#Get The header for the current block.this returns entire header.
+puts [objFile getJSON]
+#Get All the trace names for analog
+objFile getDataNames 0
+#Get The header for the current block.this returns entire header.
+objFile getHeaderList
+#To get only a single header item.This returns only one item
+set lDataPoints [objFile getHeaderData &quot;NumberofAnalogRows&quot;]
+#get the Data for &quot;Time&quot; in array TimeVector
+set TimeVector [objFile get &quot;Time&quot;]
+set I_C2 [objFile get &quot;I(C2)&quot;]
+puts &quot;$TimeVector $I_C2&quot;
+#access time data on shell
+set Time0 $TimeVector(0)
+#close the opened file
+objFile closeFile</pre>
+</div>
+</div>
+<h2 id="AccessingPSpiceDataFilesusingTCLScripts-EvaluatinganExpression">Evaluating an Expression</h2>
+
+<p><span style="color: rgb(0,0,0);text-decoration: none;">Similar to <code><span style="color: rgb(23,43,77);text-decoration: none;">orPIOObject</span></code>, PSpice Data File TCL Interface provides access to <code>orExprEval</code> objects, which can be used to evaluate an expression.</span></p>
+
+<p><span style="color: rgb(0,0,0);text-decoration: none;">This is the TCL equivalent to using operators or functions in PSpice probe using voltage, current, or power data values.</span></p>
+
+<p><span style="color: rgb(0,0,0);text-decoration: none;">For example:</span></p>
+<pre>max(V(N1)), abs(I(R1)), V(N1)-V(N2)</pre>
+<p>The <code>orExprEval</code> objects are created and initialized just like <code>orPIOObject</code> objects, and support most <code>orPIOObject</code> functions, for example, <code>loadFile</code>, <code>setBlock</code>, and <code>getDataNames</code>.</p>
+
+<p>The primary difference from <code>orPIOObject</code> is that <code>orExprEval</code> also supports expression evaluation using evaluate function.&#160;</p>
+
+<p>For example:</p>
+<pre>objFile evaluate Max(I(C2))</pre>
+<p>Source the following TCL script in PSpice command window to evaluate an expression in PSpice:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>expression_eval.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="brush: perl; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence"># Evaluate Expression
+load [file normalize &quot;D:/Cadence/SPB_17.2/tools/bin/orevalexpr64.dll&quot;]
+# Create an object of the PIOData object
+orExprEval objFile
+#load the data file for evualation
+objFile loadFile &quot;D:/Cadence/SPB_17.2/tools/pspice/capture_samples/advanls/bpf/bpf-PSpiceFiles/SCHEMATIC1/transient/transient.dat&quot;
+#Get the number of block.For monte carlo runs 1 to 10 this will return 10
+puts [objFile getNumberofBlocks]
+#Set the active block number
+objFile setBlock 0
+#Get The header for the current block.this returns entire header.
+puts [objFile getJSON]
+#Get All the trace names for analog
+objFile getDataNames 0
+#Get The header for the current block.this returns entire header.
+objFile getHeaderList
+#To get only a single header item.This returns only one item
+set lDataPoints [objFile getHeaderData &quot;NumberofAnalogRows&quot;]
+#get the Data for &quot;Time&quot; in array TimeVector
+objFile get &quot;Time&quot; &quot;TimeVector&quot;
+objFile get &quot;I(C2)&quot; &quot;I_C2&quot;
+for {set i 0} {$i &lt; $lDataPoints} {incr i} {
+puts &quot;Time - $TimeVector($i) I(C2)=$I_C2($i)&quot;
+}
+puts &quot;I(C2) MAX=[objFile evaluate Max(I(C2))],MIN=[objFile evaluate Avg(I(C2))],Average=[objFile evaluate Min(I(C2))]&quot;
+#access time data on shell
+set Time0 $TimeVector(0)
+#close the opened file
+objFile closeFile</pre>
+</div>
+</div>
+<h2 id="AccessingPSpiceDataFilesusingTCLScripts-CreatinganACDataFile">Creating an AC Data File</h2>
+
+<p>Source the following TCL script to create an AC data file from PSpice command window:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>create_ac_dat.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="brush: perl; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">#Create AC Dat File
+load [file normalize &quot;D:/Cadence/SPB_17.2/tools/bin/orevalexpr64.dll&quot;]
+orExprEval objFileWr
+objFileWr create { AC.dat} 10
+objFileWr addBlock
+# Set the header of the block
+objFileWr setHeaderData &quot;CircuitName&quot; &quot;TCL Test circuit&quot;
+objFileWr setHeaderData &quot;CircuitSubtitle&quot; &quot;TCL Sub circuit&quot;
+objFileWr setHeaderData &quot;SimulationTime&quot; &quot;14:00::53&quot;
+objFileWr setHeaderData &quot;Date&quot; &quot;01/01/2016&quot;
+objFileWr setHeaderData &quot;RevisionNumber&quot; &quot;17.2&quot;
+objFileWr setHeaderData &quot;Temperature&quot; 17.0
+objFileWr setHeaderData &quot;ProgramID&quot; 45645
+#if the data to be stored is complex then set value as 2 otherwise 1
+objFileWr setHeaderData &quot;ComplexFlag&quot; 1
+#Datatype = 0 for Analog,1 for digital,2 for mixed Signal
+objFileWr setHeaderData &quot;DataType&quot; 0
+objFileWr setHeaderData &quot;AnalysisName&quot; &quot;AC Analysis&quot;
+#if all cols are stored .else 0
+objFileWr setHeaderData &quot;DotProbeWithVariables&quot; 1
+#These api will set the number of columns(data names)
+objFileWr setHeaderData &quot;NumberofAnalogColumns&quot; 2
+objFileWr setHeaderData &quot;SweepMode&quot; 2
+#starting and ending sweep value
+objFileWr setHeaderData &quot;StartingSweepValue&quot; 10
+objFileWr setHeaderData &quot;EndingSweepValue&quot; 1000000
+objFileWr setHeaderData &quot;ComplexFlag&quot; 2
+#To set sweep param
+objFileWr setHeaderData &quot;PrimaryParamName&quot; &quot;Frequency&quot;
+objFileWr addDataName &quot;Frequency&quot; 0
+objFileWr addDataName &quot;Gain&quot; 0
+set freq 0
+for {set currBlock 0} {$currBlock &lt; 100} {incr currBlock} {
+incr freq
+objFileWr addTimePoint $freq 0
+#set complex values
+objFileWr addDataPoint 2.0 1.0
+}
+objFileWr closeFile</pre>
+</div>
+</div>
+<h2 id="AccessingPSpiceDataFilesusingTCLScripts-ReadingaMulti-sectionedPSpiceDatafile">Reading a Multi-sectioned PSpice Data file</h2>
+
+<p>Source the following TCL script to read a multi-sectioned data file from PSpice command window:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>read_multisection_dat.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="brush: perl; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence"># Reading Multi-sectioned Data File
+load [file normalize &quot;D:/Cadence/SPB_17.2/tools/bin/orevalexpr64.dll&quot;]
+set node1 A
+set node2 B
+# Create an object of the PIOData object
+orExprEval objFile
+objFile loadFile &quot;D:/Cadence/SPB_17.2/tools/pspice/capture_samples/advanls/bpf/bpf-PSpiceFiles/SCHEMATIC1/transient/transient.dat&quot;
+set blockCount [objFile getNumberofBlocks]
+puts $blockCount
+for {set currBlock 0} {$currBlock &lt; $blockCount} {incr currBlock} {
+puts -nonewline &quot;$currBlock of $blockCount\t&quot;
+objFile setBlock $currBlock
+set lDataPoints [objFile getHeaderData &quot;NumberofAnalogRows&quot;]
+#get the Data for &quot;Time&quot; in array TimeVector
+objFile get &quot;Time&quot; &quot;Time&quot;
+objFile get &quot;V($node1)&quot; &quot;Va&quot;
+set Aavg [objFile evaluate Avg(V(a))]
+puts -nonewline &quot;AA - $Aavg\t&quot;
+set count 0
+set Aavg 0
+for {set i 0} {$i &lt; $lDataPoints} {incr i} {
+set Aavg [expr $Va($i) + $Aavg]
+incr count
+}
+set Aavg [expr $Aavg / $count]
+puts &quot;Calculated - $Aavg&quot;
+}
+#close the opened file
+objFile closeFile</pre>
+</div>
+</div>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Modifying_Parameters_in_PSpice_using_TCL_Scripts.html" id="prev" title="Modifying_Parameters_in_PSpice_using_TCL_Scripts">Modifying_Parameters_in_PSpice ...</a></em></b><b><em><a href="Performing_PSpice_Advanaced_Analysis_Simulations_using_TCL_Scripts.html" id="nex" title="Performing_PSpice_Advanaced_Analysis_Simulations_using_TCL_Scripts">Performing_PSpice_Advanaced_An ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2022, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" />
+<div id="cad_image_modal" style="background-color: rgba(0, 0, 0, 0.6);"><center id="cad_image_modal_center">&#160;&#10240;</center><span style="margin-right:50px;margin-top:100px;font-weight:bold;font-size:20px;background:#e5e5e5;border:1px solid #e5e5e5;border-radius:25px;height:30px;width:20px;padding-left:6px;padding-top:2px;color: black;" onclick="document.querySelector('#cad_image_modal').classList.remove('opac');">X</span></div>
+
+</body></html>

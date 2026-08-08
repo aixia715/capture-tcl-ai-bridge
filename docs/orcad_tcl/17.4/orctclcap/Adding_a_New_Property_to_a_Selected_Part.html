@@ -1,0 +1,120 @@
+
+<html><head><title>Adding a New Property to a Selected Part</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2020-03-19" />
+<meta name="CreateTime" content="1584621420" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="Provides most common TCL scripts that can be directly used." />
+<meta name="DocTitle" content="OrCAD Capture TCL Solutions" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="Adding a New Property to a Selected Part" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="orctclcap" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2020-03-19" />
+<meta name="ModifiedTime" content="1584621420" />
+<meta name="NextFile" content="Modifying_Pin_Name_or_Number_in_a_library.html" />
+<meta name="Group" content="OrCAD Capture TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Automating_Common_OrCAD_Tasks_using_TCL_Scripts.html" />
+<meta name="Product" content="OrCAD Capture,Allegro Design Entry CIS," />
+<meta name="ProductFamily" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2012-2020 Cadence Design Systems Inc." />
+<meta name="Title" content="OrCAD Capture TCL Solutions -- Adding a New Property to a Selected Part" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="orcadcaptcl174" />
+<meta name="confluence-version" content="6.13.3" />
+<meta name="ecms-plugin-version" content="03.30.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    </head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="orctclcapTOC.html">Contents</a></li><li><a class="prev" href="Automating_Common_OrCAD_Tasks_using_TCL_Scripts.html" title="Automating_Common_OrCAD_Tasks_using_TCL_Scripts">Automating_Common_OrCAD_Tasks_ ...</a></li><li style="float: right;"><a class="viewPrint" href="orctclcap.pdf">View/Print PDF</a></li><li style="float: right;margin-right: 25px;"><a class="nextd" href="Modifying_Pin_Name_or_Number_in_a_library.html" title="Modifying_Pin_Name_or_Number_in_a_library">Modifying_Pin_Name_or_Number_i ...</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>OrCAD Capture TCL Solutions<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <h1 style="margin: 4px 0 4px;"><span>Adding a New Property to a Selected Part</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>This script adds a&#160;new property to a selected part placed on a schematic page. Using the script you can</p>
+<ul><li>Add a new property and set it&#39;s value for a selected part,</li><li>Display the name and value of the property. If the property already exists on the selected part, only property&#39;s name is displayed.</li></ul>
+<p>To add a new property, perform the following steps in the Capture command window:</p>
+<ol><li>Select a part to add a new property</li><li>Source the TCL file, for example <code>source {D:/AddDispProp.tcl}</code></li><li>Run <code>AddDisplayProperty &quot;&lt;New Property Name&gt;&quot; &quot;&lt;New Property Value&gt;&quot;</code><br />For example:&#160;<br /><code>AddDisplayProperty &quot;P1&quot; &quot;1&quot;</code> where <code>&quot;P1&quot;</code> is property name and <code>&quot;1&quot;</code> is property value.</li></ol>
+<p>&#160;</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>AddDispProp.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">proc ConvertUserToDoc { pPage pUser } {
+ set lDocDouble [expr &quot;[$pPage GetPhysicalGranularity] * $pUser + 0.5&quot;]
+ set lDoc [expr &quot;round($lDocDouble)&quot;]
+ return $lDoc
+}
+proc AddDisplayProperty {pProp pVal} {
+    # Get the selected objects
+    set lSelObjs1 [GetSelectedObjects]
+    set lObj1 [lindex $lSelObjs1 0]
+    set lPropNameCStr [DboTclHelper_sMakeCString $pProp] 
+    set lPropValueCStr [DboTclHelper_sMakeCString $pVal] 
+    set lStatus [$lObj1 SetEffectivePropStringValue $lPropNameCStr $lPropValueCStr]
+    set varNullObj NULL
+    set pDispProp [$lObj1 GetDisplayProp $lPropNameCStr $lStatus]
+    set lStatus [DboState]
+    if { $pDispProp == $varNullObj } {
+        set rotation 0
+        set logfont [DboTclHelper_sMakeLOGFONT]
+        set color $::DboValue_DEFAULT_OBJECT_COLOR
+        #set displocation [DboTclHelper_sMakeCPoint [expr $xlocation] [expr $ylocation]]
+        if {[catch {set lPickPosition [GetLastMouseClickPointOnPage]} lResult] } {
+            set lX 0
+            set lY 0
+            set displocation [DboTclHelper_sMakeCPoint $intX $intY]
+        } else {
+            set page [$lObj1 GetOwner]
+            set lX [ConvertUserToDoc $page [lindex $lPickPosition 0]]
+            set lY [ConvertUserToDoc $page [lindex $lPickPosition 1]]
+            set displocation [DboTclHelper_sMakeCPoint $lX $lY]
+        }   
+        set pNewDispProp [$lObj1 NewDisplayProp $lStatus $lPropNameCStr $displocation $rotation $logfont $color]
+        #DO_NOT_DISPLAY            = 0,
+        #VALUE_ONLY                = 1,
+        #NAME_AND_VALUE            = 2,
+        #NAME_ONLY                = 3,
+        #BOTH_IF_VALUED            = 4,
+        $pNewDispProp SetDisplayType $::DboValue_NAME_AND_VALUE
+    } else {
+        # 0 = DoNotDisplay, 1 = Value, 2 = Name and Value, 3 = Name, 4 = If Value Exists
+        $pDispProp SetDisplayType $::DboValue_NAME_ONLY
+    }
+}</pre>
+</div>
+</div>
+
+<p>&#160;</p>
+
+<p>&#160;</p>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Automating_Common_OrCAD_Tasks_using_TCL_Scripts.html" id="prev" title="Automating_Common_OrCAD_Tasks_using_TCL_Scripts">Automating_Common_OrCAD_Tasks_ ...</a></em></b><b><em><a href="Modifying_Pin_Name_or_Number_in_a_library.html" id="nex" title="Modifying_Pin_Name_or_Number_in_a_library">Modifying_Pin_Name_or_Number_i ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" /></body></html>

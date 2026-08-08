@@ -1,0 +1,364 @@
+
+<html><head><title>Performing PSpice Advanaced Analysis Simulations using TCL Scripts</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2022-08-28" />
+<meta name="CreateTime" content="1661753343" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="PSpice TCL Sample Scripts" />
+<meta name="DocTitle" content="PSpice TCL Sample Scripts" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="Performing PSpice Advanaced Analysis Simulations using TCL Scripts" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="new_topic" content="" />
+<meta name="spotlight_topic" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="psptclsample" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2022-08-28" />
+<meta name="ModifiedTime" content="1661753343" />
+<meta name="NextFile" content="" />
+<meta name="Group" content="PSpice TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Accessing_PSpice_Data_Files_using_TCL_Scripts.html" />
+<meta name="c_product" content="PSpice,Allegro PSpice Simulator," />
+<meta name="Product" content="PSpice,Allegro PSpice Simulator," />
+<meta name="ProductFamily" content="PSpice,Allegro PSpice Simulator," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2022 Cadence Design Systems Inc." />
+<meta name="Title" content="PSpice TCL Sample Scripts -- Performing PSpice Advanaced Analysis Simulations using TCL Scripts" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="psptclsample174" />
+<meta name="confluence-version" content="7.4.1" />
+<meta name="ecms-plugin-version" content="04.10.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushXml.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushPython.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    
+<script>
+  document.addEventListener("DOMContentLoaded", function(event) {
+    document.querySelectorAll("img").forEach((img, index) => {
+   img.addEventListener("click", (e) => { 
+    document.querySelector("#cad_image_modal").classList.add("opac");
+      document.querySelector("#cad_image_modal_center").innerHTML = `<img style="position:absolute;top:0;bottom:0;left:0;right:0; margin: auto;max-height: 96%;max-width: 96%;" src="${e.target.src}">`;});});});
+</script>
+
+<style>
+ img{cursor:pointer;
+ }
+ #cad_image_modal{
+ position:fixed;left:0;top:0;width:100%;background:#00000099;overflow:hidden;height:0;opacity:0;transition: height 0ms 1s, opacity 1s 0ms;
+ }
+ #cad_image_modal.opac{height: 100%;opacity: 1;transition: height 0ms 0ms, opacity 1s 0ms;
+ }
+ #cad_image_modal span{
+  position:fixed;right:10px;top:10px;cursor:pointer;color:#fff;
+ }
+ </style>
+
+</head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="psptclsampleTOC.html">Contents</a></li><li><a class="prev" href="Accessing_PSpice_Data_Files_using_TCL_Scripts.html" title="Accessing_PSpice_Data_Files_using_TCL_Scripts">Accessing_PSpice_Data_Files_us ...</a></li><li style="float: right;"><a class="viewPrint" href="psptclsample.pdf">View/Print PDF</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>PSpice TCL Sample Scripts<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <div style="width: 100%; font-size: 32px; text-align: left;               font-weight: bold;">5</div>
+<h1 style="margin: 4px 0 4px;"><span>Performing PSpice Advanaced Analysis Simulations using TCL Scripts</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>In this chapter, you will use TCL scripts to perform the following tasks:</p>
+<ul><li>Performing All PSpice Advanced Analsyis</li><li>Performing Processing on a Design</li><li>Performing Smoke Analysis<br /><br /></li></ul><div class="confluence-information-macro confluence-information-macro-note"><span class="aui-icon aui-icon-small aui-iconfont-warning confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>Remember the following points before you source the TCL script in PSpice command window:</p>
+<ul><li>The present working directory(<code>pwd</code>) in the command window is same as the circuit file directory.</li><li>The path changes in the script are aligned to your system.</li></ul></div>
+</div>
+<h2 id="PerformingPSpiceAdvanacedAnalysisSimulationsusingTCLScripts-PerformingAllthePSpiceAdavnacedAnalysisSimulationusingTCLScript">Performing All the PSpice Adavnaced Analysis Simulation using TCL Script</h2>
+
+<p>Using the following TCL script, you can perform all the following analysis in one go: Sensitivity, Optimizer, Monte Carlo, Parameter Plot, and Smoke.</p>
+
+<p>To use the script from PSpice Advanced Analysis command window, use the source command.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>all_pspaa_analysis.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="brush: perl; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">#Perform all types of analysis from a single file
+load [file normalize &quot;D:/Cadence_lite/SPB_17.2/tools/bin/oradvctrlr64.dll&quot;] PspAACtrlTcl
+load [file normalize &quot;D:/Cadence_lite/SPB_17.2/tools/bin/orPsp_Eng64.dll&quot;] orPspEng
+pspAASetLicenseBatchMode PSpiceAA
+PSpiceSetLicenseBatchMode PSpiceAD
+set pAAInterface [pspAAcreateInterface]
+$pAAInterface openAAProfile &quot;D:/Cadence_lite/SPB_17.2/tools/pspice/capture_samples/advanls/bpf/bpf-PSpiceFiles/SCHEMATIC1/transient/bpf.aap&quot;
+set pSensitivityController [$pAAInterface getSensitivityController]
+$pSensitivityController addSpecifications NULL &quot;-1&quot;
+set pMeasurement [new_CSensSpecification]
+$pMeasurement setState 1
+$pMeasurement setProfileName &quot;ac.sim&quot;
+$pMeasurement setName &quot;Max(V(OUT))&quot;
+$pMeasurement setNotes &quot;Okay&quot;
+$pMeasurement setSeverity 1
+$pSensitivityController addSpecifications $pMeasurement
+$pSensitivityController addSpecifications NULL &quot;1&quot;
+$pSensitivityController start 1 1
+set pMonteController [$pAAInterface getMonteController]
+$pMonteController addSpecifications NULL &quot;-1&quot;
+set pMeasurement [new_CMonteSpecification]
+$pMeasurement setState 1
+$pMeasurement setProfileName &quot;tran.sim&quot;
+$pMeasurement setName &quot;Max(V(OUT))&quot;
+$pMeasurement setNotes &quot;Okay&quot;
+$pMeasurement setSeverity 1
+$pMonteController addSpecifications $pMeasurement
+$pMonteController addSpecifications NULL &quot;1&quot;
+$pMonteController start 1 1
+set pPplotController [$pAAInterface getPplotController]
+$pPplotController addSpecifications NULL &quot;-1&quot;
+$pPplotController addParameters NULL &quot;-1&quot;
+set pMeasurement [new_CPplotSpecification]
+$pMeasurement setState 1
+$pMeasurement setProfileName &quot;tran.sim&quot;
+$pMeasurement setName &quot;Max(I(R3))&quot;
+$pMeasurement setNotes &quot;Okay&quot;
+$pMeasurement setSeverity 1
+$pPplotController addSpecifications $pMeasurement
+$pPplotController addSpecifications NULL &quot;1&quot;
+set pParam [new_CPplotParameter]
+$pParam setState 1
+$pParam setNotes &quot;Okay&quot;
+$pParam setRefDes &quot;R2&quot;
+$pParam setParamName &quot;VALUE&quot;
+$pParam setSweepVariable &quot;outer&quot;
+$pParam setSweepType $::PSP_SWEEP_LINEAR
+$pParam setPoints &quot;30,3000,300&quot;
+$pPplotController addParameters $pParam
+$pPplotController addParameters NULL &quot;1&quot;
+set pPlotSettings [new_CPplotSettings]
+$pPlotSettings setSweepFilePath &quot;D:/Cadence_lite/SPB_17.2/tools/pspice/capture_samples/advanls/bpf/bpf-PSpiceFiles/SCHEMATIC1/transient/CurrentPlot.tbl&quot;
+$pPplotController addSettings $pPlotSettings
+delete_CPplotSettings $pPlotSettings
+set pPlotInfo [new_CPplotPlotInfo]
+$pPlotInfo setValue &quot;Plot 1&quot; &quot;R3::VALUE&quot; &quot;X-Axis&quot;
+$pPlotInfo setIsMeasurement &quot;Plot 1&quot; &quot;R3::VALUE&quot; 0
+$pPlotInfo setBasePPlotPos &quot;Plot 1&quot; &quot;R3::VALUE&quot; 0
+$pPlotInfo setBasePPlotConstPos &quot;Plot 1&quot; &quot;R3::VALUE&quot; -1
+$pPlotInfo setValue &quot;Plot 1&quot; &quot;tran.sim::max(i(R3))&quot; &quot;Y-Axis&quot;
+$pPlotInfo setIsMeasurement &quot;Plot 1&quot; &quot;tran.sim::max(i(R3))&quot; 1
+$pPlotInfo setBasePPlotPos &quot;Plot 1&quot; &quot;tran.sim::max(i(R3))&quot; 0
+$pPlotInfo setBasePPlotConstPos &quot;Plot 1&quot; &quot;tran.sim::max(i(R3))&quot; -1
+$pPplotController addPPlotInfo $pPlotInfo
+delete_CPplotPlotInfo $pPlotInfo
+$pPplotController clearSweepValues
+$pPplotController writePplotDataFile &quot;D:/Cadence_lite/SPB_17.2/tools/pspice/capture_samples/advanls/bpf/bpf-PSpiceFiles/bpf/CurrentPlot.tbl&quot;
+$pPplotController start 1 1
+$pPplotController writePplotDataFile &quot;D:/Cadence_lite/SPB_17.2/tools/pspice/capture_samples/advanls/bpf/bpf-PSpiceFiles/SCHEMATIC1/transient/CurrentPlot.tbl&quot;
+set pOptController [$pAAInterface getOptimizerController]
+$pAAInterface setCurrentEngine $::HYBRID
+$pAAInterface setCurrentGear $::DEFAULT_GEAR
+$pOptController addParameters NULL &quot;-1&quot;
+set pOptParam [new_COptParameter]
+$pOptParam setState 1
+$pOptParam setLocked 0
+$pOptParam setRefDes &quot;R3&quot;
+$pOptParam setParamName &quot;VALUE&quot;
+$pOptParam setMin &#8220;22k&#8221;
+$pOptParam setMax &#8220;2200k&#8221;
+$pOptParam setParamVal &#8220;220k&#8221;
+$pOptParam setCurrent &#8220;220k&#8221;
+$pOptParam setDiscreteTableAlias &quot;&quot;
+$pOptParam setDiscreteTable &quot;&quot;
+$pOptParam setNotes &quot;Okay&quot;
+$pOptParam setSeverity 1
+$pOptController addParameters $pOptParam
+$pOptController addParameters NULL &quot;1&quot;
+$pOptController addSpecifications NULL 0 &quot;-1&quot;
+set pMeasurement [new_COptSpecification]
+$pMeasurement setState 1
+$pMeasurement setGraphState 1
+$pMeasurement setIsCurveFit 0
+$pMeasurement setIsGoal 1
+$pMeasurement setProfileName &quot;tran.sim&quot;
+$pMeasurement setName &quot;Max(I(R3))&quot;
+$pMeasurement setSpecification 0
+$pMeasurement setSpecification2 100
+$pMeasurement setWeight 1
+$pMeasurement setNominal &quot;&quot;
+$pMeasurement setCurrent &quot;&quot;
+$pMeasurement setError &quot;&quot;
+$pMeasurement setNotes &quot;Okay&quot;
+$pMeasurement setSeverity 1
+$pOptController addSpecifications $pMeasurement 0
+$pOptController addSpecifications NULL 0 &quot;1&quot;
+$pOptController start 1 1
+set pSmokeController [$pAAInterface getSmokeController]
+$pSmokeController runSmoke &quot;D:/Cadence_lite/SPB_17.2/tools/pspice/capture_samples/advanls/bpf/bpf-PSpiceFiles/SCHEMATIC1/transient/transient.sim&quot;
+$pAAInterface saveAAProfile &quot;&quot;
+pspAAdeleteInterface $pAAInterface</pre>
+</div>
+</div>
+<h2 id="PerformingPSpiceAdvanacedAnalysisSimulationsusingTCLScripts-PerformingProcessingofaDesign">Performing Processing of a Design</h2>
+
+<p>Using the following TCL script, you can do processing on a PSpice Advanced Analysis file (.aap) to assign tolerance for instance parameters. Use the source command to source the script in PSpice Advanced Analysis command window.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>process_design.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="brush: perl; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">#Perform processing of a design
+load [file normalize &quot;D:/Cadence_lite/SPB_17.2/tools/bin/orCommonTcl64.dll&quot;] orCommonTcl
+load [file normalize &quot;D:/Cadence_lite/SPB_17.2/tools/bin/oradvctrlr64.dll&quot;] PspAACtrlTcl
+load [file normalize &quot;D:/Cadence_lite/SPB_17.2/tools/bin/orpsppmpsvr64.dll&quot;] PspAATcl
+load [file normalize &quot;D:/Cadence_lite/SPB_17.2/tools/bin/orPsp_Eng64.dll&quot;] orPspEng
+proc pspDesignTrue { args } {
+return 1;
+}
+proc processDesignStart { } {
+puts &quot;In Process Design Start&quot;
+PSAAReader_openDesign
+PSAAReader_enableAAInst_TclEval &quot;R1&quot;
+}
+proc processDesignEnd { } {
+puts &quot;In Process Design End&quot;
+}
+proc processPostInst { } {
+puts &quot;In post Process Inst&quot;
+}
+proc processInst { pInstName } {
+puts &quot;In Process Inst&quot;
+set instTypeC [string first C $pInstName]
+if {$instTypeC==0} {
+PSAAReader_setAAInstParam_Tol $mCurInstance &quot;MY_CVAL&quot; &quot;10%&quot; &quot;10%&quot;
+}
+set instTypeR [string first R $pInstName]
+if {$instTypeR==0} {
+set my_rval1 1
+set my_rval2 1
+PSAAReader_setPSpiceInstParam $pInstName &quot;my_rval1&quot; $my_rval1
+PSAAReader_setPSpiceInstParam $pInstName &quot;my_rval2&quot; $my_rval2
+set pos_tol [expr $my_rval1 + $my_rval2]
+set neg_tol $pos_tol
+PSAAReader_setAAInstParam_Tol $pInstName &quot;MY_RVAL&quot; $pos_tol% $neg_tol%
+}
+}
+RegisterAction &quot;_cdnPspAAProcessDesignStart&quot; &quot;::pspDesignTrue&quot; &quot;&quot; &quot;::processDesignStart&quot; &quot;&quot;
+RegisterAction &quot;_cdnPspAAProcessInst&quot; &quot;::pspDesignTrue&quot; &quot;&quot; &quot;::processInst&quot; &quot;&quot;
+RegisterAction &quot;_cdnPspAAProcessPostInst&quot; &quot;::pspDesignTrue&quot; &quot;&quot; &quot;::processPostInst&quot; &quot;&quot;
+RegisterAction &quot;_cdnPspAAProcessDesignEnd&quot; &quot;::pspDesignTrue&quot; &quot;&quot; &quot;::processDesignEnd&quot; &quot;&quot;
+pspAASetLicenseBatchMode PSpiceAA
+PSpiceSetLicenseBatchMode PSpiceAD
+set pAAInterface [pspAAcreateInterface]
+$pAAInterface openAAProfile &quot;D:/Cadence_lite/SPB_17.2/tools/pspice/capture_samples/advanls/bpf/bpf-PSpiceFiles/SCHEMATIC1/SCHEMATIC1.aap&quot;
+set pSensitivityController [$pAAInterface getSensitivityController]
+$pSensitivityController addSpecifications NULL &quot;-1&quot;
+set pMeasurement [new_CSensSpecification]
+$pMeasurement setState 1
+$pMeasurement setProfileName &quot;ac.sim&quot;
+$pMeasurement setName &quot;Max(V(OUT))&quot;
+$pMeasurement setNotes &quot;Okay&quot;
+$pMeasurement setSeverity 1
+$pSensitivityController addSpecifications $pMeasurement
+$pSensitivityController addSpecifications NULL &quot;1&quot;
+$pSensitivityController start 1 1
+pspAAdeleteInterface $pAAInterface</pre>
+</div>
+</div>
+<h2 id="PerformingPSpiceAdvanacedAnalysisSimulationsusingTCLScripts-PerformingSmokAnalysisusingTCLScript">Performing Smok Analysis using TCL Script</h2>
+
+<p>Using the following TCL Script, you can perform smoke analysis in PSpice Advanced Analysis. To source the TCL script file in PSpice Advanced Analysis, use the <code>source</code> command.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>pspaa_smoke.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="brush: perl; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">#Perform Smoke Analysis
+load [file normalize &quot;D:/Cadence_lite/SPB_17.2/tools/bin/orCommonTcl64.dll&quot;] orCommonTcl
+load [file normalize &quot;D:/Cadence_lite/SPB_17.2/tools/bin/oradvctrlr64.dll&quot;] PspAACtrlTcl
+load [file normalize &quot;D:/Cadence_lite/SPB_17.2/tools/bin/orpsppmpsvr64.dll&quot;] PspAATcl
+load [file normalize &quot;D:/Cadence_lite/SPB_17.2/tools/bin/orPsp_Eng64.dll&quot;] orPspEng
+pspAASetLicenseBatchMode PSpiceAA
+PSpiceSetLicenseBatchMode PSpiceAD
+proc pspTrue { args } {
+return 1;
+}
+proc processDesignStart { } {
+puts &quot;Design Start&quot;
+PSAAReader_openDesign
+PSAAReader_enableAAInst_TclEval &quot;R1&quot;
+PSAAReader_enableAAInstDevSmoke &quot;R1&quot;
+}
+proc ::smokeDerateReliability { pInstName pParamName pDerFactor pDerFile } {
+puts &quot;Derate Reliability&quot;
+}
+proc ::smokeDerateTemp { pInstName pParamName } {
+puts &quot;Derate Temp $pInstName $pParamName&quot;
+set lInst [$::pAASmokeInterface getInst &quot;R1&quot;]
+set lrba [$lInst GetMaxOpValue &quot;RBA&quot;]
+set lParam [$::pAASmokeInterface getInstSmokeParam &quot;R1&quot; &quot;PDM&quot;]
+$lParam SetPeakDerMax 45
+puts &quot;Exit Derate Temp $pInstName $pParamName&quot;
+}
+proc ::smokePostPDM&amp;TJ { pInstName } {
+}
+proc ::smokePostPDM&amp;TB { pInstName } {
+puts &quot;PostPDML&amp;TB&quot;
+set lInst [$::pAASmokeInterface getInst &quot;R1&quot;]
+set lrba [$lInst GetMaxOpValue &quot;RBA&quot;]
+set lParam [$::pAASmokeInterface getInstSmokeParam &quot;R1&quot; &quot;PDM&quot;]
+$lParam SetPeak 50
+}
+proc ::smokePostPDML { pInstName } {
+puts &quot;PostPDML&quot;
+}
+proc ::runCustomTest { pInstName } {
+puts &quot;setting up custom test&quot;
+set param $::pAASmokeInterface addInstSmokeParam &quot;R1&quot; &quot;MYSMKTEST&quot;
+####### Get the peak, average, rms values from the dat file #######
+####### Get the max op value from the instance parameters #########
+####### Perform user defined algorithms for derating values #######
+####### Set the smoke output values back to smoke results of the tool ######
+$param SetMaxOpValue 400
+$param SetPeak 200
+$param SetAverage 210
+$param SetRMS 220
+$param SetPeakDerMax 300
+$param SetAverageDerMax 290
+$param SetRMSDerMax 290
+}
+RegisterAction &quot;_cdnPspAAProcessDesignStart&quot; &quot;::pspTrue&quot; &quot;&quot; &quot;::processDesignStart&quot; &quot;&quot;
+RegisterAction &quot;_cdnPspAAAnalysisComplete&quot; &quot;::pspTrue&quot; &quot;&quot; &quot;::saveDesign&quot; &quot;&quot;
+RegisterAction &quot;_cdnPspAASmokeDerateReliability&quot; &quot;::pspTrue&quot; &quot;&quot; &quot;::smokeDerateReliability&quot; &quot;&quot;
+RegisterAction &quot;_cdnPspAASmokeDerateTemp&quot; &quot;::pspTrue&quot; &quot;&quot; &quot;::smokeDerateTemp&quot; &quot;&quot;
+RegisterAction &quot;_cdnPspAASmokePostPDM&amp;TJ&quot; &quot;::pspTrue&quot; &quot;&quot; &quot;::smokePostPDM&amp;TJ&quot; &quot;&quot;
+RegisterAction &quot;_cdnPspAASmokePostPDM&amp;TB&quot; &quot;::pspTrue&quot; &quot;&quot; &quot;::smokePostPDM&amp;TB&quot; &quot;&quot;
+RegisterAction &quot;_cdnPspAASmokePostPDML&quot; &quot;::pspTrue&quot; &quot;&quot; &quot;::smokePostPDML&quot; &quot;&quot;
+RegisterAction &quot;_cdnPspAARunCustomSmoke&quot; &quot;::pspTrue&quot; &quot;&quot; &quot;::runCustomTest&quot; &quot;&quot;
+# Run smoke
+set pAAInterface [pspAAcreateInterface]
+$::pAAInterface openAAProfile &quot;D:/Cadence_lite/SPB_17.2/tools/pspice/capture_samples/advanls/bpf/bpf-PSpiceFiles/SCHEMATIC1/SCHEMATIC1.aap&quot;
+set ::pAASmokeInterface [$pAAInterface getSmokeController]
+$::pAAInterface getAdvGeneralSettings
+$::pAAInterface getSmokeSettings
+$::pAASmokeInterface runSmoke {D:\Cadence_lite\SPB_17.2\tools\pspice\capture_samples\advanls\bpf\bpf-PSpiceFiles\SCHEMATIC1\transient\transient.sim}
+$::pAAInterface saveAAProfile &quot;&quot;
+pspAAdeleteInterface $::pAAInterface</pre>
+</div>
+</div>
+
+<p>&#160;</p>
+
+<p>&#160;</p>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Accessing_PSpice_Data_Files_using_TCL_Scripts.html" id="prev" title="Accessing_PSpice_Data_Files_using_TCL_Scripts">Accessing_PSpice_Data_Files_us ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2022, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" />
+<div id="cad_image_modal" style="background-color: rgba(0, 0, 0, 0.6);"><center id="cad_image_modal_center">&#160;&#10240;</center><span style="margin-right:50px;margin-top:100px;font-weight:bold;font-size:20px;background:#e5e5e5;border:1px solid #e5e5e5;border-radius:25px;height:30px;width:20px;padding-left:6px;padding-top:2px;color: black;" onclick="document.querySelector('#cad_image_modal').classList.remove('opac');">X</span></div>
+
+</body></html>

@@ -1,0 +1,196 @@
+
+<html><head><title>Modifying Parameters in PSpice using TCL Scripts</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2022-08-28" />
+<meta name="CreateTime" content="1661753341" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="PSpice TCL Sample Scripts" />
+<meta name="DocTitle" content="PSpice TCL Sample Scripts" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="Modifying Parameters in PSpice using TCL Scripts" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="new_topic" content="" />
+<meta name="spotlight_topic" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="psptclsample" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2022-08-28" />
+<meta name="ModifiedTime" content="1661753341" />
+<meta name="NextFile" content="Accessing_PSpice_Data_Files_using_TCL_Scripts.html" />
+<meta name="Group" content="PSpice TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Accessing_PSpice_using_TCL_Scripts.html" />
+<meta name="c_product" content="PSpice,Allegro PSpice Simulator," />
+<meta name="Product" content="PSpice,Allegro PSpice Simulator," />
+<meta name="ProductFamily" content="PSpice,Allegro PSpice Simulator," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2022 Cadence Design Systems Inc." />
+<meta name="Title" content="PSpice TCL Sample Scripts -- Modifying Parameters in PSpice using TCL Scripts" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="psptclsample174" />
+<meta name="confluence-version" content="7.4.1" />
+<meta name="ecms-plugin-version" content="04.10.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushXml.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushPython.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    
+<script>
+  document.addEventListener("DOMContentLoaded", function(event) {
+    document.querySelectorAll("img").forEach((img, index) => {
+   img.addEventListener("click", (e) => { 
+    document.querySelector("#cad_image_modal").classList.add("opac");
+      document.querySelector("#cad_image_modal_center").innerHTML = `<img style="position:absolute;top:0;bottom:0;left:0;right:0; margin: auto;max-height: 96%;max-width: 96%;" src="${e.target.src}">`;});});});
+</script>
+
+<style>
+ img{cursor:pointer;
+ }
+ #cad_image_modal{
+ position:fixed;left:0;top:0;width:100%;background:#00000099;overflow:hidden;height:0;opacity:0;transition: height 0ms 1s, opacity 1s 0ms;
+ }
+ #cad_image_modal.opac{height: 100%;opacity: 1;transition: height 0ms 0ms, opacity 1s 0ms;
+ }
+ #cad_image_modal span{
+  position:fixed;right:10px;top:10px;cursor:pointer;color:#fff;
+ }
+ </style>
+
+</head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="psptclsampleTOC.html">Contents</a></li><li><a class="prev" href="Accessing_PSpice_using_TCL_Scripts.html" title="Accessing_PSpice_using_TCL_Scripts">Accessing_PSpice_using_TCL_Scr ...</a></li><li style="float: right;"><a class="viewPrint" href="psptclsample.pdf">View/Print PDF</a></li><li style="float: right;margin-right: 25px;"><a class="nextd" href="Accessing_PSpice_Data_Files_using_TCL_Scripts.html" title="Accessing_PSpice_Data_Files_using_TCL_Scripts">Accessing_PSpice_Data_Files_us ...</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>PSpice TCL Sample Scripts<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <div style="width: 100%; font-size: 32px; text-align: left;               font-weight: bold;">3</div>
+<h1 style="margin: 4px 0 4px;"><span>Modifying Parameters in PSpice using TCL Scripts</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>In this chapter, we will use some sample circuit file and modify the parameters using the TCL script. Following topics will be covered in this chapter:</p>
+<ul><li>Modifying Instance Parameters</li><li>Modifying Instance Parameters in Hierarchy</li><li>Modifying Global and Model Parameters<br /><br /></li></ul><div class="confluence-information-macro confluence-information-macro-note"><span class="aui-icon aui-icon-small aui-iconfont-warning confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>Remember the following points before you source the TCL script in PSpice command window:</p>
+<ul><li>The present working directory(<code>pwd</code>) in the command window is same as the circuit file directory.</li><li>The path changes in the script are aligned to your system.</li></ul></div>
+</div>
+<h2 id="ModifyingParametersinPSpiceusingTCLScripts-ModifyingInstanceParameters">Modifying Instance Parameters</h2>
+
+<p>Use the following circuit file (<code>rc.cir</code>) to modify instance parameters using the TCL script.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>rc.cir</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="brush: text; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">**********
+R1 1 0 100 TC=1
+R2 1 2 100
+V1 2 0 5
+.tran 0 .123
+.end</pre>
+</div>
+</div>
+
+<p>To modify the instance parameter values, source the following TCL script in PSpice command window:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Modify Instance Paramters</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="brush: perl; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">#Sample TCL code to modify instance paramters
+load orPSP_ENG64.dll orpspeng
+PSpiceSetLicenseBatchMode PSpiceAD
+PSpiceSetupAnalysis rc.cir rc.out rc.dat &quot;D:\Cadence\SPB_17.2\tools\pspice\library&quot;
+PSpiceParamSetValue R1.value 200
+PSpiceCommandDo doTran true
+PSpiceCommandDo FINISH true
+PSpiceTranEnd</pre>
+</div>
+</div>
+<h2 id="ModifyingParametersinPSpiceusingTCLScripts-ModifyInstanceParamtersinHierarchy">Modify Instance Paramters in Hierarchy</h2>
+
+<p>Use the following circuit file (<code>hier.cir</code>) to modify instance paramters in hierarchy:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>hier.cir</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="brush: text; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">**********
+.subckt mysub 1 2
+R1 1 0 100 TC=1
+R2 1 2 100
+.ends
+X1 1 2 mysub
+V1 2 0 5
+.lib nom.lib
+.options ACCT
+.tran 0 .123
+.op
+.probe v(*)
+.watch tran V([2])
+.end</pre>
+</div>
+</div>
+
+<p>To modify the instance parameter values in hierarchy, source the following TCL script in PSpice command window:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Modify Instance Paramters in Hierarchy</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="brush: perl; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">#Sample TCL code to modify parameter values in a hierarchical design:
+load orPSP_ENG64.dll orpspeng
+PSpiceSetLicenseBatchMode PSpiceAD
+PSpiceSetupAnalysis hier.cir hier.out hier.dat &quot;D:\Cadence\SPB_17.2\tools\pspice\library&quot;
+PSpiceParamSetValue X1.R1.value 200
+PSpiceCommandDo doTran true
+PSpiceCommandDo FINISH true
+PSpiceTranEnd</pre>
+</div>
+</div>
+<h2 id="ModifyingParametersinPSpiceusingTCLScripts-ModifyingGlobalandModelParameters">Modifying Global and Model Parameters</h2>
+
+<p>Use the following circuit file (<code>models.cir</code>) to modify global and model paramters:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>models.cir</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="brush: text; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">**********
+.param myval=100
+.subckt mysub 1 2
+R1 1 0 rmod {myval}
+R2 1 2 rmod 100
+.ends
+.model rmod res r=2
+.model rmod1 res r=2
+X1 1 2 mysub
+V1 2 0 5
+.tran 0 .123
+.watch tran V([2])
+.end</pre>
+</div>
+</div>
+
+<p>To modify global and model paramters, source the following TCL script in PSpice command window:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Modifying Global and Model Paramters</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="brush: perl; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">#Sample TCL code to modify global and model parameter values:
+load orPSP_ENG64.dll orpspeng
+PSpiceSetLicenseBatchMode PSpiceAD
+PSpiceSetupAnalysis models.cir models.out models.dat &quot;D:\Cadence\SPB_17.2\tools\pspice\library&quot;
+PSpiceParamSetValue X1.R1.value 2 true
+PSpiceParamSetValue myval 200
+PSpiceCommandDo doTran true
+PSpiceCommandDo FINISH true
+PSpiceTranEnd</pre>
+</div>
+</div>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Accessing_PSpice_using_TCL_Scripts.html" id="prev" title="Accessing_PSpice_using_TCL_Scripts">Accessing_PSpice_using_TCL_Scr ...</a></em></b><b><em><a href="Accessing_PSpice_Data_Files_using_TCL_Scripts.html" id="nex" title="Accessing_PSpice_Data_Files_using_TCL_Scripts">Accessing_PSpice_Data_Files_us ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2022, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" />
+<div id="cad_image_modal" style="background-color: rgba(0, 0, 0, 0.6);"><center id="cad_image_modal_center">&#160;&#10240;</center><span style="margin-right:50px;margin-top:100px;font-weight:bold;font-size:20px;background:#e5e5e5;border:1px solid #e5e5e5;border-radius:25px;height:30px;width:20px;padding-left:6px;padding-top:2px;color: black;" onclick="document.querySelector('#cad_image_modal').classList.remove('opac');">X</span></div>
+
+</body></html>

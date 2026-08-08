@@ -1,0 +1,172 @@
+
+<html><head><title>Getting Library Part User properties</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2020-03-19" />
+<meta name="CreateTime" content="1584621428" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="Provides most common TCL scripts that can be directly used." />
+<meta name="DocTitle" content="OrCAD Capture TCL Solutions" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="Getting Library Part User properties" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="orctclcap" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2020-03-19" />
+<meta name="ModifiedTime" content="1584621428" />
+<meta name="NextFile" content="Getting_Pin_Names_from_a_Library_Part.html" />
+<meta name="Group" content="OrCAD Capture TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Filtering_Net_Alias_on_an_Active_Schematic_Page.html" />
+<meta name="Product" content="OrCAD Capture,Allegro Design Entry CIS," />
+<meta name="ProductFamily" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2012-2020 Cadence Design Systems Inc." />
+<meta name="Title" content="OrCAD Capture TCL Solutions -- Getting Library Part User properties" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="orcadcaptcl174" />
+<meta name="confluence-version" content="6.13.3" />
+<meta name="ecms-plugin-version" content="03.30.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    </head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="orctclcapTOC.html">Contents</a></li><li><a class="prev" href="Filtering_Net_Alias_on_an_Active_Schematic_Page.html" title="Filtering_Net_Alias_on_an_Active_Schematic_Page">Filtering_Net_Alias_on_an_Acti ...</a></li><li style="float: right;"><a class="viewPrint" href="orctclcap.pdf">View/Print PDF</a></li><li style="float: right;margin-right: 25px;"><a class="nextd" href="Getting_Pin_Names_from_a_Library_Part.html" title="Getting_Pin_Names_from_a_Library_Part">Getting_Pin_Names_from_a_Libra ...</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>OrCAD Capture TCL Solutions<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <h1 style="margin: 4px 0 4px;"><span>Getting Library Part User properties</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>This script does the following:</p>
+<ul><li>Iterates through the specified library</li><li>Finds the specified library part in the specified library</li><li>Displays user properties on the specified library part</li></ul>
+<p>To use the script in Capture, do the following:</p>
+<ol><li>Source the script in Capture using command window, such as <code>source&#160;{D:\displyuserprop.tcl}</code>.<em><br /></em></li><li>Use the&#160;<span style="line-height: 1.42857;"><code>DisplayUserProp</code> command to get the user properties of a specified library part, such as <code>DisplayUserProp &lt;LibName&gt; &lt;PartName&gt;</code>.</span></li></ol>
+<p>&#160;</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>displyuserprop.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">proc PropertyDump { pDataBaseObj } {
+    set NullObject NULL
+    set stateObj [DboState]
+    set userPropValue [DboTclHelper_sMakeCString]
+    set userPropName [DboTclHelper_sMakeCString]
+    set userPropIter [$pDataBaseObj NewUserPropsIter $stateObj]
+    set userProp [$userPropIter NextUserProp $stateObj]
+    while {$userProp != $NullObject} {
+        $userProp GetName $userPropName
+        $userProp GetStringValue $userPropValue
+        set propMessage &quot;\t\tUser Property: &#39;[DboTclHelper_sGetConstCharPtr $userPropName]&#39; Value: &#39;[DboTclHelper_sGetConstCharPtr $userPropValue]&quot;
+        puts $propMessage
+        set userProp [$userPropIter NextUserProp $stateObj]
+    }
+}
+proc MakeLibPartDisplayProp {aCell}  {
+    
+    set lStatus [DboState]
+    set lNullObject NULL
+    
+    set lPartsIter [$aCell NewPartsIter $lStatus]
+    set lPart [$lPartsIter NextPart $lStatus]
+     
+     set lCStrPartName [DboTclHelper_sMakeCString ]
+     set lCStrPropValue [DboTclHelper_sMakeCString ]
+     set lPropFound 0
+     while {$lPart != $lNullObject} {
+        $lPart GetName $lCStrPartName
+        set lPartName [DboTclHelper_sGetConstCharPtr $lCStrPartName] 
+        puts &quot;Part Name:$lPartName&quot;
+        PropertyDump $lPart
+        
+        set lPart [$lPartsIter NextPart $lStatus]
+    }
+    delete_DboCellPartsIter $lPartsIter
+    return $lPropFound
+}
+proc MakeLibPackageDisplayProp {aLibName aPackageName}  {
+    set lSession $::DboSession_s_pDboSession
+    DboSession -this $lSession
+    
+    set lStatus [DboState]
+    set lNullObject NULL
+    set lIsLibLoaded 1
+    set lLibName [DboTclHelper_sMakeCString $aLibName]
+    
+    set lLib [$lSession GetOpenLib $lLibName $lStatus]
+    if { $lLib == $lNullObject} {
+    
+        set lIsLibLoaded 0
+        set lLib [$lSession GetLib $lLibName $lStatus]
+    }
+    
+    
+    if { $lLib == $lNullObject} {
+        puts &quot;Can&#39;t open library&quot;
+        return
+    }
+    
+    set pkgIter [$lLib NewPackagesIter $lStatus]
+    set pPkg [$pkgIter NextPackage $lStatus]
+    set lNullObj NULL
+    set pActualPkgName [DboTclHelper_sMakeCString]
+    set pPartName [DboTclHelper_sMakeCString]
+    set lFound 0
+    while {$pPkg!=$lNullObj} {
+        # Get Package Name
+        $pPkg GetName $pActualPkgName
+        set lTclPackageName [DboTclHelper_sGetConstCharPtr $pActualPkgName]
+        if {$lTclPackageName==$aPackageName} {
+            puts &quot;Found Package&quot;
+            set pDeviceIter [$pPkg NewDevicesIter $lStatus]
+            set DeviceNullObj NULL
+            set pDevice [$pDeviceIter NextDevice $lStatus]
+            while {$pDevice!=$DeviceNullObj}  {
+                set cellObj [$pDevice GetCell $lStatus]
+                set lFound [MakeLibPartDisplayProp $cellObj]
+                set pDevice [$pDeviceIter NextDevice $lStatus]
+            }
+            delete_DboPackageDevicesIter $pDeviceIter
+            break
+        }
+        set pPkg [$pkgIter NextPackage $lStatus]
+    }
+    delete_DboLibPackagesIter $pkgIter
+    if { $lFound==1 } {
+        puts &quot;Saving the Library&quot;
+        $lSession MarkAllLibForSave $lLib
+        $lSession SaveLib $lLib
+    }
+    if { $lIsLibLoaded == 0 } {
+        $lSession RemoveLib $lLib
+    }
+    DboTclHelper_sReleaseAllCreatedPtrs
+}
+proc DisplayUserProp {aLibName aPartName}  {
+    MakeLibPackageDisplayProp $aLibName $aPartName
+}</pre>
+</div>
+</div>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Filtering_Net_Alias_on_an_Active_Schematic_Page.html" id="prev" title="Filtering_Net_Alias_on_an_Active_Schematic_Page">Filtering_Net_Alias_on_an_Acti ...</a></em></b><b><em><a href="Getting_Pin_Names_from_a_Library_Part.html" id="nex" title="Getting_Pin_Names_from_a_Library_Part">Getting_Pin_Names_from_a_Libra ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" /></body></html>

@@ -1,0 +1,375 @@
+
+<html><head><title>Introduction to Basic OrCAD TCL Scripts</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2020-03-19" />
+<meta name="CreateTime" content="1584621421" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="This document provides basic scripts that can be used to do basic tasks in OrCAD Capture." />
+<meta name="DocTitle" content="OrCAD TCL Sample Scripts" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="Introduction to Basic OrCAD TCL Scripts" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="orctclsample" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2020-03-19" />
+<meta name="ModifiedTime" content="1584621421" />
+<meta name="NextFile" content="TCL_Programming_with_OrCAD_Capture_Database.html" />
+<meta name="Group" content="OrCAD Capture TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Basic_OrCAD_TCL_Sample_Snippets.html" />
+<meta name="Product" content="OrCAD Capture,Allegro Design Entry CIS," />
+<meta name="ProductFamily" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2012-2020 Cadence Design Systems Inc." />
+<meta name="Title" content="OrCAD TCL Sample Scripts -- Introduction to Basic OrCAD TCL Scripts" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="orcadtclsample174" />
+<meta name="confluence-version" content="6.13.3" />
+<meta name="ecms-plugin-version" content="03.30.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    </head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="orctclsampleTOC.html">Contents</a></li><li><a class="prev" href="Basic_OrCAD_TCL_Sample_Snippets.html" title="Basic_OrCAD_TCL_Sample_Snippets">Basic_OrCAD_TCL_Sample_Snippet ...</a></li><li style="float: right;"><a class="viewPrint" href="orctclsample.pdf">View/Print PDF</a></li><li style="float: right;margin-right: 25px;"><a class="nextd" href="TCL_Programming_with_OrCAD_Capture_Database.html" title="TCL_Programming_with_OrCAD_Capture_Database">TCL_Programming_with_OrCAD_Cap ...</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>OrCAD TCL Sample Scripts<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <div style="width: 100%; font-size: 32px; text-align: left;               font-weight: bold;">3</div>
+<h1 style="margin: 4px 0 4px;"><span>Introduction to Basic OrCAD TCL Scripts</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>This chapter describes the following basic examples to get you started with the OrCAD TCL:</p>
+<ul><li>Verifying the TCL Version and the TCL Installation</li><li>Verifying your machine basic information using TCL</li><li>OrCAD TCL Read/Write to different formats<ul><li>Reading and Writing the CSV file with TCL</li><li>Reading and Writing the SKILL or Lisp format file with TCL</li><li>Writing a JSON String using TCL</li><li>Reading a JSON string using TCL</li></ul></li></ul><h2 id="IntroductiontoBasicOrCADTCLScripts-VerifyingTCLVersionandTCLInstallation">Verifying TCL Version and TCL Installation</h2>
+
+<p>The following TCL sample script displays:</p>
+<ul><li>the installed TCL version</li><li>the path of the TCL executable file</li></ul><div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-1.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">puts &quot;Tcl version being accessed is [info tclversion]&quot;
+puts &quot;The path of Tcl is [info nameofexecutable]&quot;</pre>
+</div>
+</div>
+<h1 id="IntroductiontoBasicOrCADTCLScripts-VerifyingSystemInformationusingTCL">Verifying System Information using TCL</h1>
+
+<p>The following TCL script lists:</p>
+<ul><li>environment variables that are set in the system</li><li>basic system information, such as, processor, Windows user name, and system type</li><li>processes that are working at the time of script execution.</li></ul><div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-2.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">puts &quot;This script demonstrates the list of items to check in Tcl installation&quot;
+puts &quot;Use this script from command line or in Capture or PSpice command shells&quot;
+puts &quot;Script provides all the details on Tcl environment  and system details&quot;
+puts &quot;\n\n&quot;
+global env
+parray env
+puts &quot;------------------------------------------------------------&quot;
+puts &quot;CMD - puts ::tcl::tm::path list&quot;
+catch {puts [::tcl::tm::path list]}
+puts ------------------------------------------------------------
+puts &quot;CMD - info library&quot;
+puts [info library]
+puts ------------------------------------------------------------
+puts {&quot;CMD - $::auto_path&quot;}
+catch {puts $::auto_path}
+puts ------------------------------------------------------------
+puts {&quot;CMD - $::tcl_pkgPath&quot;}
+catch {puts $::tcl_pkgPath}
+puts ------------------------------------------------------------
+puts {&quot;CMD - $LCTLIBPATH&quot;}
+catch {puts $::env(TCLLIBPATH)}
+puts ------------------------------------------------------------
+puts &quot;CMD - info load&quot;
+puts [info load]
+puts ------------------------------------------------------------
+puts &quot;CMD - info patchlevel&quot;
+puts [info patchlevel]
+puts ------------------------------------------------------------
+puts &quot;CMD - packages names&quot;
+foreach n [package names] {
+        foreach m [package versions $n] {
+        set p [package ifneeded $n $m]
+        puts &quot;$n $m $p&quot;
+        }
+}
+puts ----------------------------------------------------------
+puts &quot;CMD - List Packages Present with version&quot;
+foreach n [package names] {
+    if { ! [catch {package present $n} v] } {
+        puts &quot;$n [package present $n]&quot;
+    }
+}
+puts ------------------------------------------------------------
+catch {puts [exec systeminfo]}
+puts ------------------------------------------------------------
+catch {puts [exec tasklist &quot;/v&quot;]}
+puts ---------------------END---------------------------------------</pre>
+</div>
+</div>
+<h1 id="IntroductiontoBasicOrCADTCLScripts-ReadingandWritingCSVFilesusingTCL">Reading and Writing CSV Files using TCL</h1>
+
+<p>You can use Comma Separated Values (CSV) file to export and import data in OrCAD Capture. The following TCL source,</p>
+<ol><li>Reads the first row content of a sample CSV file (<code>sample1.csv</code>)&#160;</li><li>Writes the content read from <code>sample1.csv</code> file to another sample CSV file (<code>sample2.csv</code>)</li></ol><div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-3.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">package require csv  
+package require struct::matrix 
+struct::matrix::matrix m
+set fd [open {sample1.csv}]
+csv::read2matrix $fd m , auto
+set chan [open {sample2.csv} w]
+::csv::writematrix m $chan
+set max_rows [m rows]
+set max_col [m columns]
+puts &quot;Rows-$max_rows&quot;
+puts &quot;Col-$max_col&quot;
+for {set i 0} {$i &lt; $max_rows} {incr i} {
+    puts &quot;Value [m get cell $i 1]&quot;
+}
+m destroy
+close $chan
+close $fd</pre>
+</div>
+</div>
+<h1 id="IntroductiontoBasicOrCADTCLScripts-ReadingandWritingSKILLorLispFilesusingTCL">Reading and Writing SKILL or Lisp Files usingTCL</h1>
+
+<p>The following TCL source locates the installation hierarchy and reads the PSpice Advanced Analysis Property File (<code>.prp</code>) from a PSpice Advanced Analysis Sample.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-4.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set cdnInstallPath [exec cds_root cds_root]
+set inputFile &quot;$cdnInstallPath\\tools\\pspice\\capture_samples\\advanls\\bpf\\bpf-PSpiceFiles\\bpf\\bpf_sch.prp&quot;
+load orCommonTcl64.dll orCommonTcl
+load &quot;$cdnInstallPath/tools/bin/orParserTcl64.dll&quot; orParser
+package require OrCommonTcl 
+package require orParser 1.0
+package provide orLispParser 1.0
+set ::printmydata 0
+namespace eval ::orLispParser {
+    namespace export processElement
+    namespace export processElementEnd
+    
+    namespace export processElementLeaf    
+}
+proc ::orLispParser::processElement { pElemName pElemVal } {
+    puts &quot;element $pElemName $pElemVal&quot;
+}
+proc ::orLispParser::processElementEnd { } {
+#    puts &quot;ElementEnd&quot;
+}
+proc ::orLispParser::processElementLeaf { pElemLeafName pElemLeafVal } {
+    puts &quot;elementleaf $pElemLeafName $pElemLeafVal&quot;
+}
+proc ::orLispParser::parseLisp { filename } {
+    ::orParseLisp $filename
+}
+puts $inputFile
+::orLispParser::parseLisp $inputFile</pre>
+</div>
+</div>
+
+<p>You can also run the above TCL source from a standalone TCL shell. To &#160;run the TCL source in a standalone TCL Shell, enter the following commands:</p>
+<ol><li><code>load &lt;orCommonTcl64.dll path&gt;</code> <code>orCommonTcl</code></li><li><code>load &lt;orParserTcl64.dll path&gt; orParser</code></li><li><code>source &lt;script path&gt;</code><br />For example, <code>source orLispParser.tcl</code></li><li><code>::orLispParser::parseLisp &lt;filename&gt;</code><br />For example, <code>::orLispParser::parseLisp d:/temp/bipolar.prp</code></li></ol><h1 id="IntroductiontoBasicOrCADTCLScripts-WritingJSONStringusingTCL">Writing JSON String using TCL</h1>
+
+<p>Using the following TCL source, you can load OrCAD packages from a Cadence installed hierarchy and create a JSON string using the&#160;<code>orPrmJSON::encode</code> command.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-5.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">load orCommonTcl64.dll orCommonTcl
+package require OrLibJSON
+set JSON_NULL \0
+set JSON_STRING \1
+set JSON_NUMBER \2
+set JSON_BOOL \3
+set JSON_ARRAY \4
+set JSON_NODE \5
+set gNullObj {}
+proc getTypeString {pType} {
+    set lRet {}
+    switch $pType $::JSON_NULL {
+        set lRet &quot;NULL&quot;
+    } $::JSON_STRING {
+        set lRet &quot;string&quot;
+    } $::JSON_NUMBER {
+        set lRet &quot;number&quot;
+    } $::JSON_BOOL {
+        set lRet &quot;bool&quot;
+    } $::JSON_ARRAY {
+        set lRet &quot;array&quot;
+    } $::JSON_NODE {
+        set lRet &quot;object&quot;
+    }
+    return $lRet
+}
+proc processArray {pNode pProcessor} {
+    set lSize [orjson_size $pNode]
+    for {set i 0} {$i &lt; $lSize} {incr i} {
+        set lNode [orjson_at $pNode $i]
+        processNode $lNode $pProcessor
+    }
+}
+proc getValue {pNode} {
+    set lValue {}
+    set lType [orjson_type $pNode]
+    switch $lType $::JSON_STRING {
+        set lValue [orjson_as_string $pNode]
+    } $::JSON_NUMBER {
+        set lValue [orjson_as_int $pNode]
+    } $::JSON_BOOL {
+        set lValue [orjson_as_bool $pNode]
+    }
+    return $lValue
+}
+proc processNode {pNode pProcessor {pLevel 0}} {
+    incr pLevel
+    set lName [orjson_name $pNode]
+    set lType [orjson_type $pNode]
+    
+    if { $lType == $::JSON_NODE} {
+        $pProcessor $lName &quot;&quot; [getTypeString $lType] $pLevel
+    }
+    if { $lType == $::JSON_ARRAY || $lType == $::JSON_NODE } { 
+        set lSize [orjson_size $pNode]
+        for {set i 0} {$i &lt; $lSize} {incr i} {
+            if { $lType == $::JSON_ARRAY || $lType == $::JSON_NODE } {
+                processNode [orjson_at $pNode $i] $pProcessor $pLevel
+            } 
+        }
+    } else {
+        $pProcessor $lName [getValue $pNode] [getTypeString $lType] $pLevel
+    }    
+}
+proc parseJSON { pInput processor } {
+    set jsonNode [orjson_parse $pInput]
+    if { $jsonNode == $::gNullObj || $jsonNode == $::JSON_NULL} {
+        puts &quot;Error on parsing JSON $jsonNode&quot;
+        return;
+    }
+    processNode $jsonNode $processor
+}</pre>
+</div>
+</div>
+<div class="confluence-information-macro confluence-information-macro-note"><span class="aui-icon aui-icon-small aui-iconfont-warning confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>To create a JSON string without using the orPrmJSON package:</p>
+
+<p><code>set jsonStr {{&quot;Libraries&quot;:[&quot;lib1&quot;,&quot;lib2&quot;,&quot;lib3&quot;,&quot;lib4&quot;,&quot;lib5&quot;]}}</code></p>
+</div>
+</div>
+<h1 id="IntroductiontoBasicOrCADTCLScripts-ReadingJSONStringusingTCL">Reading JSON String using TCL</h1>
+
+<p>The following TCL source:</p>
+<ul><li>reads a directory file list</li><li>creates a JSON string using the <code>libjson</code> API</li><li>parses the JSON string using&#160;<code>libjson</code> API</li></ul><div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-6.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">load orCommonTcl64.dll orCommonTcl
+package require OrLibJSON
+set JSON_NULL \0
+set JSON_STRING \1
+set JSON_NUMBER \2
+set JSON_BOOL \3
+set JSON_ARRAY \4
+set JSON_NODE \5
+set gNullObj {}
+proc getTypeString {pType} {
+    set lRet {}
+    switch $pType $::JSON_NULL {
+        set lRet &quot;NULL&quot;
+    } $::JSON_STRING {
+        set lRet &quot;string&quot;
+    } $::JSON_NUMBER {
+        set lRet &quot;number&quot;
+    } $::JSON_BOOL {
+        set lRet &quot;bool&quot;
+    } $::JSON_ARRAY {
+        set lRet &quot;array&quot;
+    } $::JSON_NODE {
+        set lRet &quot;object&quot;
+    }
+    return $lRet
+}
+proc processArray {pNode pProcessor} {
+    set lSize [orjson_size $pNode]
+    for {set i 0} {$i &lt; $lSize} {incr i} {
+        set lNode [orjson_at $pNode $i]
+        processNode $lNode $pProcessor
+    }
+}
+proc getValue {pNode} {
+    set lValue {}
+    set lType [orjson_type $pNode]
+    switch $lType $::JSON_STRING {
+        set lValue [orjson_as_string $pNode]
+    } $::JSON_NUMBER {
+        set lValue [orjson_as_int $pNode]
+    } $::JSON_BOOL {
+        set lValue [orjson_as_bool $pNode]
+    }
+    return $lValue
+}
+proc processNode {pNode pProcessor {pLevel 0}} {
+    incr pLevel
+    set lName [orjson_name $pNode]
+    set lType [orjson_type $pNode]
+    
+    if { $lType == $::JSON_NODE} {
+        $pProcessor $lName &quot;&quot; [getTypeString $lType] $pLevel
+    }
+    if { $lType == $::JSON_ARRAY || $lType == $::JSON_NODE } { 
+        set lSize [orjson_size $pNode]
+        for {set i 0} {$i &lt; $lSize} {incr i} {
+            if { $lType == $::JSON_ARRAY || $lType == $::JSON_NODE } {
+                processNode [orjson_at $pNode $i] $pProcessor $pLevel
+            } 
+        }
+    } else {
+        $pProcessor $lName [getValue $pNode] [getTypeString $lType] $pLevel
+    }    
+}
+proc parseJSON { pInput processor } {
+    set jsonNode [orjson_parse $pInput]
+    if { $jsonNode == $::gNullObj || $jsonNode == $::JSON_NULL} {
+        puts &quot;Error on parsing JSON $jsonNode&quot;
+        return;
+    }
+    processNode $jsonNode $processor
+}
+proc getLibrariesCallback {pName pValue pType pLevel} {
+    puts &quot;[string repeat &quot;-&quot; $pLevel] Name: $pName Value: $pValue  Type:$pType&quot;
+}
+proc getLibraries { pDirList} {
+    set root [orjson_new $::JSON_NODE]
+    set jsonObj [orjson_new $::JSON_NODE]
+    orjson_set_name $jsonObj &quot;Libraries&quot;
+    orjson_push_back $root $jsonObj
+    set jsonArray [orjson_new $::JSON_ARRAY] 
+    orjson_push_back $jsonObj $jsonArray
+    foreach {mbr} $pDirList {
+        set jsonObj [orjson_new $::JSON_NODE]
+        orjson_set_a $jsonObj $mbr
+        orjson_push_back $jsonArray $jsonObj
+    }
+    set jsontext [orjson_write $root] 
+    puts &quot;JSON String output for directories listing: \n $jsontext\n\n&quot;
+    parseJSON $jsontext getLibrariesCallback
+}
+getLibraries [glob -directory [file normalize [exec cds_root cds_root]/tools/capture/library] *.olb]</pre>
+</div>
+</div>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Basic_OrCAD_TCL_Sample_Snippets.html" id="prev" title="Basic_OrCAD_TCL_Sample_Snippets">Basic_OrCAD_TCL_Sample_Snippet ...</a></em></b><b><em><a href="TCL_Programming_with_OrCAD_Capture_Database.html" id="nex" title="TCL_Programming_with_OrCAD_Capture_Database">TCL_Programming_with_OrCAD_Cap ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" /></body></html>

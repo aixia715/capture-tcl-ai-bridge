@@ -1,0 +1,23 @@
+{"core": {
+  "data": [
+,
+    {"id":"node06","text":"Overview","parent":node0","href":"Overview.html","state":{"selected":false,"opened":false}},
+        {"id":"node117","text":"Audience","parent":"node06","href":"Overview.html#Overview-Audience","state":{"selected":false,"opened":false}},
+        {"id":"node128","text":"Prerequisites","parent":"node06","href":"Overview.html#Overview-Prerequisites","state":{"selected":false,"opened":false}},
+    {"id":"node010","text":"Introduction to the OrCAD TCL Environment","parent":node0","href":"Introduction_to_the_OrCAD_TCL_Environment.html","state":{"selected":false,"opened":false}},
+    {"id":"node011","text":"Setting up the OrCAD TCL Environment","parent":node0","href":"Setting_up_the_OrCAD_TCL_Environment.html","state":{"selected":false,"opened":false}},
+    {"id":"node012","text":"Basics of the TCL Language","parent":node0","href":"Basics_of_the_TCL_Language.html","state":{"selected":false,"opened":false}},
+        {"id":"node1113","text":"Few Rules for Substitution in TCL","parent":"node012","href":"Basics_of_the_TCL_Language.html#BasicsoftheTCLLanguage-FewRulesforSubstitutioninTCL","state":{"selected":false,"opened":false}},
+        {"id":"node1214","text":"TCL Variable Types","parent":"node012","href":"Basics_of_the_TCL_Language.html#BasicsoftheTCLLanguage-TCLVariableTypes","state":{"selected":false,"opened":false}},
+    {"id":"node016","text":"Guidelines for New OrCAD TCL Applications","parent":node0","href":"Guidelines_for_New_OrCAD_TCL_Applications.html","state":{"selected":false,"opened":false}},
+    {"id":"node017","text":"Creating OrCAD TCL Application","parent":node0","href":"Creating_OrCAD_TCL_Application.html","state":{"selected":false,"opened":false}},
+        {"id":"node1118","text":"My First TCL Source File","parent":"node017","href":"Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-MyFirstTCLSourceFile","state":{"selected":false,"opened":false}},
+            {"id":"node2119","text":"Creating the Logic","parent":"node1118","href":"Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-CreatingtheLogic","state":{"selected":false,"opened":false}},
+            {"id":"node2220","text":"Sourcing the TCL Source File","parent":"node1118","href":"Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-SourcingtheTCLSourceFile","state":{"selected":false,"opened":false}},
+            {"id":"node2321","text":"Accessing the TCL Source File from OrCAD Capture GUI","parent":"node1118","href":"Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-AccessingtheTCLSourceFilefromOrCADCaptureGUI","state":{"selected":false,"opened":false}},
+        {"id":"node1223","text":"Generating the TCL source file package","parent":"node017","href":"Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-GeneratingtheTCLsourcefilepackage","state":{"selected":false,"opened":false}},
+        {"id":"node1324","text":"Auto-loading the TCL application package","parent":"node017","href":"Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-Auto-loadingtheTCLapplicationpackage","state":{"selected":false,"opened":false}},
+        {"id":"node1425","text":"Encrypting the TCL solution","parent":"node017","href":"Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-EncryptingtheTCLsolution","state":{"selected":false,"opened":false}}
+  ]
+ }
+}

@@ -1,0 +1,121 @@
+
+<html><head><title>Basics of the TCL Language</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2020-03-19" />
+<meta name="CreateTime" content="1584621423" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="An introductory guide to OrCAD TCL." />
+<meta name="DocTitle" content="Getting Started with OrCAD TCL" />
+<meta name="DocType" content="Getting Started" />
+<meta name="FileTitle" content="Basics of the TCL Language" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="orcadtclgsg" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2020-03-19" />
+<meta name="ModifiedTime" content="1584621423" />
+<meta name="NextFile" content="Guidelines_for_New_OrCAD_TCL_Applications.html" />
+<meta name="Group" content="OrCAD Capture TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Setting_up_the_OrCAD_TCL_Environment.html" />
+<meta name="Product" content="OrCAD Capture,Allegro Design Entry CIS," />
+<meta name="ProductFamily" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2012-2020 Cadence Design Systems Inc." />
+<meta name="Title" content="Getting Started with OrCAD TCL -- Basics of the TCL Language" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="orcadtclgsg174" />
+<meta name="confluence-version" content="6.13.3" />
+<meta name="ecms-plugin-version" content="03.30.005" />
+
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    </head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="orcadtclgsgTOC.html">Contents</a></li><li><a class="prev" href="Setting_up_the_OrCAD_TCL_Environment.html" title="Setting_up_the_OrCAD_TCL_Environment">Setting_up_the_OrCAD_TCL_Envir ...</a></li><li style="float: right;"><a class="viewPrint" href="orcadtclgsg.pdf">View/Print PDF</a></li><li style="float: right;margin-right: 25px;"><a class="nextd" href="Guidelines_for_New_OrCAD_TCL_Applications.html" title="Guidelines_for_New_OrCAD_TCL_Applications">Guidelines_for_New_OrCAD_TCL_A ...</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>Getting Started with OrCAD TCL<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <div style="width: 100%; font-size: 32px; text-align: left;               font-weight: bold;">4</div>
+<h1 style="margin: 4px 0 4px;"><span>Basics of the TCL Language</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>In this chapter, you will learn some of the basic commands and concepts related to the TCL language to help you better understand the OrCAD TCL environment<a class="external-link" href="https://www.tcl.tk/doc/" rel="nofollow">.</a></p>
+
+<p>The TCL language does not have any special syntax design. Everything is based on some simple commands.</p>
+<ul><li>
+<p><code>set</code> is a command that takes 2 parameters. For example,&#160;</p>
+<pre>set a 10</pre>
+<p><br /></p>
+</li><li>
+<p>A for loop in TCL is a command that takes four parameters. For example,&#160;&#160;</p>
+<pre>for {set i 0} {$i &lt; 10} {incr i} {puts $i}</pre>
+<p><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768347/266768354.png" data-linked-resource-container-id="266768347" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="TCL_Basics1.png" data-linked-resource-id="266768354" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768347/266768354.png" /></span></p>
+</li><li>
+<p>If clause is a command. For example:</p>
+<pre>if{condition}{script} elseif {condition}{script} else {condition}{script}</pre>
+<p><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768347/266768353.png" data-linked-resource-container-id="266768347" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="TCL_Basics2.png" data-linked-resource-id="266768353" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768347/266768353.png" /></span></p>
+</li><li>
+<p>A comment is a command. For example:</p>
+<pre>#this is a comment that can be implemented as proc{#}args{}</pre></li></ul>
+<p>In the TCL language, all the data types that include&#160;integers and float, are considered strings by the TCL interpreter. For example, <code>set a 10.5</code> and <code>set a &quot;10.5&quot;</code> are same in TCL.</p>
+<div class="confluence-information-macro confluence-information-macro-information"><span class="aui-icon aui-icon-small aui-iconfont-info confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>Commands in TCL can be mapped to functions in the C language. TCL&#39;s Command name is the C&#39;s function name and parameters to a TCL command are parameters to a C function.</p>
+</div>
+</div>
+<h1 id="BasicsoftheTCLLanguage-FewRulesforSubstitutioninTCL">Few Rules for Substitution in TCL</h1>
+<ul><li>
+<p><code>$var</code> is always substituted by the value of variable <code>var</code>.</p>
+<pre>puts &quot;This is a variable myvar and its value is $myvar&quot;</pre>
+<p><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768347/266768352.png" data-linked-resource-container-id="266768347" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="TCL_Basics3.png" data-linked-resource-id="266768352" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768347/266768352.png" /></span></p>
+</li><li>
+<p>Backslash (\) allows characters to be placed in a string that would otherwise have a special meaning. A \&#8221; is substituted by &#8220;.</p>
+<pre>puts &quot;This is \&quot;Cadence\&quot;&quot;</pre>
+<p><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768347/266768351.png" data-linked-resource-container-id="266768347" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="TCL_Basics4.png" data-linked-resource-id="266768351" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768347/266768351.png" /></span></p>
+</li><li>
+<p>[command parameter(s)] &#8211; command inside brackets ([]) is evaluated first and is substituted by its result.</p>
+<pre>set commandList [lsort [info commands*]]</pre><pre>set x [format {There are all commands: %s} $commandList]</pre>
+<p><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768347/266768350.png" data-linked-resource-container-id="266768347" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="TCL_Basics5.png" data-linked-resource-id="266768350" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768347/266768350.png" /></span></p>
+</li><li>
+<p>{strings} - substitution is disabled inside parenthesis ({}), therefore <code>{string}</code> is substituted by <code>string</code> as is.</p>
+<pre>foreach {mbr} [lsort [info commands *]] {puts $mbr}</pre>
+<p><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768347/266768349.png" data-linked-resource-container-id="266768347" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="TCL_Basics6.png" data-linked-resource-id="266768349" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768347/266768349.png" /></span></p>
+</li><li>
+<p>Using the <code>eval</code> command, second substitution gets done.</p>
+<pre>set a 10</pre><pre>set mbr a</pre><pre>eval &quot;puts $mbr=$$mbr&quot;</pre>
+<p><span class="confluence-embedded-file-wrapper"><img class="confluence-embedded-image" data-base-url="https://rdwiki.cadence.com" data-image-src="attachments/266768347/266768348.png" data-linked-resource-container-id="266768347" data-linked-resource-container-version="2" data-linked-resource-content-type="image/png" data-linked-resource-default-alias="TCL_Basics7.png" data-linked-resource-id="266768348" data-linked-resource-type="attachment" data-linked-resource-version="1" data-unresolved-comment-count="0" src="attachments/266768347/266768348.png" /></span></p>
+
+<p><br /></p>
+</li></ul><h1 id="BasicsoftheTCLLanguage-TCLVariableTypes">TCL Variable Types</h1>
+<ul><li>
+<p><strong>Simple Variable Type</strong></p>
+<pre>set x &quot;This is a simple variable&quot;</pre></li><li>
+<p><strong>Associative Array</strong>: used to store data</p>
+<pre>set matrix(3,5) 35.2</pre><pre>set matrix(&quot;name&quot;) &quot;Cadence Design Systems&quot;</pre><pre>parray matrix</pre></li><li>
+<p><strong>Global Variables</strong>: creates a global variable that can be accessed as <code>$::myvar</code></p>
+<pre>global myvar</pre></li><li>
+<p><strong>Namespace Variables</strong>: limits a variable to a particular namespace</p>
+<pre>variable myvar</pre></li></ul>
+<p><br /></p>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Setting_up_the_OrCAD_TCL_Environment.html" id="prev" title="Setting_up_the_OrCAD_TCL_Environment">Setting_up_the_OrCAD_TCL_Envir ...</a></em></b><b><em><a href="Guidelines_for_New_OrCAD_TCL_Applications.html" id="nex" title="Guidelines_for_New_OrCAD_TCL_Applications">Guidelines_for_New_OrCAD_TCL_A ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" /></body></html>

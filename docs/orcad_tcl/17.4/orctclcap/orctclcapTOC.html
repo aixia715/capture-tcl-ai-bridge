@@ -1,0 +1,291 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN" "http://www.w3.org/MarkUp/Wilbur/HTML32.dtd">
+<html xmlns="http://www.w3.org/MarkUp/Wilbur/HTML32.dtd">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+    <title>Table of Contents</title><META NAME="Approver" CONTENT="Technical Publications">
+<META NAME="Approver" CONTENT="Technical Publications">
+<META NAME="Author" CONTENT="Technical Publications">
+<META NAME="CreateDate" CONTENT="2020-03-19">
+<META NAME="CreateTime" CONTENT="1584621438">
+<META NAME="DataType" CONTENT="Manuals">
+<META NAME="Description" CONTENT="Provides most common TCL scripts that can be directly used.">
+<META NAME="DocTitle" CONTENT="OrCAD Capture TCL Solutions">
+<META NAME="DocType" CONTENT="Reference">
+<META NAME="FileTitle" CONTENT="Table of Contents">
+<META NAME="FileType" CONTENT="TOC">
+<META NAME="Keyword" CONTENT="orctclcap">
+<META NAME="Language" CONTENT="English">
+<META NAME="ModifiedDate" CONTENT="2020-03-19">
+<META NAME="ModifiedTime" CONTENT="1584621438">
+<META NAME="NextFile" CONTENT="Automating_Common_OrCAD_Tasks_using_TCL_Scripts.html">
+<META NAME="Group" CONTENT="OrCAD Capture TCL Scripting">
+<META NAME="Platform" CONTENT="Silicon-Package-Board Co-Design,">
+<META NAME="PrevFile" CONTENT="">
+<META NAME="Product" CONTENT="OrCAD Capture,Allegro Design Entry CIS,">
+<META NAME="ProductFamily" CONTENT="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design,">
+<META NAME="ProductVersion" CONTENT="17.4-2019">
+<META NAME="RightsManagement" CONTENT="Copyright 2012-2020 Cadence Design Systems Inc.">
+<META NAME="Title" CONTENT="OrCAD Capture TCL Solutions -- Table of Contents">
+<META NAME="Version" CONTENT="17.4-2019">
+<META NAME="Renderer" CONTENT="WIKI">
+<META NAME="SpaceKey" CONTENT="orcadcaptcl174">
+<META NAME="confluence-version" CONTENT="6.13.3">
+<META NAME="ecms-plugin-version" CONTENT="03.30.005">
+
+ <style>
+  p, dl, dd {
+  line-height: 1.25;
+  margin-top: 7px;
+  margin-bottom: 7px;
+  }
+   dd {
+   display: block;
+    }</style>
+
+    <script type="text/javascript" src="styles/jquery.js"></script>
+    <script type="text/javascript">
+      $.noConflict();
+      jQuery( document ).ready(function ( $ ) {
+
+          $("div").find("h2>a:nth-child(2)").parent().addClass("demo expand");
+          $("h2.demo").parent().before("<div class='showTree expand'></div>");
+
+          $("h2.demo").nextUntil("h2.demo").toggleClass("expand");  
+          $(".showTree").attr('title','Collapse All');
+
+          $(".demo").click(function(){
+            var h2 = this;
+            $(h2).toggleClass("expand");
+            $(h2).nextUntil("h2").toggleClass("hidden");        
+            })  
+
+          $(".showTree").click(function(){
+            $(".showTree").toggleClass("expand");
+            if($(".showTree").hasClass("expand")){
+            $(this).attr('title','Collapse All');
+            $("h2.demo").addClass("expand");
+            $("h2.demo").nextUntil("h2.demo").removeClass("hidden");  
+            }
+            else{
+            $(this).attr('title','Expand All');
+            $("h2.demo").removeClass("expand");
+            $("h2.demo").nextUntil("h2.demo").addClass("hidden");  
+
+            }    
+            });
+      });
+
+    </script>
+<style>
+  .showTree:before{content:'+';display: inline-block;margin:-5px -20px -15px 0px;font-size:16pt;font-weight:bold;color:green;background: #e8e8e8;
+  width: 23px;
+  height: 23px;
+  text-align: center;
+  border: 1px solid green;}
+  .showTree.expand:before{content:'-';}
+
+  .demo:before{background:#5896ff;margin-right: 10px;border-radius:50%;color:#fff;content:'\276f';font-size:8pt;display: inline-block;padding: 1px 0;
+    text-align: center;
+    height: 15px;
+    width: 16px;}
+
+  .demo ~ p {
+    margin-left: 32px;
+  }
+
+  .showTree+div>h2:first-child {
+     display: none;
+   }
+   .showTree.expand+div>h2:first-child { 
+     display:block;
+   }
+
+  dd {
+    margin-left: 60px;
+  }
+
+  @-moz-document url-prefix() {
+    dd {
+      margin-inline-start: 20px;
+    }
+    dl {
+      margin-inline-start: 40px;
+    }
+  }
+
+  h2.demo.expand:before{
+    -webkit-transform: rotate(90deg);
+    -moz-transform: rotate(90deg);
+    -o-transform: rotate(90deg);
+    -ms-transform: rotate(90deg);
+    transform: rotate(90deg);
+    padding: 1px 1px;
+    width: 15px;
+  }
+  h2.demo:before{
+  }
+  .hidden{
+    display:none;
+  }
+  p, dl, dd {
+    line-height: 1.25;
+    margin-top: 7px;
+    margin-bottom: 7px;
+  }
+
+  .docHeadr {  
+    color: #666; 
+    padding: 7px 0 10px 42px;
+    background: url(./images/file2.png) no-repeat 10px 6px; 
+    background-size: 25px 25px; 
+  } 
+
+
+  nav.blueHead ul { 
+    padding: 0;
+    margin: 0; 
+  }   
+  .docHeadr>img { 
+    width: 90px; 
+    float: right; 
+    margin: 4px 15px; 
+  }  
+  nav.blueHead {background: #26abe4;} 
+  nav.blueHead a{ color: #fff;text-decoration: none;padding: 5px 24px;}    
+  nav.blueHead ul{ 
+    padding: 0; 
+    margin: 0; 
+  }     
+  nav.blueHead li{ 
+    display: inline-block; 
+    padding: 12px 5px;
+    margin: 0 15px;  
+  }  
+  footer nav.blueHead li { 
+    padding: 8px 5px; 
+  } 
+  .blueHead a.prev { 
+    background: url(./images/arrows2.png) no-repeat 0px center;background-size: 24px 24px; 
+  }
+  .blueHead a.content{
+    background: url(./images/document-content.png) no-repeat 0px center;background-size: 20px 20px; 
+  }  
+
+  .blueHead a.viewPrint{ 
+    background: url(./images/printerV.png) no-repeat 0px center;background-size: 20px 20px; 
+  } 
+
+  .blueHead a.nextd{
+  background: url(./images/arrows.png) no-repeat right center;background-size: 24px 24px; 
+  } 
+
+  footer a { 
+  text-decoration: none;   
+  color: #336699;    
+  font-size: 10.5pt;
+  }  
+  footer>div {  
+  font-size: 80%; 
+  color: #666;  
+  margin: 5px; 
+  text-align: center; 
+  border-top: 1px solid #eee;    
+  } 
+  footer nav {  
+  margin: 20px;
+}
+footer a#prev, footer a#nex {                                                                                                
+  color: #000;                                                                                                               
+  background: url(./images/left-arrowB.png) no-repeat left center;                                                          
+  background-size: 20px 20px;                                                                                                
+  padding: 1px 25px;                                                                                                         
+  opacity: 0.7;                                                                                                              
+  font-size: 10.5pt;                                                                                                         
+}                                                                                                                            
+
+footer a#nex {                                                                                                               
+  background: url(./images/right-arrowB.png) no-repeat right center;                                                        
+  background-size: 20px 20px;                                                                                                
+  float: right;                                                                                                              
+  margin: 0;                                                                                                                 
+}   
+</style>
+
+  </head>
+  <body style="background-color: #FFFFFF;">
+    <a name="pagetop"></a>
+    <a name="firstpage"></a>
+    <!-- Begin Buttons -->
+    <header>                                                                                                                 
+    <div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>                                 
+    <nav class="blueHead">                                                                                                 
+    <ul>                                                                                                                 
+      <li><a class="content">Contents</a></li>                                                        
+      <li><a href="titlecopy.html" class="prev" title="Titlecopy">titlecopy</a></li>                                                                                                       
+      <li style="float: right;"><a href="orctclcap.pdf" class="viewPrint">View/Print PDF</a></li>                               
+      <li style="float: right;margin-right: 25px;"><a href="Automating_Common_OrCAD_Tasks_using_TCL_Scripts.html" class="nextd" title="Next">Next</a></li>                                                                         
+
+    </ul>                                                                                                                
+    </nav>                                                                                                                 
+    </header> 
+    <!-- End Buttons -->
+    <div style="margin-left:5%;">
+    <p>
+    <p>
+      <h4>
+        <center>
+          <font >
+            <div>OrCAD Capture TCL Solutions</div>
+            <font >
+              <div>Product Version 17.4-2019  October 2019</div>
+            </font>
+          </font>
+        </center>
+      </h4>
+      <br>
+    </p><h1>Contents</h1>
+    <div>
+      <h2><a href="Automating_Common_OrCAD_Tasks_using_TCL_Scripts.html" title="Automating Common OrCAD Tasks using TCL Scripts" name="99512"><font color="#0000ff"><u>1</u></font>
+</a></h2>
+      <h2> <a name=""></a><a href="Automating_Common_OrCAD_Tasks_using_TCL_Scripts.html" title="Automating Common OrCAD Tasks using TCL Scripts" name="853051"><font color="#0000ff"><u>Automating Common OrCAD Tasks using TCL Scripts</u></font></a><font color="#000000">  </font><font color="#000000"></font></h2>
+      <p> <a name=""></a><a href="Adding_a_New_Property_to_a_Selected_Part.html" title="Adding a New Property to a Selected Part" name="46284"><font color="#0000ff"><u>Adding a New Property to a Selected Part</u></font></a></p>
+      <p> <a name=""></a><a href="Modifying_Pin_Name_or_Number_in_a_library.html" title="Modifying Pin Name or Number in a library" name="46284"><font color="#0000ff"><u>Modifying Pin Name or Number in a library</u></font></a></p>
+      <p> <a name=""></a><a href="Verifying_the_Selected_Object_as_a_Library_or_Not.html" title="Verifying the Selected Object as a Library or Not" name="46284"><font color="#0000ff"><u>Verifying the Selected Object as a Library or Not</u></font></a></p>
+      <p> <a name=""></a><a href="Creating_Capture_CIS_BOM_from_the_Windows_Command_Prompt.html" title="Creating Capture CIS BOM from the Windows Command Prompt" name="46284"><font color="#0000ff"><u>Creating Capture CIS BOM from the Windows Command Prompt</u></font></a></p>
+      <dl><dd><dl><dd> <a name=""></a><a href="Creating_Capture_CIS_BOM_from_the_Windows_Command_Prompt.html#CreatingCaptureCISBOMfromtheWindowsCommandPrompt-xmldialogsettingsStandardBillofMaterialsdialogboxXMLdialogsettings" title="Standard Bill of Materials dialog box XML dialog settings" name="46288"><font color="#0000ff"><u>Standard Bill of Materials dialog box XML dialog settings</u></font></a></dd></dl></dd></dl>
+      <p> <a name=""></a><a href="Defining_a_property_for_selected_occurrence_parts.html" title="Defining a property for selected occurrence parts" name="46284"><font color="#0000ff"><u>Defining a property for selected occurrence parts</u></font></a></p>
+      <p> <a name=""></a><a href="Filtering_Net_Alias_on_an_Active_Schematic_Page.html" title="Filtering Net Alias on an Active Schematic Page" name="46284"><font color="#0000ff"><u>Filtering Net Alias on an Active Schematic Page</u></font></a></p>
+      <p> <a name=""></a><a href="Getting_Library_Part_User_properties.html" title="Getting Library Part User properties" name="46284"><font color="#0000ff"><u>Getting Library Part User properties</u></font></a></p>
+      <p> <a name=""></a><a href="Getting_Pin_Names_from_a_Library_Part.html" title="Getting Pin Names from a Library Part" name="46284"><font color="#0000ff"><u>Getting Pin Names from a Library Part</u></font></a></p>
+      <p> <a name=""></a><a href="Getting_the_Occurrence_Object_of_a_Selected_Part.html" title="Getting the Occurrence Object of a Selected Part" name="46284"><font color="#0000ff"><u>Getting the Occurrence Object of a Selected Part</u></font></a></p>
+      <p> <a name=""></a><a href="Listing_Properties_of_the_Selected_Object_in_a_Schematic_Page.html" title="Listing Properties of the Selected Object in a Schematic Page" name="46284"><font color="#0000ff"><u>Listing Properties of the Selected Object in a Schematic Page</u></font></a></p>
+      <p> <a name=""></a><a href="Selecting_a_Net_in_a_Schematic_Page_using_Net_Name.html" title="Selecting a Net in a Schematic Page using Net Name" name="46284"><font color="#0000ff"><u>Selecting a Net in a Schematic Page using Net Name</u></font></a></p>
+      <p> <a name=""></a><a href="Setting_the_Implementation_Type_on_a_Part_to_a_Specfic_Value.html" title="Setting the Implementation Type on a Part to a Specfic Value" name="46284"><font color="#0000ff"><u>Setting the Implementation Type on a Part to a Specfic Value</u></font></a></p>
+      <p> <a name=""></a><a href="Displaying_Selected_Objects_Name_and_Location.html" title="Displaying Selected Objects Name and Location" name="46284"><font color="#0000ff"><u>Displaying Selected Objects Name and Location</u></font></a></p>
+      <p> <a name=""></a><a href="Modifying_Selected_Wire_Color_and_Width.html" title="Modifying Selected Wire Color and Width" name="46284"><font color="#0000ff"><u>Modifying Selected Wire Color and Width</u></font></a></p>
+      <p> <a name=""></a><a href="Adding_Property_to_a_Selected_Wire.html" title="Adding Property to a Selected Wire" name="46284"><font color="#0000ff"><u>Adding Property to a Selected Wire</u></font></a></p>
+      <h2><a href="Common_Tips_and_Tricks.html" title="Common Tips and Tricks" name="99512"><font color="#0000ff"><u>2</u></font>
+</a></h2>
+      <h2> <a name=""></a><a href="Common_Tips_and_Tricks.html" title="Common Tips and Tricks" name="853051"><font color="#0000ff"><u>Common Tips and Tricks</u></font></a><font color="#000000">  </font><font color="#000000"></font></h2>
+
+
+    </div>
+    <br>
+    <br>
+    <a href="#pagetop">Return to top of page</a>
+    <br>
+  </div>
+   
+    <footer>                                                                                                               
+    <nav class="navigation">                                                                                             
+    <b><em><a href="#pagetop" id="prev" title="TOC">^ </a></em></b>  
+    <b><em><a href="Automating_Common_OrCAD_Tasks_using_TCL_Scripts.html" id="nex" title="Next">Next</a></em></b>  
+    </nav>  
+    <div>  
+      For further assistance, contact <a href="https://support.cadence.com" >Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.                               
+    </div>  
+    </footer>
+     
+    <br>
+  </body>
+</html>

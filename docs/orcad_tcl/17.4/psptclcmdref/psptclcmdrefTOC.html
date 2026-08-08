@@ -1,0 +1,446 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN" "http://www.w3.org/MarkUp/Wilbur/HTML32.dtd">
+<html xmlns="http://www.w3.org/MarkUp/Wilbur/HTML32.dtd">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+    <title>Table of Contents</title><META NAME="Approver" CONTENT="Technical Publications">
+<META NAME="Approver" CONTENT="Technical Publications">
+<META NAME="Author" CONTENT="Technical Publications">
+<META NAME="CreateDate" CONTENT="2022-08-28">
+<META NAME="CreateTime" CONTENT="1661753446">
+<META NAME="DataType" CONTENT="Manuals">
+<META NAME="Description" CONTENT="">
+<META NAME="DocTitle" CONTENT="PSpice TCL Command Reference">
+<META NAME="DocType" CONTENT="Reference">
+<META NAME="FileTitle" CONTENT="Table of Contents">
+<META NAME="FileType" CONTENT="TOC">
+<META NAME="Keyword" CONTENT="psptclcmdref">
+<META NAME="Language" CONTENT="English">
+<META NAME="ModifiedDate" CONTENT="2022-08-28">
+<META NAME="ModifiedTime" CONTENT="1661753446">
+<META NAME="NextFile" CONTENT="Introduction.html">
+<META NAME="Group" CONTENT="PSpice TCL Scripting">
+<META NAME="Platform" CONTENT="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design,">
+<META NAME="PrevFile" CONTENT="">
+<META NAME="c_product" CONTENT="PSpice,Allegro PSpice Simulator,">
+<META NAME="Product" CONTENT="PSpice,Allegro PSpice Simulator,">
+<META NAME="ProductFamily" CONTENT="PSpice,Allegro PSpice Simulator,">
+<META NAME="ProductVersion" CONTENT="17.4-2019">
+<META NAME="RightsManagement" CONTENT="Copyright 2022 Cadence Design Systems Inc.">
+<META NAME="Title" CONTENT="PSpice TCL Command Reference -- Table of Contents">
+<META NAME="Version" CONTENT="17.4-2019">
+<META NAME="Renderer" CONTENT="WIKI">
+<META NAME="SpaceKey" CONTENT="psptclcmdref174">
+<META NAME="confluence-version" CONTENT="7.4.1">
+<META NAME="ecms-plugin-version" CONTENT="04.10.005">
+
+ <style>
+  p, dl, dd {
+  line-height: 1.25;
+  margin-top: 7px;
+  margin-bottom: 7px;
+  }
+   dd {
+   display: block;
+    }</style>
+
+    <script type="text/javascript" src="styles/jquery.js"></script>
+    <script type="text/javascript">
+      $.noConflict();
+      jQuery( document ).ready(function ( $ ) {
+
+          $("div").find("h2>a:nth-child(2)").parent().addClass("demo expand");
+          $("h2.demo").parent().before("<div class='showTree expand'></div>");
+
+          $("h2.demo").nextUntil("h2.demo").toggleClass("expand");  
+          $(".showTree").attr('title','Collapse All');
+
+          $(".demo").click(function(){
+            var h2 = this;
+            $(h2).toggleClass("expand");
+            $(h2).nextUntil("h2").toggleClass("hidden");        
+            })  
+
+          $(".showTree").click(function(){
+            $(".showTree").toggleClass("expand");
+            if($(".showTree").hasClass("expand")){
+            $(this).attr('title','Collapse All');
+            $("h2.demo").addClass("expand");
+            $("h2.demo").nextUntil("h2.demo").removeClass("hidden");  
+            }
+            else{
+            $(this).attr('title','Expand All');
+            $("h2.demo").removeClass("expand");
+            $("h2.demo").nextUntil("h2.demo").addClass("hidden");  
+
+            }    
+            });
+      });
+
+    </script>
+<style>
+  .showTree:before{content:'+';display: inline-block;margin:-5px -20px -15px 0px;font-size:16pt;font-weight:bold;color:green;background: #e8e8e8;
+  width: 23px;
+  height: 23px;
+  text-align: center;
+  border: 1px solid green;}
+  .showTree.expand:before{content:'-';}
+
+  .demo:before{background:#5896ff;margin-right: 10px;border-radius:50%;color:#fff;content:'\276f';font-size:8pt;display: inline-block;padding: 1px 0;
+    text-align: center;
+    height: 15px;
+    width: 16px;}
+
+  .demo ~ p {
+    margin-left: 32px;
+  }
+
+  .showTree+div>h2:first-child {
+     display: none;
+   }
+   .showTree.expand+div>h2:first-child { 
+     display:block;
+   }
+
+  dd {
+    margin-left: 60px;
+  }
+
+  @-moz-document url-prefix() {
+    dd {
+      /*margin-inline-start: 20px;*/
+      text-indent: 45px;
+      margin-left: 15;
+    }
+    dl > dd {
+      text-indent: 0;
+      margin-left: 60px;
+    }
+    /*dl {
+      margin-inline-start: 40px;
+    }*/
+  }
+
+  h2.demo.expand:before{
+    -webkit-transform: rotate(90deg);
+    -moz-transform: rotate(90deg);
+    -o-transform: rotate(90deg);
+    -ms-transform: rotate(90deg);
+    transform: rotate(90deg);
+    padding: 1px 1px;
+    width: 15px;
+  }
+  h2.demo:before{
+  }
+  .hidden{
+    display:none;
+  }
+  p, dl, dd {
+    line-height: 1.25;
+    margin-top: 7px;
+    margin-bottom: 7px;
+  }
+
+  .docHeadr {  
+    color: #666; 
+    padding: 7px 0 10px 42px;
+    background: url(./images/file2.png) no-repeat 10px 6px; 
+    background-size: 25px 25px; 
+  } 
+
+
+  nav.blueHead ul { 
+    padding: 0;
+    margin: 0; 
+  }   
+  .docHeadr>img { 
+    width: 90px; 
+    float: right; 
+    margin: 4px 15px; 
+  }  
+  nav.blueHead {background: #26abe4;} 
+  nav.blueHead a{ color: #fff;text-decoration: none;padding: 5px 24px;}    
+  nav.blueHead ul{ 
+    padding: 0; 
+    margin: 0; 
+  }     
+  nav.blueHead li{ 
+    display: inline-block; 
+    padding: 12px 5px;
+    margin: 0 15px;  
+  }  
+  footer nav.blueHead li { 
+    padding: 8px 5px; 
+  } 
+  .blueHead a.prev { 
+    background: url(./images/arrows2.png) no-repeat 0px center;background-size: 24px 24px; 
+  }
+  .blueHead a.content{
+    background: url(./images/document-content.png) no-repeat 0px center;background-size: 20px 20px; 
+  }  
+
+  .blueHead a.viewPrint{ 
+    background: url(./images/printerV.png) no-repeat 0px center;background-size: 20px 20px; 
+  } 
+
+  .blueHead a.nextd{
+  background: url(./images/arrows.png) no-repeat right center;background-size: 24px 24px; 
+  } 
+
+  footer a { 
+  text-decoration: none;   
+  color: #336699;    
+  font-size: 10.5pt;
+  }  
+  footer>div {  
+  font-size: 80%; 
+  color: #666;  
+  margin: 5px; 
+  text-align: center; 
+  border-top: 1px solid #eee;    
+  } 
+  footer nav {  
+  margin: 20px;
+}
+footer a#prev, footer a#nex {                                                                                                
+  color: #000;                                                                                                               
+  background: url(./images/left-arrowB.png) no-repeat left center;                                                          
+  background-size: 20px 20px;                                                                                                
+  padding: 1px 25px;                                                                                                         
+  opacity: 0.7;                                                                                                              
+  font-size: 10.5pt;                                                                                                         
+}                                                                                                                            
+
+footer a#nex {                                                                                                               
+  background: url(./images/right-arrowB.png) no-repeat right center;                                                        
+  background-size: 20px 20px;                                                                                                
+  float: right;                                                                                                              
+  margin: 0;                                                                                                                 
+}   
+/*CSS to control display of header on smaller screen size*/
+@media only screen and (max-width:780px) {
+  .docHeadr {
+    display: none;
+  }
+  img {
+    max-width: 100%;
+  }
+  nav.blueHead li:first-child, nav.bluehead li:nth-child(3),ul a.content, ul a.viewPrint {
+    position:absolute;
+    top: 0px;
+    right: 20px;
+    width: 0;
+    background-color: #26abe4 !important;
+    width:20px;
+    height:20px;
+    padding: 3px;
+    background-position: center center !important;
+  }
+  .blueHead a {
+    font-size: 10.5pt;
+    max-width: 100%;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    display: block;
+    white-space: nowrap;
+  }
+  ul a.content, ul a.viewPrint { opacity: 0; }
+  nav.blueHead li:first-child {
+    background: url(./images/document-content.png) no-repeat 0px center;
+    background-size: 20px 20px;
+    right: 50px;
+  }
+  nav.bluehead li:nth-child(3) {
+    background: url(./images/printerV.png) no-repeat 0px center;
+    background-size: 20px 20px;
+  }
+  nav.blueHead { margin-top: 20px; }
+  nav.blueHead li { margin: 0 !important; }
+  nav.blueHead li:nth-child(2),nav.blueHead li:nth-child(4) { width: calc(50% - 10px); }
+  nav.blueHead a.nextd {
+    padding-left: 5px;
+    box-sizing: border-box;
+  }
+  nav.blueHead li:nth-child(4) {
+    text-align:right;
+  }
+}
+/*CSS End*/
+</style>
+
+  </head>
+  <body style="background-color: #FFFFFF;">
+    <a name="pagetop"></a>
+    <a name="firstpage"></a>
+    <!-- Begin Buttons -->
+    <header>                                                                                                                 
+    <div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>                                 
+    <nav class="blueHead">                                                                                                 
+    <ul>                                                                                                                 
+      <li><a class="content">Contents</a></li>                                                        
+      <li><a href="titlecopy.html" class="prev" title="Titlecopy">titlecopy</a></li>                                                                                                       
+      <li style="float: right;"><a href="psptclcmdref.pdf" class="viewPrint">View/Print PDF</a></li>                               
+      <li style="float: right;margin-right: 25px;"><a href="Introduction.html" class="nextd" title="Next">Next</a></li>                                                                         
+
+    </ul>                                                                                                                
+    </nav>                                                                                                                 
+    </header> 
+    <!-- End Buttons -->
+    <div style="margin-left:5%;">
+    <p>
+    <p>
+      <h4>
+        <center>
+          <font >
+            <div>PSpice TCL Command Reference</div>
+            <font >
+              <div>Product Version 17.4-2019  October 2019</div>
+            </font>
+          </font>
+        </center>
+      </h4>
+      <br>
+    </p><h1>Contents</h1>
+    <div>
+      <h2><a href="Introduction.html" title="Introduction" name="99512">1
+</a></h2>
+      <h2> <a name=""></a><a href="Introduction.html" title="Introduction" name="853051">Introduction</a></h2>
+      <h2><a href="Accessing_PSpice_using_TCL_Commands.html" title="Accessing PSpice using TCL Commands" name="99512">2
+</a></h2>
+      <h2> <a name=""></a><a href="Accessing_PSpice_using_TCL_Commands.html" title="Accessing PSpice using TCL Commands" name="853051">Accessing PSpice using TCL Commands</a></h2>
+      <p> <a name=""></a><a href="PSpiceACSetup.html" title="PSpiceACSetup" name="46284">PSpiceACSetup</a></p>
+      <p> <a name=""></a><a href="PSpiceBanner.html" title="PSpiceBanner" name="46284">PSpiceBanner</a></p>
+      <p> <a name=""></a><a href="PSpiceBuildLibIndex.html" title="PSpiceBuildLibIndex" name="46284">PSpiceBuildLibIndex</a></p>
+      <p> <a name=""></a><a href="PSpiceCommandDo.html" title="PSpiceCommandDo" name="46284">PSpiceCommandDo</a></p>
+      <p> <a name=""></a><a href="PSpiceCurrentTime.html" title="PSpiceCurrentTime" name="46284">PSpiceCurrentTime</a></p>
+      <p> <a name=""></a><a href="PSpiceDoAnalysis.html" title="PSpiceDoAnalysis" name="46284">PSpiceDoAnalysis</a></p>
+      <p> <a name=""></a><a href="PSpiceGetModel.html" title="PSpiceGetModel" name="46284">PSpiceGetModel</a></p>
+      <p> <a name=""></a><a href="PSpiceGetVoltage.html" title="PSpiceGetVoltage" name="46284">PSpiceGetVoltage</a></p>
+      <p> <a name=""></a><a href="PSpiceParamGetValue.html" title="PSpiceParamGetValue" name="46284">PSpiceParamGetValue</a></p>
+      <p> <a name=""></a><a href="PSpiceParamSetValue.html" title="PSpiceParamSetValue" name="46284">PSpiceParamSetValue</a></p>
+      <p> <a name=""></a><a href="PSpiceSaveSimulationState.html" title="PSpiceSaveSimulationState" name="46284">PSpiceSaveSimulationState</a></p>
+      <p> <a name=""></a><a href="PSpiceSetCallback.html" title="PSpiceSetCallback" name="46284">PSpiceSetCallback</a></p>
+      <p> <a name=""></a><a href="PSpiceSetLicenseBatchMode.html" title="PSpiceSetLicenseBatchMode" name="46284">PSpiceSetLicenseBatchMode</a></p>
+      <p> <a name=""></a><a href="PSpiceSetProbeTitle.html" title="PSpiceSetProbeTitle" name="46284">PSpiceSetProbeTitle</a></p>
+      <p> <a name=""></a><a href="PSpiceSetSimulationTemperature.html" title="PSpiceSetSimulationTemperature" name="46284">PSpiceSetSimulationTemperature</a></p>
+      <p> <a name=""></a><a href="PSpiceSetupAnalysis.html" title="PSpiceSetupAnalysis" name="46284">PSpiceSetupAnalysis</a></p>
+      <p> <a name=""></a><a href="PSpiceTranEnd.html" title="PSpiceTranEnd" name="46284">PSpiceTranEnd</a></p>
+      <p> <a name=""></a><a href="PSpiceTranNextTime.html" title="PSpiceTranNextTime" name="46284">PSpiceTranNextTime</a></p>
+      <p> <a name=""></a><a href="PSpiceTranRun.html" title="PSpiceTranRun" name="46284">PSpiceTranRun</a></p>
+      <p> <a name=""></a><a href="SetAppendDatMode.html" title="SetAppendDatMode" name="46284">SetAppendDatMode</a></p>
+      <p> <a name=""></a><a href="PSpiceSimulationPercent.html" title="PSpiceSimulationPercent" name="46284">PSpiceSimulationPercent</a></p>
+      <p> <a name=""></a><a href="PSpiceSimulationTime.html" title="PSpiceSimulationTime" name="46284">PSpiceSimulationTime</a></p>
+      <p> <a name=""></a><a href="ConvergenceFailure.html" title="ConvergenceFailure" name="46284">ConvergenceFailure</a></p>
+      <h2><a href="Accessing_PSpice_Data_Files_using_TCL_Commands.html" title="Accessing PSpice Data Files using TCL Commands" name="99512">3
+</a></h2>
+      <h2> <a name=""></a><a href="Accessing_PSpice_Data_Files_using_TCL_Commands.html" title="Accessing PSpice Data Files using TCL Commands" name="853051">Accessing PSpice Data Files using TCL Commands</a></h2>
+      <p> <a name=""></a><a href="addBlock.html" title="addBlock" name="46284">addBlock</a></p>
+      <p> <a name=""></a><a href="addDataName.html" title="addDataName" name="46284">addDataName</a></p>
+      <p> <a name=""></a><a href="addDataPoint.html" title="addDataPoint" name="46284">addDataPoint</a></p>
+      <p> <a name=""></a><a href="addTimePoint.html" title="addTimePoint" name="46284">addTimePoint</a></p>
+      <p> <a name=""></a><a href="calculateBH.html" title="calculateBH" name="46284">calculateBH</a></p>
+      <p> <a name=""></a><a href="close.html" title="close" name="46284">close</a></p>
+      <p> <a name=""></a><a href="closeBlock.html" title="closeBlock" name="46284">closeBlock</a></p>
+      <p> <a name=""></a><a href="closeFile.html" title="closeFile" name="46284">closeFile</a></p>
+      <p> <a name=""></a><a href="create.html" title="create" name="46284">create</a></p>
+      <p> <a name=""></a><a href="Evaluate.html" title="Evaluate" name="46284">Evaluate</a></p>
+      <p> <a name=""></a><a href="get.html" title="get" name="46284">get</a></p>
+      <p> <a name=""></a><a href="getDataNames.html" title="getDataNames" name="46284">getDataNames</a></p>
+      <p> <a name=""></a><a href="getJSON.html" title="getJSON" name="46284">getJSON</a></p>
+      <p> <a name=""></a><a href="getNumberofBlocks.html" title="getNumberofBlocks" name="46284">getNumberofBlocks</a></p>
+      <p> <a name=""></a><a href="loadFile.html" title="loadFile" name="46284">loadFile</a></p>
+      <p> <a name=""></a><a href="setBlock.html" title="setBlock" name="46284">setBlock</a></p>
+      <p> <a name=""></a><a href="setHeaderData.html" title="setHeaderData" name="46284">setHeaderData</a></p>
+      <h2><a href="Accessing_PSpice_Advanced_Analysis_Design_Database_using_TCL_commands.html" title="Accessing PSpice Advanced Analysis Design Database using TCL commands" name="99512">4
+</a></h2>
+      <h2> <a name=""></a><a href="Accessing_PSpice_Advanced_Analysis_Design_Database_using_TCL_commands.html" title="Accessing PSpice Advanced Analysis Design Database using TCL commands" name="853051">Accessing PSpice Advanced Analysis Design Database using TCL commands</a></h2>
+      <p> <a name=""></a><a href="PSAAReader_enableAAInst_TclEval.html" title="PSAAReader_enableAAInst_TclEval" name="46284">PSAAReader_enableAAInst_TclEval</a></p>
+      <p> <a name=""></a><a href="PSAAReader_enableAAInstDevSmoke.html" title="PSAAReader_enableAAInstDevSmoke" name="46284">PSAAReader_enableAAInstDevSmoke</a></p>
+      <p> <a name=""></a><a href="PSAAReader_getAAInstParam.html" title="PSAAReader_getAAInstParam" name="46284">PSAAReader_getAAInstParam</a></p>
+      <p> <a name=""></a><a href="PSAAReader_getAAInstParam_Val.html" title="PSAAReader_getAAInstParam_Val" name="46284">PSAAReader_getAAInstParam_Val</a></p>
+      <p> <a name=""></a><a href="PSAAReader_getAAVar.html" title="PSAAReader_getAAVar" name="46284">PSAAReader_getAAVar</a></p>
+      <p> <a name=""></a><a href="PSAAReader_getPSpiceInstParam.html" title="PSAAReader_getPSpiceInstParam" name="46284">PSAAReader_getPSpiceInstParam</a></p>
+      <p> <a name=""></a><a href="PSAAReader_getPSpiceParam.html" title="PSAAReader_getPSpiceParam" name="46284">PSAAReader_getPSpiceParam</a></p>
+      <p> <a name=""></a><a href="PSAAReader_openDesign.html" title="PSAAReader_openDesign" name="46284">PSAAReader_openDesign</a></p>
+      <p> <a name=""></a><a href="PSAAReader_save.html" title="PSAAReader_save" name="46284">PSAAReader_save</a></p>
+      <p> <a name=""></a><a href="PSAAReader_setAADevParam.html" title="PSAAReader_setAADevParam" name="46284">PSAAReader_setAADevParam</a></p>
+      <p> <a name=""></a><a href="PSAAReader_setAAInstDevParam.html" title="PSAAReader_setAAInstDevParam" name="46284">PSAAReader_setAAInstDevParam</a></p>
+      <p> <a name=""></a><a href="PSAAReader_setAAInstParam.html" title="PSAAReader_setAAInstParam" name="46284">PSAAReader_setAAInstParam</a></p>
+      <p> <a name=""></a><a href="PSAAReader_setAAInstParam_Tol.html" title="PSAAReader_setAAInstParam_Tol" name="46284">PSAAReader_setAAInstParam_Tol</a></p>
+      <p> <a name=""></a><a href="PSAAReader_setAAVar.html" title="PSAAReader_setAAVar" name="46284">PSAAReader_setAAVar</a></p>
+      <p> <a name=""></a><a href="PSAAReader_setPSpiceInstParam.html" title="PSAAReader_setPSpiceInstParam" name="46284">PSAAReader_setPSpiceInstParam</a></p>
+      <p> <a name=""></a><a href="PSAAReader_setPSpiceParam.html" title="PSAAReader_setPSpiceParam" name="46284">PSAAReader_setPSpiceParam</a></p>
+      <h2><a href="Customizing_Various_Analysis_in_PSpice_Advanced_Analysis_using_TCL_Commands.html" title="Customizing Various Analysis in PSpice Advanced Analysis using TCL Commands" name="99512">5
+</a></h2>
+      <h2> <a name=""></a><a href="Customizing_Various_Analysis_in_PSpice_Advanced_Analysis_using_TCL_Commands.html" title="Customizing Various Analysis in PSpice Advanced Analysis using TCL Commands" name="853051">Customizing Various Analysis in PSpice Advanced Analysis using TCL Commands</a></h2>
+      <p> <a name=""></a><a href="_cdnPspAAAnalysisComplete.html" title="_cdnPspAAAnalysisComplete" name="46284">_cdnPspAAAnalysisComplete</a></p>
+      <p> <a name=""></a><a href="_cdnPspAAProcessDesignStart.html" title="_cdnPspAAProcessDesignStart" name="46284">_cdnPspAAProcessDesignStart</a></p>
+      <p> <a name=""></a><a href="_cdnPspAAProcessInst.html" title="_cdnPspAAProcessInst" name="46284">_cdnPspAAProcessInst</a></p>
+      <p> <a name=""></a><a href="_cdnPspAAProcessPostInst.html" title="_cdnPspAAProcessPostInst" name="46284">_cdnPspAAProcessPostInst</a></p>
+      <p> <a name=""></a><a href="_cdnPspAASmokeDerateReliability.html" title="_cdnPspAASmokeDerateReliability" name="46284">_cdnPspAASmokeDerateReliability</a></p>
+      <p> <a name=""></a><a href="_cdnPspAASmokeDerateTemp.html" title="_cdnPspAASmokeDerateTemp" name="46284">_cdnPspAASmokeDerateTemp</a></p>
+      <p> <a name=""></a><a href="_cdnPspAASmokePostPDM_TB.html" title="_cdnPspAASmokePostPDM&amp;TB" name="46284">_cdnPspAASmokePostPDM&amp;TB</a></p>
+      <p> <a name=""></a><a href="_cdnPspAASmokePostPDM_TJ.html" title="_cdnPspAASmokePostPDM&amp;TJ" name="46284">_cdnPspAASmokePostPDM&amp;TJ</a></p>
+      <p> <a name=""></a><a href="_cdnPspAASmokePostPDML_TJL.html" title="_cdnPspAASmokePostPDML&amp;TJL" name="46284">_cdnPspAASmokePostPDML&amp;TJL</a></p>
+      <h2><a href="Accessing_PSpice_Advanced_Analysis_User_Interface_using_TCL_Commands.html" title="Accessing PSpice Advanced Analysis User Interface using TCL Commands" name="99512">6
+</a></h2>
+      <h2> <a name=""></a><a href="Accessing_PSpice_Advanced_Analysis_User_Interface_using_TCL_Commands.html" title="Accessing PSpice Advanced Analysis User Interface using TCL Commands" name="853051">Accessing PSpice Advanced Analysis User Interface using TCL Commands</a></h2>
+      <p> <a name=""></a><a href="pspAAGetActiveAap.html" title="pspAAGetActiveAap" name="46284">pspAAGetActiveAap</a></p>
+      <p> <a name=""></a><a href="pspAAGetAssociated.html" title="pspAAGetAssociated" name="46284">pspAAGetAssociated</a></p>
+      <p> <a name=""></a><a href="pspAAOpenAssociated.html" title="pspAAOpenAssociated" name="46284">pspAAOpenAssociated</a></p>
+      <p> <a name=""></a><a href="pspAASelectAap.html" title="pspAASelectAap" name="46284">pspAASelectAap</a></p>
+      <h2><a href="Executing_Advanced_Analysis_using_TCL_Commands.html" title="Executing Advanced Analysis using TCL Commands" name="99512">7
+</a></h2>
+      <h2> <a name=""></a><a href="Executing_Advanced_Analysis_using_TCL_Commands.html" title="Executing Advanced Analysis using TCL Commands" name="853051">Executing Advanced Analysis using TCL Commands</a></h2>
+      <p> <a name=""></a><a href="TCL_Commands_to_Execute_PSpice_Advanced_Analysis.html" title="TCL Commands to Execute PSpice Advanced Analysis" name="46284">TCL Commands to Execute PSpice Advanced Analysis</a></p>
+      <dd> <a name=""></a><a href="addSpecifications.html" title="addSpecifications" name="46288">addSpecifications</a></dd>
+      <dd> <a name=""></a><a href="getMonteCarloSettings.html" title="getMonteCarloSettings" name="46288">getMonteCarloSettings</a></dd>
+      <dd> <a name=""></a><a href="getMonteController.html" title="getMonteController" name="46288">getMonteController</a></dd>
+      <dd> <a name=""></a><a href="getOptimizerController.html" title="getOptimizerController" name="46288">getOptimizerController</a></dd>
+      <dd> <a name=""></a><a href="getPplotController.html" title="getPplotController" name="46288">getPplotController</a></dd>
+      <dd> <a name=""></a><a href="getSensitivityController.html" title="getSensitivityController" name="46288">getSensitivityController</a></dd>
+      <dd> <a name=""></a><a href="getSmokeController.html" title="getSmokeController" name="46288">getSmokeController</a></dd>
+      <dd> <a name=""></a><a href="openAAProfile.html" title="openAAProfile" name="46288">openAAProfile</a></dd>
+      <dd> <a name=""></a><a href="pspAAcreateInterface.html" title="pspAAcreateInterface" name="46288">pspAAcreateInterface</a></dd>
+      <dd> <a name=""></a><a href="pspAAdeleteInterface.html" title="pspAAdeleteInterface" name="46288">pspAAdeleteInterface</a></dd>
+      <dd> <a name=""></a><a href="saveAAProfile.html" title="saveAAProfile" name="46288">saveAAProfile</a></dd>
+      <dd> <a name=""></a><a href="saveAssociatedProfile.html" title="saveAssociatedProfile" name="46288">saveAssociatedProfile</a></dd>
+      <dd> <a name=""></a><a href="setCurrentEngine.html" title="setCurrentEngine" name="46288">setCurrentEngine</a></dd>
+      <dd> <a name=""></a><a href="setCurrentGear.html" title="setCurrentGear" name="46288">setCurrentGear</a></dd>
+      <dd> <a name=""></a><a href="setMonteCarloSettings.html" title="setMonteCarloSettings" name="46288">setMonteCarloSettings</a></dd>
+      <dd> <a name=""></a><a href="setSettings.html" title="setSettings" name="46288">setSettings</a></dd>
+      <dd> <a name=""></a><a href="setSpecifications.html" title="setSpecifications" name="46288">setSpecifications</a></dd>
+      <p> <a name=""></a><a href="TCL_Commands_for_the_Monte_Carlo_Advanced_Analysis.html" title="TCL Commands for the Monte Carlo Advanced Analysis" name="46284">TCL Commands for the Monte Carlo Advanced Analysis</a></p>
+      <dd> <a name=""></a><a href="delete_CMonteSettings.html" title="delete_CMonteSettings" name="46288">delete_CMonteSettings</a></dd>
+      <dd> <a name=""></a><a href="delete_CMonteSpecification.html" title="delete_CMonteSpecification" name="46288">delete_CMonteSpecification</a></dd>
+      <dd> <a name=""></a><a href="new_CMonteSettings.html" title="new_CMonteSettings" name="46288">new_CMonteSettings</a></dd>
+      <dd> <a name=""></a><a href="new_CMonteSpecification.html" title="new_CMonteSpecification" name="46288">new_CMonteSpecification</a></dd>
+      <p> <a name=""></a><a href="TCL_Commands_for_the_Sensitivity_Advanced_Analysis.html" title="TCL Commands for the Sensitivity Advanced Analysis" name="46284">TCL Commands for the Sensitivity Advanced Analysis</a></p>
+      <dd> <a name=""></a><a href="delete_CSensParameter.html" title="delete_CSensParameter" name="46288">delete_CSensParameter</a></dd>
+      <dd> <a name=""></a><a href="delete_CSensSpecification.html" title="delete_CSensSpecification" name="46288">delete_CSensSpecification</a></dd>
+      <dd> <a name=""></a><a href="new_CSensParameter.html" title="new_CSensParameter" name="46288">new_CSensParameter</a></dd>
+      <dd> <a name=""></a><a href="new_CSensSpecification.html" title="new_CSensSpecification" name="46288">new_CSensSpecification</a></dd>
+      <p> <a name=""></a><a href="TCL_Commands_for_the_Smoke_Advanced_Analysis.html" title="TCL Commands for the Smoke Advanced Analysis" name="46284">TCL Commands for the Smoke Advanced Analysis</a></p>
+      <p> <a name=""></a><a href="TCL_Commands_for_the_Optimizer_Advanced_Analysis.html" title="TCL Commands for the Optimizer Advanced Analysis" name="46284">TCL Commands for the Optimizer Advanced Analysis</a></p>
+      <p> <a name=""></a><a href="TCL_Commands_for_the_Parametric_Plotter_Advanced_Analysis.html" title="TCL Commands for the Parametric Plotter Advanced Analysis" name="46284">TCL Commands for the Parametric Plotter Advanced Analysis</a></p>
+
+
+    </div>
+    <br>
+    <br>
+    <a href="#pagetop">Return to top of page</a>
+    <br>
+  </div>
+   
+    <footer>                                                                                                               
+    <nav class="navigation">                                                                                             
+    <b><em><a href="#pagetop" id="prev" title="TOC">^ </a></em></b>  
+    <b><em><a href="Introduction.html" id="nex" title="Next">Next</a></em></b>  
+    </nav>  
+    <div>  
+      For further assistance, contact <a href="https://support.cadence.com" >Cadence Online Support</a>. Copyright &#169; 2022, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.                               
+    </div>  
+    </footer>
+     
+    <br>
+  </body>
+</html>

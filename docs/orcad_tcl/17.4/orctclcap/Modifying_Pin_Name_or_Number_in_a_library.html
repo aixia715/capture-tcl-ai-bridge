@@ -1,0 +1,124 @@
+
+<html><head><title>Modifying Pin Name or Number in a library</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2020-03-19" />
+<meta name="CreateTime" content="1584621421" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="Provides most common TCL scripts that can be directly used." />
+<meta name="DocTitle" content="OrCAD Capture TCL Solutions" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="Modifying Pin Name or Number in a library" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="orctclcap" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2020-03-19" />
+<meta name="ModifiedTime" content="1584621421" />
+<meta name="NextFile" content="Verifying_the_Selected_Object_as_a_Library_or_Not.html" />
+<meta name="Group" content="OrCAD Capture TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Adding_a_New_Property_to_a_Selected_Part.html" />
+<meta name="Product" content="OrCAD Capture,Allegro Design Entry CIS," />
+<meta name="ProductFamily" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2012-2020 Cadence Design Systems Inc." />
+<meta name="Title" content="OrCAD Capture TCL Solutions -- Modifying Pin Name or Number in a library" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="orcadcaptcl174" />
+<meta name="confluence-version" content="6.13.3" />
+<meta name="ecms-plugin-version" content="03.30.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    </head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="orctclcapTOC.html">Contents</a></li><li><a class="prev" href="Adding_a_New_Property_to_a_Selected_Part.html" title="Adding_a_New_Property_to_a_Selected_Part">Adding_a_New_Property_to_a_Sel ...</a></li><li style="float: right;"><a class="viewPrint" href="orctclcap.pdf">View/Print PDF</a></li><li style="float: right;margin-right: 25px;"><a class="nextd" href="Verifying_the_Selected_Object_as_a_Library_or_Not.html" title="Verifying_the_Selected_Object_as_a_Library_or_Not">Verifying_the_Selected_Object_ ...</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>OrCAD Capture TCL Solutions<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <h1 style="margin: 4px 0 4px;"><span>Modifying Pin Name or Number in a library</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>The following script changes the pin name and pin number of <code>GND</code> pin to new name. To run the script, do the following:</p>
+<ol><li><span>Open a design in Capture.</span></li><li><span>Open any schematic page in the design</span></li><li><span><span>Select a part that has GND pin</span></span></li><li><span><span>Open Capture command window, if not opened already.<br /></span></span></li><li><span><span><span>Source the following TCL script in the Capture command window, for example <code><span>source {</span><span>D:\setNewPinName.tcl} </span> </code><br /></span></span></span></li><li><span><span><span><span>Check the properties of the GND pin . The pin name changes to <code>GND_NEW</code> and pin number changes to <code>100</code>. </span></span></span></span><br /><span><span><span><span>If you want to set different values for the pin name and pin name, modify the script before sourcing it in the command window.</span></span></span></span><br /><span><span><span><span><br /></span></span></span></span></li></ol><div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>setNewPinName.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: perl; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">#This TCL file updates the pin name and pin number 
+#of a GND pin of single selected object to GND_NEW and 100 respectively.
+set lStatus [DboState]
+set lNullObject NULL
+set lObject [GetSelectedObjects]
+set lPackage [$lObject GetPackage $lStatus]
+
+# Get the first device in the package
+# if you need to change for specific device 
+# you can get the device using device designator.
+set lDevice [$lPackage GetDevice 0 $lStatus]
+if { $lDevice != $lNullObject } {
+    
+    set lCell [$lDevice GetCell $lStatus]
+    
+    #Gets the normal part from the device
+    set lNormalPart [$lCell FindPart 0 $lStatus]
+    
+    
+    # Since pin location is stored in symbol pin 
+    # we need to find the symbol pin object for the pin 
+    # whose pin number we want to change.
+    
+    set lLibPartPinIter [$lNormalPart NewLPinsIter $lStatus]
+    set lSymbolPin [$lLibPartPinIter NextPin $lStatus]
+    set lPinName [DboTclHelper_sMakeCString]
+    while {$lSymbolPin != $lNullObject} {
+        $lSymbolPin GetPinName $lPinName
+        set lPinNameTcl [DboTclHelper_sGetConstCharPtr $lPinName]
+        if {$lPinNameTcl==&quot;GND&quot;} {
+         
+   #Sets the GND pin to GND_NEW pin
+            set lNewName [DboTclHelper_sMakeCString &quot;GND_NEW&quot;]
+            $lSymbolPin SetPinName $lNewName
+            
+        
+            # If symbol pin found
+            # Get the pin position
+            set lPinPosition [ $lSymbolPin GetPinPosition $lStatus]
+            
+            # Sets new pin number 100
+            set lNewPinNumber [DboTclHelper_sMakeCString &quot;100&quot;]    
+            set lPinPosition [DboTclHelper_sMakeInt $lPinPosition]
+            
+            # Changes the pin number
+            $lDevice NewPinNumber $lNewPinNumber $lPinPosition 1 -1
+            
+            puts &quot;Pin name and Pin number changed successfully&quot;
+        
+            break
+        }
+        set lSymbolPin [$lLibPartPinIter NextPin $lStatus]
+    }
+}</pre>
+</div>
+</div>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Adding_a_New_Property_to_a_Selected_Part.html" id="prev" title="Adding_a_New_Property_to_a_Selected_Part">Adding_a_New_Property_to_a_Sel ...</a></em></b><b><em><a href="Verifying_the_Selected_Object_as_a_Library_or_Not.html" id="nex" title="Verifying_the_Selected_Object_as_a_Library_or_Not">Verifying_the_Selected_Object_ ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" /></body></html>

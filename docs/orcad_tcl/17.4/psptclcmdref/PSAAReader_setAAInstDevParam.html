@@ -1,0 +1,132 @@
+
+<html><head><title>PSAAReader_setAAInstDevParam</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2022-08-28" />
+<meta name="CreateTime" content="1661753396" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="" />
+<meta name="DocTitle" content="PSpice TCL Command Reference" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="PSAAReader_setAAInstDevParam" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="new_topic" content="" />
+<meta name="spotlight_topic" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="psptclcmdref" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2022-08-28" />
+<meta name="ModifiedTime" content="1661753396" />
+<meta name="NextFile" content="PSAAReader_setAAInstParam.html" />
+<meta name="Group" content="PSpice TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="PSAAReader_setAADevParam.html" />
+<meta name="c_product" content="PSpice,Allegro PSpice Simulator," />
+<meta name="Product" content="PSpice,Allegro PSpice Simulator," />
+<meta name="ProductFamily" content="PSpice,Allegro PSpice Simulator," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2022 Cadence Design Systems Inc." />
+<meta name="Title" content="PSpice TCL Command Reference -- PSAAReader_setAAInstDevParam" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="psptclcmdref174" />
+<meta name="confluence-version" content="7.4.1" />
+<meta name="ecms-plugin-version" content="04.10.005" />
+
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    
+<script>
+  document.addEventListener("DOMContentLoaded", function(event) {
+    document.querySelectorAll("img").forEach((img, index) => {
+   img.addEventListener("click", (e) => { 
+    document.querySelector("#cad_image_modal").classList.add("opac");
+      document.querySelector("#cad_image_modal_center").innerHTML = `<img style="position:absolute;top:0;bottom:0;left:0;right:0; margin: auto;max-height: 96%;max-width: 96%;" src="${e.target.src}">`;});});});
+</script>
+
+<style>
+ img{cursor:pointer;
+ }
+ #cad_image_modal{
+ position:fixed;left:0;top:0;width:100%;background:#00000099;overflow:hidden;height:0;opacity:0;transition: height 0ms 1s, opacity 1s 0ms;
+ }
+ #cad_image_modal.opac{height: 100%;opacity: 1;transition: height 0ms 0ms, opacity 1s 0ms;
+ }
+ #cad_image_modal span{
+  position:fixed;right:10px;top:10px;cursor:pointer;color:#fff;
+ }
+ </style>
+
+</head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="psptclcmdrefTOC.html">Contents</a></li><li><a class="prev" href="PSAAReader_setAADevParam.html" title="PSAAReader_setAADevParam">PSAAReader_setAADevParam</a></li><li style="float: right;"><a class="viewPrint" href="psptclcmdref.pdf">View/Print PDF</a></li><li style="float: right;margin-right: 25px;"><a class="nextd" href="PSAAReader_setAAInstParam.html" title="PSAAReader_setAAInstParam">PSAAReader_setAAInstParam</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>PSpice TCL Command Reference<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <h1 style="margin: 4px 0 4px;"><span>PSAAReader_setAAInstDevParam</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+
+
+<p>Sets instance parameter.</p>
+
+<h4 id="PSAAReader_setAAInstDevParam-Return"> Return</h4>
+
+<p>int</p>
+
+<h4 id="PSAAReader_setAAInstDevParam-Syntax"> Syntax</h4>
+
+<p><code>PSAAReader_setAAInstDevParam &lt;inst&gt; &lt;param&gt; &lt;value&gt;</code></p>
+
+<h4 id="PSAAReader_setAAInstDevParam-Parameters"> Parameters </h4>
+<div class="table-wrap"><table border="1" class="confluenceTable"><tbody><tr><th class="confluenceTh">Parameter</th><th class="confluenceTh">Description</th><th class="confluenceTh">Type</th><th class="confluenceTh">Optional</th><th class="confluenceTh">Value Required</th></tr>
+<tr><td class="confluenceTd"><code>&lt;inst&gt;</code></td>
+<td class="confluenceTd">Instance name</td>
+<td class="confluenceTd">string</td>
+<td class="confluenceTd">FALSE</td>
+<td class="confluenceTd">-</td>
+</tr>
+<tr><td class="confluenceTd"><code>&lt;param&gt;</code></td>
+<td class="confluenceTd">Parameter name</td>
+<td class="confluenceTd">string</td>
+<td class="confluenceTd">FALSE</td>
+<td class="confluenceTd">-</td>
+</tr>
+<tr><td class="confluenceTd"><code>&lt;value&gt;</code></td>
+<td class="confluenceTd">Value to set</td>
+<td class="confluenceTd">int</td>
+<td class="confluenceTd">FALSE</td>
+<td class="confluenceTd">-</td>
+</tr>
+</tbody></table></div>
+
+<h4 id="PSAAReader_setAAInstDevParam-Examples">Examples</h4>
+
+<p>No Examples</p>
+
+<h4 id="PSAAReader_setAAInstDevParam-RelatedCommands">Related Commands</h4>
+
+<p><a href="PSAAReader_setAAInstParam.html">PSAAReader_setAAInstParam</a></p>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="PSAAReader_setAADevParam.html" id="prev" title="PSAAReader_setAADevParam">PSAAReader_setAADevParam</a></em></b><b><em><a href="PSAAReader_setAAInstParam.html" id="nex" title="PSAAReader_setAAInstParam">PSAAReader_setAAInstParam</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2022, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" />
+<div id="cad_image_modal" style="background-color: rgba(0, 0, 0, 0.6);"><center id="cad_image_modal_center">&#160;&#10240;</center><span style="margin-right:50px;margin-top:100px;font-weight:bold;font-size:20px;background:#e5e5e5;border:1px solid #e5e5e5;border-radius:25px;height:30px;width:20px;padding-left:6px;padding-top:2px;color: black;" onclick="document.querySelector('#cad_image_modal').classList.remove('opac');">X</span></div>
+
+</body></html>

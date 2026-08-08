@@ -1,0 +1,23 @@
+{"core": {
+  "data": [
+,
+    {"id":"node06","text":"Automating Common OrCAD Tasks using TCL Scripts","parent":node0","href":"Automating_Common_OrCAD_Tasks_using_TCL_Scripts.html","state":{"selected":false,"opened":false}},
+        {"id":"node117","text":"Adding a New Property to a Selected Part","parent":"node06","href":"Adding_a_New_Property_to_a_Selected_Part.html","state":{"selected":false,"opened":false}},
+        {"id":"node128","text":"Modifying Pin Name or Number in a library","parent":"node06","href":"Modifying_Pin_Name_or_Number_in_a_library.html","state":{"selected":false,"opened":false}},
+        {"id":"node139","text":"Verifying the Selected Object as a Library or Not","parent":"node06","href":"Verifying_the_Selected_Object_as_a_Library_or_Not.html","state":{"selected":false,"opened":false}},
+        {"id":"node1410","text":"Creating Capture CIS BOM from the Windows Command Prompt","parent":"node06","href":"Creating_Capture_CIS_BOM_from_the_Windows_Command_Prompt.html","state":{"selected":false,"opened":false}},
+        {"id":"node1511","text":"Defining a property for selected occurrence parts","parent":"node06","href":"Defining_a_property_for_selected_occurrence_parts.html","state":{"selected":false,"opened":false}},
+        {"id":"node1612","text":"Filtering Net Alias on an Active Schematic Page","parent":"node06","href":"Filtering_Net_Alias_on_an_Active_Schematic_Page.html","state":{"selected":false,"opened":false}},
+        {"id":"node1713","text":"Getting Library Part User properties","parent":"node06","href":"Getting_Library_Part_User_properties.html","state":{"selected":false,"opened":false}},
+        {"id":"node1814","text":"Getting Pin Names from a Library Part","parent":"node06","href":"Getting_Pin_Names_from_a_Library_Part.html","state":{"selected":false,"opened":false}},
+        {"id":"node1915","text":"Getting the Occurrence Object of a Selected Part","parent":"node06","href":"Getting_the_Occurrence_Object_of_a_Selected_Part.html","state":{"selected":false,"opened":false}},
+        {"id":"node11016","text":"Listing Properties of the Selected Object in a Schematic Page","parent":"node06","href":"Listing_Properties_of_the_Selected_Object_in_a_Schematic_Page.html","state":{"selected":false,"opened":false}},
+        {"id":"node11117","text":"Selecting a Net in a Schematic Page using Net Name","parent":"node06","href":"Selecting_a_Net_in_a_Schematic_Page_using_Net_Name.html","state":{"selected":false,"opened":false}},
+        {"id":"node11218","text":"Setting the Implementation Type on a Part to a Specfic Value","parent":"node06","href":"Setting_the_Implementation_Type_on_a_Part_to_a_Specfic_Value.html","state":{"selected":false,"opened":false}},
+        {"id":"node11319","text":"Displaying Selected Objects Name and Location","parent":"node06","href":"Displaying_Selected_Objects_Name_and_Location.html","state":{"selected":false,"opened":false}},
+        {"id":"node11420","text":"Modifying Selected Wire Color and Width","parent":"node06","href":"Modifying_Selected_Wire_Color_and_Width.html","state":{"selected":false,"opened":false}},
+        {"id":"node11521","text":"Adding Property to a Selected Wire","parent":"node06","href":"Adding_Property_to_a_Selected_Wire.html","state":{"selected":false,"opened":false}},
+    {"id":"node023","text":"Common Tips and Tricks","parent":node0","href":"Common_Tips_and_Tricks.html","state":{"selected":false,"opened":false}}
+  ]
+ }
+}

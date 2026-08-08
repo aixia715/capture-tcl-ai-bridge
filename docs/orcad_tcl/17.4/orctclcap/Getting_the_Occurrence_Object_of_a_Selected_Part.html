@@ -1,0 +1,88 @@
+
+<html><head><title>Getting the Occurrence Object of a Selected Part</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2020-03-19" />
+<meta name="CreateTime" content="1584621430" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="Provides most common TCL scripts that can be directly used." />
+<meta name="DocTitle" content="OrCAD Capture TCL Solutions" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="Getting the Occurrence Object of a Selected Part" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="orctclcap" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2020-03-19" />
+<meta name="ModifiedTime" content="1584621430" />
+<meta name="NextFile" content="Listing_Properties_of_the_Selected_Object_in_a_Schematic_Page.html" />
+<meta name="Group" content="OrCAD Capture TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Getting_Pin_Names_from_a_Library_Part.html" />
+<meta name="Product" content="OrCAD Capture,Allegro Design Entry CIS," />
+<meta name="ProductFamily" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2012-2020 Cadence Design Systems Inc." />
+<meta name="Title" content="OrCAD Capture TCL Solutions -- Getting the Occurrence Object of a Selected Part" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="orcadcaptcl174" />
+<meta name="confluence-version" content="6.13.3" />
+<meta name="ecms-plugin-version" content="03.30.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    </head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="orctclcapTOC.html">Contents</a></li><li><a class="prev" href="Getting_Pin_Names_from_a_Library_Part.html" title="Getting_Pin_Names_from_a_Library_Part">Getting_Pin_Names_from_a_Libra ...</a></li><li style="float: right;"><a class="viewPrint" href="orctclcap.pdf">View/Print PDF</a></li><li style="float: right;margin-right: 25px;"><a class="nextd" href="Listing_Properties_of_the_Selected_Object_in_a_Schematic_Page.html" title="Listing_Properties_of_the_Selected_Object_in_a_Schematic_Page">Listing_Properties_of_the_Sele ...</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>OrCAD Capture TCL Solutions<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <h1 style="margin: 4px 0 4px;"><span>Getting the Occurrence Object of a Selected Part</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>The following script does the following:</p>
+<ul><li>Searches for all the objects in the in design</li><li>Finds the occurrence object&#160;</li></ul><div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>getOcc.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lNullObject NULL
+foreach lObject $lObjects {
+ set lType [$lObject GetObjectType]
+  if { $lType == $::DboBaseObject_PLACED_INSTANCE} {
+   set lOcc [[GetSelectedObjects] GetObjectOccurrence [GetInstanceOccurrence]]
+   set lInstOcc [DboOccurrenceToDboInstOccurrence $lOcc]
+    if { $lInstOcc != $lNullObject} {
+    set lPartReference [DboTclHelper_sMakeCString]
+    $lInstOcc GetReferenceDesignator $lPartReference
+    set lPartRefStr [DboTclHelper_sGetConstCharPtr $lPartReference]
+    puts &quot;Occ Found - $lPartRefStr&quot;
+    }
+  }
+} </pre>
+</div>
+</div>
+<div class="confluence-information-macro confluence-information-macro-note"><span class="aui-icon aui-icon-small aui-iconfont-warning confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>You need to specify <code>$lObjects</code> parameter before you use it in the for loop.</p>
+</div>
+</div>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Getting_Pin_Names_from_a_Library_Part.html" id="prev" title="Getting_Pin_Names_from_a_Library_Part">Getting_Pin_Names_from_a_Libra ...</a></em></b><b><em><a href="Listing_Properties_of_the_Selected_Object_in_a_Schematic_Page.html" id="nex" title="Listing_Properties_of_the_Selected_Object_in_a_Schematic_Page">Listing_Properties_of_the_Sele ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" /></body></html>

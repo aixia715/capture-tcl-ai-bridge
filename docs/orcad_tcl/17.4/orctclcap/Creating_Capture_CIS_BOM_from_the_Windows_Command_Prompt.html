@@ -1,0 +1,277 @@
+
+<html><head><title>Creating Capture CIS BOM from the Windows Command Prompt</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2020-03-19" />
+<meta name="CreateTime" content="1584621424" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="Provides most common TCL scripts that can be directly used." />
+<meta name="DocTitle" content="OrCAD Capture TCL Solutions" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="Creating Capture CIS BOM from the Windows Command Prompt" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="orctclcap" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2020-03-19" />
+<meta name="ModifiedTime" content="1584621424" />
+<meta name="NextFile" content="Defining_a_property_for_selected_occurrence_parts.html" />
+<meta name="Group" content="OrCAD Capture TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Verifying_the_Selected_Object_as_a_Library_or_Not.html" />
+<meta name="Product" content="OrCAD Capture,Allegro Design Entry CIS," />
+<meta name="ProductFamily" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2012-2020 Cadence Design Systems Inc." />
+<meta name="Title" content="OrCAD Capture TCL Solutions -- Creating Capture CIS BOM from the Windows Command Prompt" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="orcadcaptcl174" />
+<meta name="confluence-version" content="6.13.3" />
+<meta name="ecms-plugin-version" content="03.30.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    </head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="orctclcapTOC.html">Contents</a></li><li><a class="prev" href="Verifying_the_Selected_Object_as_a_Library_or_Not.html" title="Verifying_the_Selected_Object_as_a_Library_or_Not">Verifying_the_Selected_Object_ ...</a></li><li style="float: right;"><a class="viewPrint" href="orctclcap.pdf">View/Print PDF</a></li><li style="float: right;margin-right: 25px;"><a class="nextd" href="Defining_a_property_for_selected_occurrence_parts.html" title="Defining_a_property_for_selected_occurrence_parts">Defining_a_property_for_select ...</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>OrCAD Capture TCL Solutions<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <h1 style="margin: 4px 0 4px;"><span>Creating Capture CIS BOM from the Windows Command Prompt</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>This script does the following:</p>
+<ol><li>Opens and loads the design file (<code>bench_allegro.dsn</code>), which can be found at <code>tools/capture/samples/Schematic/Bench</code>.<br />The design file used as a sample for this script.</li><li><span>Creates Capture CIS Bill of Materials (BOM) using the XML dialog settings for the Standard Bill of Materials dialog box. </span><br /><span>You need to have XML dialog settings file at the specified path to run the script. The XML dialog settings template is mentioned in <br /></span></li><li><span><span>Saves the generated BOM as TEST.BOM at the specified path<br /></span></span></li><li><span><span><span>Exits the design and Capture</span></span></span></li></ol>
+<p>To run the following script at the Windows command prompt, do the following: <code>&lt;path to the Capture.exe file&gt; &lt;path to the TCL script&gt;</code></p>
+
+<p>For example, <code>D:/Cadence/tools/bin/capture.exe&#160; D:/Cadence/tools/capture/samples/Schematic/Bench/bench_allegro.DSN</code></p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>cisbom.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">#open and load the Capture CIS design 
+Menu &quot;File::Open::Design&quot; | FileDialog &quot;OK&quot; &quot;D:/Cadence/tools/capture/samples/Schematic/Bench/bench_allegro.DSN&quot; 1
+capDesignOpenMessage
+capEventNotify 4004 [capGetPMId]
+
+#create CIS BOM using xml dialog settings
+SelectPMItem &quot;./bench_allegro.DSN &quot;
+Menu &quot;Reports::CIS Bill of Materials::Standard&quot; | DialogBox &quot;OK&quot; &quot;D:/Standard_Bill_of_Materials.xml&quot; 
+
+#save the generated bom as TEST.BOM
+MenuCommand 57927 | MessageBox &quot;YES&quot; &quot;Save changes to D:/Cadence/spb&quot; | FileDialog &quot;OK&quot; &quot;D:/TEST.BOM&quot; 1
+
+#exit capture
+SelectPMItem &quot;./bench_allegro.DSN &quot;
+Menu &quot;File::close&quot;
+Menu &quot;File::Exit&quot;</pre>
+</div>
+</div>
+
+<p><span><span><span>The following section describes the XML dialog settings template that is used the <code>cisbom.tcl</code> script.<br /></span></span></span></p>
+<h3 id="CreatingCaptureCISBOMfromtheWindowsCommandPrompt-xmldialogsettingsStandardBillofMaterialsdialogboxXMLdialogsettings"><span><span><span><span class="confluence-anchor-link" id="CreatingCaptureCISBOMfromtheWindowsCommandPrompt-xmldialogsettings"></span>Standard Bill of Materials dialog box XML dialog settings</span></span></span></h3>
+
+<p>Following is the XML dialog settings template for Standard Bill of Materials dialog box:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Standard_Bill_of_Materials.xml</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: xml; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; standalone=&quot;yes&quot; ?&gt;
+&lt;DialogControls&gt;
+    &lt;Control Type=&quot;PUSH_BUTTON&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1031&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[&amp;OK]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;PUSH_BUTTON&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;2&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[&amp;Cancel]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;PUSH_BUTTON&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;57670&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[&amp;Help]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;GROUPBOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;-1&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[&amp;Template Name]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;COMBO_BOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1017&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[Eng Bill Of Materials]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Eng Bill Of Materials]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;PUSH_BUTTON&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1114&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[De&amp;lete]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;GROUPBOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1200&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[Report Properties]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;COMBO_BOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1030&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[ActivepartsID]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Availability]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Datasheet]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Distributor]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Distributor Part Number]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Implementation]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Layout PCB Footprint]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Manufacturer]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Manufacturer Part Number]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[OrgAddr1]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[OrgAddr2]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[OrgAddr3]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[OrgName]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Page Count]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Page Modify Date]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Page Size]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Part Type]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[PCB Footprint]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Power]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Price]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Rating]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[RevCode]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Schematic Part Path]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Source Library]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Source Package]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Title]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Tolerance]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Voltage]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;LIST_BOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;189&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[Item Number]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Item Number]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Quantity]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Value]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Description]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Part Number]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Part Reference]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;PUSH_BUTTON&quot; Enable=&quot;FALSE&quot; Visible=&quot;TRUE&quot; Id=&quot;1012&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[&amp;Add -&gt;]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;PUSH_BUTTON&quot; Enable=&quot;FALSE&quot; Visible=&quot;TRUE&quot; Id=&quot;1108&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[&lt;- Remo&amp;ve]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;OWNER_DRAWN&quot; Enable=&quot;FALSE&quot; Visible=&quot;TRUE&quot; Id=&quot;1036&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[IDB_UPARROW]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;OWNER_DRAWN&quot; Enable=&quot;FALSE&quot; Visible=&quot;TRUE&quot; Id=&quot;1039&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[IDB_DNARROW]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;PUSH_BUTTON&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1266&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[Delete &amp;User Property]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTOCHECK_BOX&quot; Enable=&quot;FALSE&quot; Visible=&quot;TRUE&quot; Id=&quot;1020&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[&amp;Keyed]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTOCHECK_BOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1284&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[Allo&amp;w Saving Title Block Properties]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTOCHECK_BOX&quot; Enable=&quot;FALSE&quot; Visible=&quot;TRUE&quot; Id=&quot;1311&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[List Relational &amp;Data Fields]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;GROUPBOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1034&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[Part Reference Options]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTORADIO_BUTTON&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1182&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[1]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[Sta&amp;ndard]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTORADIO_BUTTON&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1184&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[&amp;Standard- separate line per part]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTORADIO_BUTTON&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1186&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[Comp&amp;ressed]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;COMBO_BOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1197&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[Space(&#39; &#39;)]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Space(&#39; &#39;)]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Comma(&#39;,&#39;)]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;EDIT&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1069&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;GROUPBOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;-1&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTOCHECK_BOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1079&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[Output Mechanical Part Data]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTORADIO_BUTTON&quot; Enable=&quot;FALSE&quot; Visible=&quot;TRUE&quot; Id=&quot;1296&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[1]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[Mechanical parts only]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTORADIO_BUTTON&quot; Enable=&quot;FALSE&quot; Visible=&quot;TRUE&quot; Id=&quot;1185&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[&amp;Both mechanical parts and assemblies]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;GROUPBOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;-1&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTOCHECK_BOX&quot; Enable=&quot;FALSE&quot; Visible=&quot;TRUE&quot; Id=&quot;1310&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[Relational Data Displa&amp;yed]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTOCHECK_BOX&quot; Enable=&quot;FALSE&quot; Visible=&quot;TRUE&quot; Id=&quot;1309&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[Hori&amp;zontal Output]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;EDIT&quot; Enable=&quot;FALSE&quot; Visible=&quot;TRUE&quot; Id=&quot;1308&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[1]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTOCHECK_BOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1248&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[E&amp;xport BOM report to Excel]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTOCHECK_BOX&quot; Enable=&quot;FALSE&quot; Visible=&quot;TRUE&quot; Id=&quot;1142&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[1]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[Mer&amp;ge BOM Reports]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;GROUPBOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1046&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[Variants]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTOCHECK_BOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1306&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[Variant &quot;Not Stuffed&quot; &amp;Qty 0 Displayed]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;LIST_BOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1272&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[Variation #1]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[&lt;Core Design&gt;]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Variation #1]]&gt;&lt;/Value&gt;
+        &lt;Value&gt;&lt;![CDATA[Variation #2]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;GROUPBOX&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;-1&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[Scope]]&gt;&lt;/Value&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTORADIO_BUTTON&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1315&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[1]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[Process Entire &amp;Design]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+    &lt;Control Type=&quot;AUTORADIO_BUTTON&quot; Enable=&quot;TRUE&quot; Visible=&quot;TRUE&quot; Id=&quot;1316&quot;&gt;
+        &lt;Value&gt;&lt;![CDATA[0]]&gt;&lt;/Value&gt;
+        &lt;Text&gt;&lt;![CDATA[Process &amp;Selection]]&gt;&lt;/Text&gt;
+    &lt;/Control&gt;
+&lt;/DialogControls&gt;</pre>
+</div>
+</div>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Verifying_the_Selected_Object_as_a_Library_or_Not.html" id="prev" title="Verifying_the_Selected_Object_as_a_Library_or_Not">Verifying_the_Selected_Object_ ...</a></em></b><b><em><a href="Defining_a_property_for_selected_occurrence_parts.html" id="nex" title="Defining_a_property_for_selected_occurrence_parts">Defining_a_property_for_select ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" /></body></html>

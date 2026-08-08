@@ -1,0 +1,763 @@
+
+<html><head><title>TCL Programming with OrCAD Capture Database</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2020-03-19" />
+<meta name="CreateTime" content="1584621422" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="This document provides basic scripts that can be used to do basic tasks in OrCAD Capture." />
+<meta name="DocTitle" content="OrCAD TCL Sample Scripts" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="TCL Programming with OrCAD Capture Database" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="orctclsample" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2020-03-19" />
+<meta name="ModifiedTime" content="1584621422" />
+<meta name="NextFile" content="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html" />
+<meta name="Group" content="OrCAD Capture TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Introduction_to_Basic_OrCAD_TCL_Scripts.html" />
+<meta name="Product" content="OrCAD Capture,Allegro Design Entry CIS," />
+<meta name="ProductFamily" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2012-2020 Cadence Design Systems Inc." />
+<meta name="Title" content="OrCAD TCL Sample Scripts -- TCL Programming with OrCAD Capture Database" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="orcadtclsample174" />
+<meta name="confluence-version" content="6.13.3" />
+<meta name="ecms-plugin-version" content="03.30.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    </head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="orctclsampleTOC.html">Contents</a></li><li><a class="prev" href="Introduction_to_Basic_OrCAD_TCL_Scripts.html" title="Introduction_to_Basic_OrCAD_TCL_Scripts">Introduction_to_Basic_OrCAD_TC ...</a></li><li style="float: right;"><a class="viewPrint" href="orctclsample.pdf">View/Print PDF</a></li><li style="float: right;margin-right: 25px;"><a class="nextd" href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html" title="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface">TCL_Programmimg_with_OrCAD_Cap ...</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>OrCAD TCL Sample Scripts<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <div style="width: 100%; font-size: 32px; text-align: left;               font-weight: bold;">4</div>
+<h1 style="margin: 4px 0 4px;"><span>TCL Programming with OrCAD Capture Database</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>This chapter lists various TCL sample source files that access OrCAD Capture Database to do the following tasks:</p>
+<ul><li>Set up TCL packages to access OrCAD Capture Database</li><li>Access library database</li><li>Access design file pages</li><li>Access design hierarchy and display properties, such as, reference designators</li><li>Access cache</li></ul><h1 id="TCLProgrammingwithOrCADCaptureDatabase-CreatingaCaptureSessionandOpeningaDesign">Creating a Capture Session and Opening a Design</h1>
+
+<p>&#160;A specific API is required to read, write, or modify a Capture database because it is a compound binary file.</p>
+
+<p>The Sample TCL source file:</p>
+<ul><li>loads a package that allows access to OrCAD Capture database</li><li>uses of a helper function to interface with the Microsoft Foundation Class (MFC) CString class</li><li>creates a Session&#160;</li><li>opens a database</li></ul><div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-7.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set cdnInstallPath [exec cds_root cds_root]
+load [file normalize [file join $cdnInstallPath/tools/capture orDb_Dll_TCL]] DboTclWriteBasic
+
+set lDesignName [file normalize [file join $cdnInstallPath/tools/capture/samples fulladd.dsn]]
+
+set lStatus [DboState]
+
+puts &quot;Creating OrCAD Database Session&quot;
+set lSession [DboTclHelper_sCreateSession]
+
+puts &quot;Using Helper to create database name CString&quot;
+set lDesignNameCStr [DboTclHelper_sMakeCString $lDesignName]
+
+puts &quot;Open the design database&quot;
+set lDesign [$lSession GetDesignAndSchematics $lDesignNameCStr $lStatus]
+
+if { &quot;NULL&quot; != $lDesign} {
+ puts &quot;$lDesignName is open&quot;
+ $lSession RemoveLib $lDesign
+} else {
+ puts &quot;$lDesignName could not open&quot;
+}
+
+DboTclHelper_sDeleteSession $lSession
+$lStatus -delete</pre>
+</div>
+</div>
+<h1 id="TCLProgrammingwithOrCADCaptureDatabase-OpeningLibraryandListingPackages">Opening Library and Listing Packages</h1>
+
+<p>OrCAD Capture Database has container hierarchies, such as&#160;libraries, accessible using iterators. This sample TCL source file shows how iterators are used to iterate on container hierarchies.</p>
+
+<p>The sample TCL source file:</p>
+<ul><li>opens a library</li><li>uses Iterators to list objects in the library</li></ul><div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-8.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set cdnInstallPath [exec cds_root cds_root]
+load [file normalize [file join $cdnInstallPath/tools/capture orDb_Dll_TCL]] DboTclWriteBasic
+
+set lLibraryName [file normalize [file join $cdnInstallPath/tools/capture/library MiscLinear.olb]]
+
+set lStatus [DboState]
+set errorMsgCStr [DboTclHelper_sMakeCString &quot;&quot;]
+set lNameCStr [DboTclHelper_sMakeCString]
+
+puts &quot;Creating OrCAD Database Session&quot;
+set lSession [DboTclHelper_sCreateSession]
+puts &quot;Using Helper to create database name CString&quot;
+set lLibraryNameCStr [DboTclHelper_sMakeCString $lLibraryName]
+
+puts &quot;Open the Library database&quot;
+set lLibrary [$lSession GetLib $lLibraryNameCStr $lStatus]
+
+if { [$lStatus Failed] } {
+ $lStatus Message $errorMsgCStr
+ puts &quot;&gt;&gt; Can&#39;t open $lLibraryName \n[DboTclHelper_sGetConstCharPtr $errorMsgCStr]\n\n&quot;
+ exit
+} else {
+ puts &quot;$lLibraryName is open&quot;
+}
+
+puts &quot;Creating Library Packages Iterator&quot;
+set lIter [$lLibrary NewPackagesIter $lStatus]
+set lObj [$lIter Next $lStatus]
+while {$lObj!=&quot;NULL&quot;} {
+ $lObj GetName $lNameCStr
+ set lSize [DboPackage_sGetSize $lObj $lStatus]
+ puts &quot;Package [DboTclHelper_sGetConstCharPtr $lNameCStr] of Size $lSize&quot;
+ set lObj [$lIter Next $lStatus]
+}
+puts &quot;Deleting Packages Iterator&quot;
+delete_DboLibPackagesIter $lIter
+
+puts &quot;Creating Library Parts Iterator&quot;
+set lLibPartIter [$lLibrary NewPartsIter $lStatus]
+set lLibPart [$lLibPartIter NextPart $lStatus]
+while {$lLibPart!=&quot;NULL&quot;} {
+ $lLibPart GetName $lNameCStr
+ puts &quot;Part [DboTclHelper_sGetConstCharPtr $lNameCStr]&quot;
+ set lLibPart [$lLibPartIter NextPart $lStatus]
+}
+puts &quot;Deleting Parts Iterator&quot;
+delete_DboLibPartsIter $lLibPartIter
+
+puts &quot;Creating Library Symbols Iterator&quot;
+set lIter [$lLibrary NewSymbolsIter $lStatus]
+set lObj [$lIter Next $lStatus]
+while {$lObj!=&quot;NULL&quot;} {
+ $lObj GetName $lNameCStr
+ puts &quot;Symbol [DboTclHelper_sGetConstCharPtr $lNameCStr]&quot;
+ set lObj [$lIter Next $lStatus]
+}
+puts &quot;Deleting Symbols Iterator&quot;
+delete_DboLibSymbolsIter $lIter
+
+puts &quot;Creating Library Cells Iterator&quot;
+set lIter [$lLibrary NewCellsIter $lStatus]
+set lObj [$lIter Next $lStatus]
+while {$lObj!=&quot;NULL&quot;} {
+ $lObj GetName $lNameCStr
+ puts &quot;Cells [DboTclHelper_sGetConstCharPtr $lNameCStr]&quot;
+ set lObj [$lIter Next $lStatus]
+}
+puts &quot;Deleting Cells Iterator&quot;
+delete_DboLibCellsIter $lIter
+
+puts &quot;Closing $lLibraryName&quot;
+$lSession RemoveLib $lLibrary
+puts &quot;Closing Session&quot;
+DboTclHelper_sDeleteSession $lSession</pre>
+</div>
+</div>
+<h1 id="TCLProgrammingwithOrCADCaptureDatabase-FollowingClass(IsA)Hierarchies">Following Class (IsA) Hierarchies</h1>
+
+<p>Sometimes a package contains more than one devices. The <code>NewDevicesIter</code> class can be used to iterate over devices in a package. This sample TCL source file:</p>
+<ul><li>uses iterators to list devices in a package</li><li>demonstrates how to work when iterator returns a base class object instead&#160;of the object</li></ul>
+<p>&#160;</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-10.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set cdnInstallPath [exec cds_root cds_root]
+load [file normalize [file join $cdnInstallPath/tools/capture orDb_Dll_TCL]] DboTclWriteBasic
+set lLibraryName [file normalize [file join $cdnInstallPath/tools/capture/library MiscLinear.olb]]
+set lStatus [DboState]
+set errorMsgCStr [DboTclHelper_sMakeCString &quot;&quot;]
+set lNameCStr [DboTclHelper_sMakeCString]
+puts &quot;Creating OrCAD Database Session&quot;
+set lSession [DboTclHelper_sCreateSession]
+puts &quot;Using Helper to create database name CString&quot;
+set lLibraryNameCStr [DboTclHelper_sMakeCString $lLibraryName]
+puts &quot;Open the Library database&quot;
+set lLibrary [$lSession GetLib $lLibraryNameCStr $lStatus]
+if { [$lStatus Failed] } {
+ $lStatus Message $errorMsgCStr
+ puts &quot;&gt;&gt; Can&#39;t open $lLibraryName \n[DboTclHelper_sGetConstCharPtr $errorMsgCStr]\n\n&quot;
+ exit
+} else {
+ puts &quot;$lLibraryName is open&quot;
+}
+puts &quot;Creating Library Packages Iterator&quot;
+set lIter [$lLibrary NewPackagesIter $lStatus]
+set lObj [$lIter Next $lStatus]
+while {$lObj!=&quot;NULL&quot;} {
+ $lObj GetName $lNameCStr
+ set lSize [DboPackage_sGetSize $lObj $lStatus]
+ puts &quot;Package [DboTclHelper_sGetConstCharPtr $lNameCStr] of Size $lSize&quot;
+ set lObj [DboBaseObjectToDboLibObject $lObj]
+ set lObj [DboLibObjectToDboPackage $lObj]
+ set lIter2 [$lObj NewDevicesIter $lStatus]
+ set lObj2 [$lIter2 NextDevice $lStatus]
+ while {$lObj2!=&quot;NULL&quot;} {
+  $lObj2 GetName $lNameCStr
+  puts &quot;\tDevice [DboTclHelper_sGetConstCharPtr $lNameCStr]&quot;
+  set lObj2 [$lIter2 NextDevice $lStatus]
+ }
+ delete_DboPackageDevicesIter $lIter2
+ set lObj [$lIter Next $lStatus]
+}
+puts &quot;Deleting Packages Iterator&quot;
+delete_DboLibPackagesIter $lIter
+puts &quot;Creating Library Parts Iterator&quot;
+set lLibPartIter [$lLibrary NewPartsIter $lStatus]
+set lLibPart [$lLibPartIter NextPart $lStatus]
+while {$lLibPart!=&quot;NULL&quot;} {
+ $lLibPart GetName $lNameCStr
+ puts &quot;Part [DboTclHelper_sGetConstCharPtr $lNameCStr]&quot;
+ set lLibPart [$lLibPartIter NextPart $lStatus]
+}
+puts &quot;Deleting Parts Iterator&quot;
+delete_DboLibPartsIter $lLibPartIter
+puts &quot;Creating Library Symbols Iterator&quot;
+set lIter [$lLibrary NewSymbolsIter $lStatus]
+set lObj [$lIter Next $lStatus]
+while {$lObj!=&quot;NULL&quot;} {
+ $lObj GetName $lNameCStr
+ puts &quot;Symbol [DboTclHelper_sGetConstCharPtr $lNameCStr]&quot;
+ set lObj [$lIter Next $lStatus]
+}
+puts &quot;Deleting Symbols Iterator&quot;
+delete_DboLibSymbolsIter $lIter
+puts &quot;Creating Library Cells Iterator&quot;
+set lIter [$lLibrary NewCellsIter $lStatus]
+set lObj [$lIter Next $lStatus]
+while {$lObj!=&quot;NULL&quot;} {
+ $lObj GetName $lNameCStr
+ puts &quot;Cells [DboTclHelper_sGetConstCharPtr $lNameCStr]&quot;
+ set lObj [$lIter Next $lStatus]
+}
+puts &quot;Deleting Cells Iterator&quot;
+delete_DboLibCellsIter $lIter
+puts &quot;Closing $lLibraryName&quot;
+$lSession RemoveLib $lLibrary
+puts &quot;Closing Session&quot;
+DboTclHelper_sDeleteSession $lSession</pre>
+</div>
+</div>
+<h1 id="TCLProgrammingwithOrCADCaptureDatabase-TraversingDesignObjectInstances">Traversing Design Object Instances</h1>
+
+<p>This sample TCL source file:</p>
+<ul><li>reads the design from the <code>.dsn</code> file</li><li>parses the schematic and page objects</li><li>prints the properties on <code>DranInst</code> objects, that is, hierarchical blocks</li></ul><div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-11.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set cdnInstallPath [exec cds_root cds_root]
+load [file normalize [file join $cdnInstallPath/tools/capture orDb_Dll_TCL]] DboTclWriteBasic
+
+namespace eval ::capPrintHierarchy {
+ namespace export PrintHBlocks
+}
+
+proc ::capPrintHierarchy::PrintHBlocks { pFile pDesignName } {
+ set lStatus [DboState]
+ set lSession [DboTclHelper_sCreateSession]
+ capVisitDesign $pFile $lSession $pDesignName $lStatus
+ return
+}
+
+proc ::capPrintHierarchy::capVisitDesign {pFile pSession pDesignName pStatus} {
+ set lDesignName [DboTclHelper_sMakeCString $pDesignName]
+ #object call $pSession GetDesignAndSchematics $lDesignName $lStatus 
+ set lDesign [$pSession GetDesignAndSchematics $lDesignName $pStatus]
+ set varNullObj NULL
+ if { $lDesign == $varNullObj } {
+  puts &quot;Could Not Open design $pDesignName&quot;
+  return
+  }
+ puts $pFile &quot;DSN::$pDesignName&quot;
+ capVisitSchematics $pFile $lDesign $pStatus
+ $pSession RemoveLib $lDesign
+ return
+}
+proc ::capPrintHierarchy::capVisitSchematics {pFile pDesign pStatus} {    
+ set lDesignNameCStr [DboTclHelper_sMakeCString]
+ $pDesign GetName $lDesignNameCStr
+ set lAbsoluteDesignPath [DboTclHelper_sGetConstCharPtr $lDesignNameCStr]
+ 
+#create iterator of Schematic Type View
+  set lSchematicIter [$pDesign NewViewsIter $pStatus $::IterDefs_SCHEMATICS]
+  set lSchematicView [$lSchematicIter NextView  $pStatus]
+  set lNullObj NULL
+  set lSchematicName [DboTclHelper_sMakeCString]
+  while { $lSchematicView!= $lNullObj} {
+  set lSchematic [DboViewToDboSchematic $lSchematicView]
+  $lSchematic GetName $lSchematicName
+  puts $pFile &quot;\tDSN::Sch::$lAbsoluteDesignPath-&gt;[DboTclHelper_sGetConstCharPtr $lSchematicName]&quot;
+  capVisitSchematicPages $pFile $pDesign $lSchematic $lSchematicName $pStatus
+  set lSchematicView [$lSchematicIter NextView  $pStatus]
+  }
+  delete_DboLibViewsIter $lSchematicIter
+  return
+}
+proc ::capPrintHierarchy::capVisitSchematicPages {pFile pDesign pSchematic pSchematicName pStatus} {    
+ set lPagesIter [$pSchematic NewPagesIter $pStatus]
+ set lPage [$lPagesIter NextPage $pStatus]
+ set lNullObj NULL
+ set lPageName [DboTclHelper_sMakeCString]
+ while {$lPage!=$lNullObj} {
+  $lPage GetName $lPageName
+  puts $pFile &quot;\t\tPage::[DboTclHelper_sGetConstCharPtr $lPageName]&quot;
+  capVisitHBlocksOnPages  $pFile $pDesign $pSchematic $pSchematicName $lPage $lPageName $pStatus
+  set lPage [$lPagesIter NextPage $pStatus]
+ }
+ delete_DboSchematicPagesIter $lPagesIter
+ return 
+}
+proc ::capPrintHierarchy::capVisitHBlocksOnPages {pFile pDesign pSchematic pSchematicName pPage pPageName pStatus} {  
+ set lPartInstsIter [$pPage NewPartInstsIter $pStatus] 
+ set lInst [$lPartInstsIter NextPartInst $pStatus] 
+ set lName [DboTclHelper_sMakeCString {Name}]
+ set lNameValue [DboTclHelper_sMakeCString] 
+ set lRef [DboTclHelper_sMakeCString {Part Reference}]
+ set lRefValue [DboTclHelper_sMakeCString] 
+ set lSrcLib [DboTclHelper_sMakeCString {Source Library}]
+ set lSrcLibValue [DboTclHelper_sMakeCString] 
+ set lSrcPkg [DboTclHelper_sMakeCString {Source Package}]
+ set lSrcPkgValue [DboTclHelper_sMakeCString] 
+ set lImplementationName [DboTclHelper_sMakeCString {Implementation}]
+  set lImplementationNameValue [DboTclHelper_sMakeCString] 
+ set lImplementationPath [DboTclHelper_sMakeCString {Implementation Path}]
+ set lImplementationPathValue [DboTclHelper_sMakeCString] 
+ set lImplementationType [DboTclHelper_sMakeCString {Implementation Type}]   
+  set lImplementationTypeValue [DboTclHelper_sMakeCString]   
+    set lNullObj NULL
+ set lDesignName [DboTclHelper_sMakeCString]
+ $pDesign GetName $lDesignName    
+ while {$lInst!=$lNullObj} { 
+     
+    #dynamic cast from DboPartInst to DboDrawnInst 
+    set lDrawnInst [DboPartInstToDboDrawnInst $lInst] 
+ 
+    if {$lDrawnInst != $lNullObj} {
+    
+  $lInst GetEffectivePropStringValue $lName $lNameValue 
+     $lInst GetEffectivePropStringValue $lImplementationName $lImplementationNameValue 
+     $lInst GetEffectivePropStringValue $lImplementationPath $lImplementationPathValue 
+     $lInst GetEffectivePropStringValue $lImplementationType $lImplementationTypeValue     
+    
+     puts $pFile &quot;\t\t\tHBlock::[DboTclHelper_sGetConstCharPtr $lNameValue]&quot;
+      puts $pFile &quot;\t\t\t\tPath-&gt;[DboTclHelper_sGetConstCharPtr $lDesignName]::[DboTclHelper_sGetConstCharPtr $lImplementationPathValue]::[DboTclHelper_sGetConstCharPtr $lImplementationNameValue]&quot;
+      puts $pFile &quot;\t\t\t\tType::[DboTclHelper_sGetConstCharPtr $lImplementationTypeValue]&quot;
+      puts $pFile &quot;\t\t\t\tName::[DboTclHelper_sGetConstCharPtr $lImplementationNameValue]&quot;
+    }  else   {
+   $lInst GetEffectivePropStringValue $lRef $lRefValue 
+   puts $pFile &quot;\t\t\tPart::[DboTclHelper_sGetConstCharPtr $lRefValue]&quot;
+   $lInst GetEffectivePropStringValue $lSrcLib $lSrcLibValue    
+   $lInst GetEffectivePropStringValue $lSrcPkg $lSrcPkgValue    
+   puts $pFile &quot;\t\t\t\tPackage::[DboTclHelper_sGetConstCharPtr $lSrcPkgValue]&quot;
+   puts $pFile &quot;\t\t\t\tLib::[DboTclHelper_sGetConstCharPtr $lSrcLibValue]&quot;
+   }
+ 
+    #get the next part inst 
+    set lInst [$lPartInstsIter NextPartInst $pStatus] 
+ } 
+   
+   delete_DboPagePartInstsIter $lPartInstsIter  
+   return 
+}
+::capPrintHierarchy::PrintHBlocks stdout &quot;$cdnInstallPath\\tools\\capture\\samples\\FULLAdd.dsn&quot;</pre>
+</div>
+</div>
+<h1 id="TCLProgrammingwithOrCADCaptureDatabase-TraversingDesignObjectOccurrences">Traversing Design Object Occurrences</h1>
+
+<p>Capture automatically calculates occurrence connectivity from the instance objects. For each object instance, there is at least one occurrence. If any instance has more than one occurrence, the design is said to be in occurrence mode (or complex hierarchy).&#160;</p>
+
+<p>The following sample TCL source file:</p>
+<ul><li>uses iterators recursively to list design objects</li><li>traverses design hierarchy using the&#160;<code>NewChildrenIter</code> iterator&#160;</li></ul>
+<p>&#160;</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-12.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set cdnInstallPath [exec cds_root cds_root]
+load [file normalize [file join $cdnInstallPath/tools/capture orDb_Dll_TCL]] DboTclWriteBasic
+
+proc capEnumerateInstOccurrence { pDesign pInstOcc pLevel} { 
+ set lStatus [DboState]
+ set lPathName [DboTclHelper_sMakeCString]
+ set lName [DboTclHelper_sMakeCString]
+ 
+ set pLevel [expr $pLevel + 5]
+ 
+ set lOffPageOccIter [$pInstOcc NewChildrenIter $lStatus  $::IterDefs_OFFPAGES]
+ $lOffPageOccIter Sort $lStatus
+ set lOffPageOcc [$lOffPageOccIter NextOccurrence $lStatus]
+ while { $lOffPageOcc!= &quot;NULL&quot;} {
+  set lId [$lOffPageOcc GetId $lStatus]
+  $lOffPageOcc GetPathName $lPathName
+  set lPathNameChar [DboTclHelper_sGetConstCharPtr $lPathName]
+  set lOccId [$lOffPageOcc GetId $lStatus]
+  puts &quot;[string repeat &quot;-&quot; $pLevel] OffPageOcc:: $lOccId $lPathNameChar &quot;    
+  set lOffPageOcc [$lOffPageOccIter NextOccurrence $lStatus]
+ }
+ delete_DboOccurrenceChildrenIter $lOffPageOccIter
+ 
+ set lPortOccIter [$pInstOcc NewChildrenIter $lStatus  $::IterDefs_PORTS]
+ $lPortOccIter Sort $lStatus
+ set lPortOcc [$lPortOccIter NextOccurrence $lStatus]
+ while { $lPortOcc!= &quot;NULL&quot;} {
+  set lId [$lPortOcc GetId $lStatus] 
+  $lPortOcc GetPathName $lPathName
+  set lPathNameChar [DboTclHelper_sGetConstCharPtr $lPathName]
+  set lOccId [$lPortOcc  GetId $lStatus]
+  puts &quot;[string repeat &quot;-&quot; $pLevel] PortOcc:: $lOccId $lPathNameChar &quot;
+  set lPortOcc [$lPortOccIter NextOccurrence $lStatus]
+ }
+ delete_DboOccurrenceChildrenIter $lPortOccIter
+ 
+ set lNetOccIter [$pInstOcc NewChildrenIter $lStatus  $::IterDefs_NETS]
+ $lNetOccIter Sort $lStatus
+ set lNetOcc [$lNetOccIter NextOccurrence $lStatus]
+ while { $lNetOcc!= &quot;NULL&quot;} {
+  set lId [$lNetOcc GetId $lStatus]
+  $lNetOcc GetPathName $lPathName
+  set lPathNameChar [DboTclHelper_sGetConstCharPtr $lPathName]
+  set lOccId [$lNetOcc GetId $lStatus]
+  puts &quot;[string repeat &quot;-&quot; $pLevel] NetOcc:: $lOccId $lPathNameChar &quot;
+  set lNetOcc [$lNetOccIter NextOccurrence $lStatus]
+ }
+ delete_DboOccurrenceChildrenIter $lNetOccIter
+ 
+ set lTitleBlockOccIter [$pInstOcc NewChildrenIter $lStatus  $::IterDefs_TITLEBLOCKS]
+ $lTitleBlockOccIter Sort $lStatus
+ set lTitleBlockOcc [$lTitleBlockOccIter NextOccurrence $lStatus]
+ while { $lTitleBlockOcc!= &quot;NULL&quot;} {
+  set lId [$lTitleBlockOcc GetId $lStatus]   
+  $lTitleBlockOcc GetPathName $lPathName
+  set lPathNameChar [DboTclHelper_sGetConstCharPtr $lPathName]
+  set lOccId [$lTitleBlockOcc GetId $lStatus]
+  puts &quot;[string repeat &quot;-&quot; $pLevel] TitleblockOcc:: $lOccId $lPathNameChar &quot;
+  set lTitleBlockOcc [$lTitleBlockOccIter NextOccurrence $lStatus]
+ }
+ delete_DboOccurrenceChildrenIter $lTitleBlockOccIter
+ 
+ set lInstOccIter [$pInstOcc NewChildrenIter $lStatus  $::IterDefs_INSTS]
+ $lInstOccIter Sort $lStatus
+ set lChildOcc [$lInstOccIter NextOccurrence $lStatus]
+ while { $lChildOcc!= &quot;NULL&quot;} {
+  set lId [$lChildOcc GetId $lStatus]
+  set lInstOcc [DboOccurrenceToDboInstOccurrence $lChildOcc] 
+  $lInstOcc GetReferenceDesignator $lName
+  set lInstOccRefDes [DboTclHelper_sGetConstCharPtr $lName]
+  set lOccId [$lInstOcc GetId $lStatus]
+  puts &quot;[string repeat &quot;-&quot; $pLevel] InstOcc:: $lOccId $lInstOccRefDes &quot;
+  capEnumerateInstOccurrence $pDesign $lInstOcc $pLevel
+  set lChildOcc [$lInstOccIter NextOccurrence $lStatus]
+ }
+ delete_DboOccurrenceChildrenIter $lInstOccIter
+}
+proc capEnumerateOccurrences { pDesign lStatus} {
+ set lRootOcc [$pDesign GetRootOccurrence $lStatus]
+ set lName [DboTclHelper_sMakeCString]
+ set lStatus [$pDesign GetRootName $lName]   
+ set lOccId [$lRootOcc GetId $lStatus]
+ puts &quot;Root: [DboTclHelper_sGetConstCharPtr $lName] Occurrence Id: $lOccId&quot;
+ capEnumerateInstOccurrence $pDesign $lRootOcc 0
+ $lStatus -delete
+}
+proc capShowOccTree { pDesignName } {    
+ set lStatus [DboState]
+ set lSession [DboTclHelper_sCreateSession]
+ set lDesignNameCStr [DboTclHelper_sMakeCString $pDesignName]
+ set lDesign [$lSession GetDesignAndSchematics $lDesignNameCStr $lStatus]
+ if { &quot;NULL&quot; != $lDesign} {
+  puts &quot;$pDesignName is open&quot;
+  capEnumerateOccurrences $lDesign $lStatus
+  $lSession RemoveLib $lDesign
+ } else {
+  puts &quot;$pDesignName could not open&quot;
+ }
+ DboTclHelper_sDeleteSession $lSession 
+ $lStatus -delete
+}
+set lDesignName [file normalize [file join $cdnInstallPath/tools/capture/samples fulladd.dsn]]
+
+capShowOccTree $lDesignName</pre>
+</div>
+</div>
+<h1 id="TCLProgrammingwithOrCADCaptureDatabase-ListingCachewithDateorTime">Listing Cache with Date or Time</h1>
+
+<p>OrCAD Capture design database caches the library objects. Using TCL, you can list the cache object data.</p>
+
+<p>The following sample TCL source file&#160;traverses the cache and displays time stamp.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-13.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set cdnInstallPath [exec cds_root cds_root]
+load [file normalize [file join $cdnInstallPath/tools/capture orDb_Dll_TCL]] DboTclWriteBasic
+proc printObjectType { pObject } {
+  set lCStr [DboTclHelper_sMakeCString]
+  $pObject GetTypeString $lCStr
+  set lObjTypeStr [DboTclHelper_sGetConstCharPtr $lCStr]
+  set lObjType [$pObject GetObjectType]
+  switch  $lObjType {
+   0 { puts &quot;NULL_OBJECT&quot; } 
+   1 { puts &quot;BASE_OBJECT&quot; } 
+   2 { puts &quot;GRAPHIC_OBJECT&quot; } 
+   3 { puts &quot;NAMED_OBJECT&quot; } 
+   4 { puts &quot;DESIGN&quot; } 
+   5 { puts &quot;LIBRARY&quot; } 
+   6 { puts &quot;PART_CELL&quot; } 
+   7 { puts &quot;VIEW&quot; } 
+   8 { puts &quot;EXTERNAL_VIEW&quot; } 
+   9 { puts &quot;SCHEMATIC&quot; } 
+   10 { puts &quot;PAGE&quot; } 
+   11 { puts &quot;PART_INSTANCE&quot; } 
+   12 { puts &quot;DRAWN_INSTANCE&quot; } 
+   13 { puts &quot;PLACED_INSTANCE&quot; } 
+   14 { puts &quot;TEMPLATE_INSTANCE&quot; } 
+   15 { puts &quot;PORT_INSTANCE&quot; } 
+   16 { puts &quot;PORT_INSTANCE_SCALAR&quot; } 
+   17 { puts &quot;PORT_INSTANCE_BUS&quot; } 
+   18 { puts &quot;PORT_INSTANCE_BUNDLE&quot; } 
+   19 { puts &quot;WIRE&quot; } 
+   20 { puts &quot;WIRE_SCALAR&quot; } 
+   21 { puts &quot;WIRE_BUS&quot; } 
+   22 { puts &quot;WIRE_BUNDLE&quot; } 
+   23 { puts &quot;PORT&quot; } 
+   24 { puts &quot;LIBRARY_PART&quot; } 
+   25 { puts &quot;SYMBOL_PIN&quot; } 
+   26 { puts &quot;SYMBOL_PIN_SCALAR&quot; } 
+   27 { puts &quot;SYMBOL_PIN_BUS&quot; } 
+   28 { puts &quot;SYMBOL_PIN_BUNDLE&quot; } 
+   29 { puts &quot;ENTRY&quot; } 
+   30 { puts &quot;COMMENT&quot; } 
+   31 { puts &quot;PACKAGE&quot; } 
+   32 { puts &quot;DEVICE&quot; } 
+   33 { puts &quot;GLOBAL_SYMBOL&quot; } 
+   34 { puts &quot;PORT_SYMBOL&quot; } 
+   35 { puts &quot;OFF_PAGE_SYMBOL&quot; } 
+   36 { puts &quot;EXPORT_BLOCK&quot; } 
+   37 { puts &quot;DBGLOBAL&quot; } 
+   38 { puts &quot;OFF_PAGE_CONNECTOR&quot; } 
+   39 { puts &quot;DISPLAY_PROP&quot; } 
+   40 { puts &quot;BOX&quot; } 
+   41 { puts &quot;LINE&quot; } 
+   42 { puts &quot;ARC&quot; } 
+   43 { puts &quot;ELLIPSE&quot; } 
+   44 { puts &quot;POLYGON&quot; } 
+   45 { puts &quot;POLYLINE&quot; } 
+   46 { puts &quot;COMMENT_TEXT&quot; } 
+   47 { puts &quot;BITMAP_VECT&quot; } 
+   48 { puts &quot;SYMBOL_VECT&quot; } 
+   49 { puts &quot;ALIAS&quot; } 
+   50 { puts &quot;NETSYMBOL_INSTANCE&quot; } 
+   51 { puts &quot;NET&quot; } 
+   52 { puts &quot;NET_SCALAR&quot; } 
+   53 { puts &quot;NET_BUS&quot; } 
+   54 { puts &quot;GRAPHIC_INSTANCE&quot; } 
+   55 { puts &quot;GRAPHIC_BOX_INST&quot; } 
+   56 { puts &quot;GRAPHIC_LINE_INST&quot; } 
+   57 { puts &quot;GRAPHIC_ARC_INST&quot; } 
+   58 { puts &quot;GRAPHIC_ELLIPSE_INST&quot; } 
+   59 { puts &quot;GRAPHIC_POLYGON_INST&quot; } 
+   60 { puts &quot;GRAPHIC_POLYLINE_INST&quot; } 
+   61 { puts &quot;GRAPHIC_COMMENTTEXT_INST&quot; } 
+   62 { puts &quot;GRAPHIC_BITMAP_INST&quot; } 
+   63 { puts &quot;GRAPHIC_SYMBOL_VECTOR_INST&quot; } 
+   64 { puts &quot;TITLEBLOCK_SYMBOL&quot; } 
+   65 { puts &quot;TITLEBLOCK_INSTANCE&quot; } 
+   66 { puts &quot;INST_OCCURRENCE&quot; } 
+   67 { puts &quot;NET_OCCURRENCE&quot; } 
+   68 { puts &quot;PORT_OCCURRENCE&quot; } 
+   69 { puts &quot;PORT_BUS_MEMBER_OCCURRENCE&quot; } 
+   70 { puts &quot;SCHEMATIC_INSTANCE&quot; } 
+   71 { puts &quot;SCHEMATIC_NET&quot; } 
+   72 { puts &quot;SCHEMATIC_NET_SCALAR&quot; } 
+   73 { puts &quot;SCHEMATIC_NET_BUS&quot; } 
+   74 { puts &quot;FLAT_NET&quot; } 
+   75 { puts &quot;ERC_SYMBOL&quot; } 
+   76 { puts &quot;BOOK_MARK_SYMBOL&quot; } 
+   77 { puts &quot;ERC_OBJECT&quot; } 
+   78 { puts &quot;BOOK_MARK&quot; } 
+   79 { puts &quot;SCHEMATIC_PORT&quot; } 
+   80 { puts &quot;SCHEMATIC_GLOBAL&quot; } 
+   81 { puts &quot;SCHEMATIC_OFFPAGE_CONNECTOR&quot; } 
+   82 { puts &quot;TITLEBLOCK_OCCURRENCE&quot; } 
+   83 { puts &quot;FILL&quot; } 
+   84 { puts &quot;PORT_INSTANCE_BUS_MEMBER&quot; } 
+   85 { puts &quot;WIRE_JUNCTION&quot; } 
+   86 { puts &quot;API_OBJ_PART&quot; } 
+   87 { puts &quot;BEZIER&quot; } 
+   88 { puts &quot;GRAPHIC_BEZIER_INST&quot; } 
+   89 { puts &quot;GRAPHIC_OLEEMBED_INST&quot; } 
+   90 { puts &quot;OLEEMBED_VECT&quot; } 
+   91 { puts &quot;OFF_PAGE_CONNECTOR_OCCURRENCE&quot; } 
+   97 { puts &quot;CUSTOMITEM_INSTANCE&quot; } 
+   98 { puts &quot;PIN_VECTOR&quot; } 
+   104 { puts &quot;NET_BUNDLE&quot; } 
+   default { puts &quot;$lObjTypeStr&quot; }
+  }
+}
+proc showCacheEntries { pDesign } {
+    set lCacheNameCStr [DboTclHelper_sMakeCString]
+    set lCacheLibNameCStr [DboTclHelper_sMakeCString]
+    set lStatus [DboState]
+ set lCacheObjectsIter [$pDesign NewCachesIter $lStatus $::IterDefs_ALL]
+    set lCachedObject [$lCacheObjectsIter NextCachedObject  $lStatus]
+    while { $lCachedObject!= &quot;NULL&quot; } {
+  set lCachedLibObject [DboBaseObjectToDboLibObject $lCachedObject]
+  $lCachedObject GetName $lCacheNameCStr
+  $pDesign GetSourceLibName $lCacheNameCStr $lCachedLibObject $lCacheLibNameCStr
+  puts -nonewline &quot;Cache Entry - Library [DboTclHelper_sGetConstCharPtr $lCacheLibNameCStr] : &quot;
+  puts -nonewline &quot;[DboTclHelper_sGetConstCharPtr $lCacheNameCStr] : &quot;
+  set lObjectType [$lCachedObject GetObjectType]
+  set lIsOutOfDate [$pDesign CacheIsOutOfDate $lObjectType $lCacheLibNameCStr $lCacheNameCStr $lStatus]
+  puts -nonewline &quot;OutOfDate-$lIsOutOfDate : &quot;
+  set lCacheTime [$pDesign GetCachedTime $lObjectType $lCacheLibNameCStr $lCacheNameCStr $lStatus]
+  set lCacheTimeStr [DboTclHelper_sGetConstCharPtr [$pDesign TimeToString $lCacheTime]]
+  puts -nonewline &quot;$lCacheTimeStr : &quot;
+  
+  printObjectType $lCachedLibObject 
+  set lCachedObject [$lCacheObjectsIter NextCachedObject  $lStatus]
+    }
+    delete_DboDesignCachesIter $lCacheObjectsIter
+    $lStatus -delete
+}
+proc capShowCacheData { pDesignName } {    
+ set lStatus [DboState]
+ set lSession [DboTclHelper_sCreateSession]
+ set lDesignNameCStr [DboTclHelper_sMakeCString $pDesignName]
+ set lDesign [$lSession GetDesignAndSchematics $lDesignNameCStr $lStatus]
+ if { &quot;NULL&quot; != $lDesign} {
+  puts &quot;$pDesignName is open&quot;
+  showCacheEntries $lDesign
+  $lSession RemoveLib $lDesign
+ } else {
+  puts &quot;$pDesignName could not open&quot;
+ }
+ DboTclHelper_sDeleteSession $lSession 
+ $lStatus -delete
+}
+set lDesignName [file normalize [file join $cdnInstallPath/tools/capture/samples fulladd.dsn]]
+capShowCacheData $lDesignName</pre>
+</div>
+</div>
+<h1 id="TCLProgrammingwithOrCADCaptureDatabase-GeneratingFlatNetsList">Generating Flat Nets List</h1>
+
+<p>OrCAD Capture generates flat nets that are mapped to the physical nets of the PCB tools.</p>
+
+<p>The following sample TCL source file&#160;lists the flat nets in the Full Adder design.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-14.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set cdnInstallPath [exec cds_root cds_root]
+load [file normalize [file join $cdnInstallPath/tools/capture orDb_Dll_TCL]] DboTclWriteBasic
+proc listFlatNet { pDesignName } {
+ set lStatus [DboState]
+ set lSession [DboTclHelper_sCreateSession]
+ set lDesignNameCStr [DboTclHelper_sMakeCString $pDesignName]
+ set lDesign [$lSession GetDesignAndSchematics $lDesignNameCStr $lStatus]
+ if { &quot;NULL&quot; == $lDesign} {
+  puts &quot;$pDesignName could not open&quot;
+  exit
+ }
+ set lRoot [$lDesign GetRootOccurrence $lStatus]
+ set lNameCStr [DboTclHelper_sMakeCString]
+ set lFlatNetsIter [$lDesign NewFlatNetsIter $lStatus]
+ set lFlatNet [$lFlatNetsIter NextFlatNet $lStatus]
+ while {$lFlatNet != &quot;NULL&quot;} {
+  $lFlatNet GetName $lNameCStr
+  puts [DboTclHelper_sGetConstCharPtr $lNameCStr]
+  set lFlatNet [$lFlatNetsIter NextFlatNet $lStatus]
+ }
+ $lFlatNetsIter -delete
+ $lStatus -delete
+ $lSession RemoveLib $lDesign
+ DboTclHelper_sDeleteSession $lSession 
+}
+set lDesignName [file normalize [file join $cdnInstallPath/tools/capture/samples fulladd.dsn]]
+listFlatNet $lDesignName</pre>
+</div>
+</div>
+<div class="confluence-information-macro confluence-information-macro-note"><span class="aui-icon aui-icon-small aui-iconfont-warning confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>When working on command line access &#8211; Occurrences (and Flat Net) data is only available after the call to GetRootOccurrence</p>
+</div>
+</div>
+<h1 id="TCLProgrammingwithOrCADCaptureDatabase-IteratingObjectproperties">Iterating Object properties</h1>
+
+<p>The <em>listEffectiveProperties {pObject}</em> function is used to iterate over properties of any objects.</p>
+
+<p>The following sample TCL source file lists properties of each of the flat nets in the <em style="line-height: 1.42857;">Full Adder</em> design</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-15.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set cdnInstallPath [exec cds_root cds_root]
+load [file normalize [file join $cdnInstallPath/tools/capture orDb_Dll_TCL]] DboTclWriteBasic
+proc listEffectiveProperties {pObject} {
+ set lStatus [DboState]
+ set cptr DboTclHelper_sGetConstCharPtr
+ set lPropsIter [$pObject NewEffectivePropsIter $lStatus] 
+ #create the input/output parameters 
+ set lPrpName [DboTclHelper_sMakeCString] 
+ set lPrpValue [DboTclHelper_sMakeCString] 
+ set lPrpType [DboTclHelper_sMakeDboValueType] 
+ set lEditable [DboTclHelper_sMakeInt] 
+ set lStatus [$lPropsIter NextEffectiveProp $lPrpName $lPrpValue $lPrpType $lEditable] 
+ while {[$lStatus OK] == 1} { 
+  puts &quot;\tName=[$cptr $lPrpName]  Value= [$cptr $lPrpValue] &quot;
+  set lStatus [$lPropsIter NextEffectiveProp $lPrpName $lPrpValue $lPrpType $lEditable] 
+ } 
+ delete_DboEffectivePropsIter $lPropsIter
+ $lStatus -delete
+}
+proc listFlatNet { pDesignName } {
+ set lStatus [DboState]
+ set lSession [DboTclHelper_sCreateSession]
+ set lDesignNameCStr [DboTclHelper_sMakeCString $pDesignName]
+ set lDesign [$lSession GetDesignAndSchematics $lDesignNameCStr $lStatus]
+ if { &quot;NULL&quot; == $lDesign} {
+  puts &quot;$pDesignName could not open&quot;
+  exit
+ }
+ set lRoot [$lDesign GetRootOccurrence $lStatus]
+ set lNameCStr [DboTclHelper_sMakeCString]
+ set lFlatNetsIter [$lDesign NewFlatNetsIter $lStatus]
+ set lFlatNet [$lFlatNetsIter NextFlatNet $lStatus]
+ while {$lFlatNet != &quot;NULL&quot;} {
+  $lFlatNet GetName $lNameCStr
+  puts [DboTclHelper_sGetConstCharPtr $lNameCStr]
+  listEffectiveProperties $lFlatNet
+  set lFlatNet [$lFlatNetsIter NextFlatNet $lStatus]
+ }
+ $lFlatNetsIter -delete
+ $lStatus -delete
+ $lSession RemoveLib $lDesign
+ DboTclHelper_sDeleteSession $lSession 
+}
+set lDesignName [file normalize [file join $cdnInstallPath/tools/capture/samples fulladd.dsn]]
+listFlatNet $lDesignName</pre>
+</div>
+</div>
+
+<p>&#160;</p>
+
+<p>&#160;</p>
+
+<p>&#160;</p>
+
+<p>&#160;</p>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Introduction_to_Basic_OrCAD_TCL_Scripts.html" id="prev" title="Introduction_to_Basic_OrCAD_TCL_Scripts">Introduction_to_Basic_OrCAD_TC ...</a></em></b><b><em><a href="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface.html" id="nex" title="TCL_Programmimg_with_OrCAD_Capture_GUI_Interface">TCL_Programmimg_with_OrCAD_Cap ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" /></body></html>

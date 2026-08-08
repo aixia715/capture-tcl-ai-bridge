@@ -1,0 +1,545 @@
+
+<html><head><title>TCL Programmimg with OrCAD Capture GUI Interface</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2020-03-19" />
+<meta name="CreateTime" content="1584621423" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="This document provides basic scripts that can be used to do basic tasks in OrCAD Capture." />
+<meta name="DocTitle" content="OrCAD TCL Sample Scripts" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="TCL Programmimg with OrCAD Capture GUI Interface" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="orctclsample" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2020-03-19" />
+<meta name="ModifiedTime" content="1584621423" />
+<meta name="NextFile" content="" />
+<meta name="Group" content="OrCAD Capture TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="TCL_Programming_with_OrCAD_Capture_Database.html" />
+<meta name="Product" content="OrCAD Capture,Allegro Design Entry CIS," />
+<meta name="ProductFamily" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2012-2020 Cadence Design Systems Inc." />
+<meta name="Title" content="OrCAD TCL Sample Scripts -- TCL Programmimg with OrCAD Capture GUI Interface" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="orcadtclsample174" />
+<meta name="confluence-version" content="6.13.3" />
+<meta name="ecms-plugin-version" content="03.30.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    </head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="orctclsampleTOC.html">Contents</a></li><li><a class="prev" href="TCL_Programming_with_OrCAD_Capture_Database.html" title="TCL_Programming_with_OrCAD_Capture_Database">TCL_Programming_with_OrCAD_Cap ...</a></li><li style="float: right;"><a class="viewPrint" href="orctclsample.pdf">View/Print PDF</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>OrCAD TCL Sample Scripts<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <div style="width: 100%; font-size: 32px; text-align: left;               font-weight: bold;">5</div>
+<h1 style="margin: 4px 0 4px;"><span>TCL Programmimg with OrCAD Capture GUI Interface</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>This chapter describes the following:</p>
+<ul><li>Adding menus and installing packages</li><li>Running design modification with generated code</li><li>Generating TCL code for an example design</li><li>Working interactively with selected objects</li><li>Modifying properties on a design hierarchy</li></ul><h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-AddingMenutoOrCADCapture">Adding Menu to OrCAD Capture</h1>
+
+<p>The following sample TCL source file:</p>
+<ul><li>adds a menu to the main, schematic, and project manager windows of Capture</li><li>sets up the TCL scripts loaded on start up</li></ul>
+<p>Do the following steps to run the sample TCL source file:</p>
+<ol><li>
+<p>Add the following TCL source file at <code>&lt;installation&gt;\tools\capture\tclscripts\capAutoLoad</code>.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-16.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">&#160;namespace eval ::test {
+    proc registerMenuActions { args } {
+        catch {
+        
+            RegisterAction &quot;testMenu_PM_1&quot;   &quot;::test::shouldProcess&quot; &quot;Alt+F&quot; &quot;::test::testMePM&quot; &quot;PM&quot;
+            RegisterAction &quot;testMenu_PM_2&quot;   &quot;::test::shouldProcess&quot; &quot;Alt+F1&quot; &quot;::test::testMePM&quot; &quot;PM&quot;
+            RegisterAction &quot;testMenu_PM_3&quot;   &quot;::test::shouldProcess&quot; &quot;Alt+F2&quot; &quot;::test::testMePM&quot; &quot;PM&quot;
+            RegisterAction &quot;testMenu_PM_4&quot;   &quot;::test::shouldProcess&quot; &quot;Shift+Z&quot; &quot;::test::testMePM&quot; &quot;PM&quot;
+            
+            RegisterAction &quot;testMenu_SCM_1&quot;   &quot;::test::shouldProcess&quot; &quot;Alt+F&quot; &quot;::test::testMeSCM&quot; &quot;SCHEMATIC&quot;
+            RegisterAction &quot;testMenu_SCM_2&quot;   &quot;::test::shouldProcess&quot; &quot;Alt+F1&quot; &quot;::test::testMeSCM&quot; &quot;SHEMATIC&quot;
+            RegisterAction &quot;testMenu_SCM_3&quot;   &quot;::test::shouldProcess&quot; &quot;Alt+F2&quot; &quot;::test::testMeSCM&quot; &quot;SCHEMATIC&quot;
+            RegisterAction &quot;testMenu_SCM_4&quot;   &quot;::test::shouldProcess&quot; &quot;Shift+Z&quot; &quot;::test::testMeSCM&quot; &quot;SCHEMATIC&quot;    
+            InsertXMLMenu  [list [list &quot;MyFile1&quot;] &quot;&quot; &quot;&quot; [list &quot;popup&quot; &quot;MyFileTest1&quot;  &quot;&quot; &quot;&quot; &quot;&quot; &quot;&quot; &quot;&quot;] &quot;&quot;]
+            InsertXMLMenu  [list [list &quot;MyFile1&quot; &quot;MyFileLevelpopup1&quot;] &quot;&quot; &quot;&quot; [list &quot;popup&quot; &quot;MyFileLevel11&quot;  &quot;&quot; &quot;&quot; &quot;&quot; &quot;&quot; &quot;&quot;] &quot;&quot;]
+            InsertXMLMenu  [list [list &quot;MyFile1&quot; &quot;MyFileLevelpopup1&quot; &quot;MyFileLevelAction2&quot;] &quot;&quot; &quot;&quot; [list &quot;action&quot; &quot;&amp;menu1&quot;  &quot;0&quot; &quot;ActionForMenu1&quot; &quot;UpdateForMenu1&quot; &quot;Ctrl+Z&quot; &quot;&quot; &quot;&quot; &quot;This is my menu test2&quot;] &quot;&quot;]
+            InsertXMLMenu  [list [list &quot;MyFile1&quot; &quot;MyFileLevelpopup1&quot; &quot;MyFileLevelAction3&quot;] &quot;&quot; &quot;&quot; [list &quot;action&quot; &quot;&amp;menu2&quot;  &quot;0&quot; &quot;ActionForMenu1&quot; &quot;UpdateForMenu1&quot; &quot;Shift+B&quot; &quot;&quot; &quot;&quot; &quot;This is my menu test2&quot;] &quot;&quot;]
+            InsertXMLMenu  [list [list &quot;MyFile1&quot; &quot;MyFileLevelpopup1&quot; &quot;MyFileLevelAction4&quot;] &quot;&quot; &quot;&quot; [list &quot;action&quot; &quot;&amp;menu3&quot;  &quot;0&quot; &quot;ActionForMenu1&quot; &quot;UpdateForMenu1&quot; &quot;Shift+X&quot; &quot;&quot; &quot;&quot; &quot;This is my menu test2&quot;] &quot;&quot;]
+            InsertXMLMenu  [list [list &quot;MyFile1&quot; &quot;MyFileLevelpopup1&quot; &quot;MySeparator1&quot;] &quot;1&quot; &quot;MyFileLevelAction1&quot; [list &quot;separator&quot;] &quot;&quot;]
+            InsertXMLMenu  [list [list &quot;MyFile1&quot; &quot;MyFileLevelpopup1&quot; &quot;MyFileLevelAction8&quot;] &quot;&quot; &quot;&quot; [list &quot;action&quot; &quot;&amp;menu6&quot;  &quot;0&quot; &quot;ActionForMenu1&quot; &quot;UpdateForMenu1&quot; &quot;Shift+Q&quot; &quot;&quot; &quot;&quot; &quot;This is my menu test2&quot;] &quot;&quot;]
+            InsertXMLMenu  [list [list &quot;MyFile1&quot; &quot;MyFileLevelpopup1&quot; &quot;MyFileLevelAction9&quot;] &quot;&quot; &quot;&quot; [list &quot;action&quot; &quot;&amp;menu7&quot;  &quot;0&quot; &quot;ActionForMenu1&quot; &quot;UpdateForMenu1&quot; &quot;Ctrl+F&quot; &quot;&quot; &quot;&quot; &quot;This is my menu test2&quot;] &quot;&quot;]
+            InsertXMLMenu  [list [list &quot;MyFile1&quot; &quot;MyFileLevelpopup1&quot; &quot;MyFileLevelAction11&quot;] &quot;&quot; &quot;&quot; [list &quot;action&quot; &quot;&amp;menu9&quot;  &quot;0&quot; &quot;ActionForMenu1&quot; &quot;UpdateForMenu1&quot; &quot;Alt+F&quot; &quot;&quot; &quot;&quot; &quot;This is my menu test2&quot;] &quot;&quot;] 
+            
+            RegisterAction &quot;ActionForMenu1&quot;   &quot;::test::shouldProcess&quot; &quot;&quot; &quot;::test::testActionProc1&quot; &quot;&quot;
+            RegisterAction &quot;UpdateForMenu1&quot; &quot;::test::shouldProcess&quot; &quot;&quot; &quot;::test::testUpdateProc1&quot; &quot;&quot;
+            RegisterAction &quot;ActionForMenu2&quot;   &quot;::test::shouldProcess&quot; &quot;&quot; &quot;::test::testActionProc2&quot; &quot;&quot;
+            RegisterAction &quot;UpdateForMenu2&quot; &quot;::test::shouldProcess&quot; &quot;&quot; &quot;::test::testUpdateProc2&quot; &quot;&quot;
+        }
+    }
+    proc shouldProcess { args } {
+        return 1
+    }
+    proc shouldProcess1 { args } {
+        return 0
+    }
+    
+    proc testMePM { args } {
+        puts &quot;CALLED FROM PM WINDOW&quot;
+    }
+    
+    proc testMeSCM { args } {
+        puts &quot;CALLED FROM SCHEMATICS&quot;
+    }
+    
+    proc testActionProc1 { args } {
+       puts &quot;CALLED FROM MAIN MENU&quot;
+    }
+    
+    proc testUpdateProc1 { args } {
+       return true
+    }
+    
+}
+::test::registerMenuActions</pre>
+</div>
+</div>
+</li><li>Launch Capture</li><li>Choose&#160;<em>View - Command</em> Window to view the TCL scripts loaded at startup in the command window.</li><li>Open the design, in this example&#160;<em>Full Adder</em>, in Capture.<br />The <em>Full Adder</em> design is located in the following folder: <code>&lt;installation&gt;\tools\capture\samples</code><br /><br /></li></ol><h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-SettingBasicApplicationStructurewithMenu">Setting Basic Application Structure with Menu</h1>
+
+<p>Loading package code in memory only when it is required ensures stability and lowers memory usage. The following sample TCL script can be used as a template to set up application packages.</p>
+
+<p>The sample TCL source script&#160;<span style="line-height: 1.42857;">provides a template on how to integrate application code with the menu. The script:</span></p>
+<ul><li>adds a menu to Capture</li><li>sets up the application package</li></ul>
+<p>Do the following steps to set up basic TCL application structure with menu:</p>
+<ol><li>
+<p>Add the following <code>Sample-17.tcl</code> file to <code>&lt;installation&gt;\tools\capture\tclscripts\capAutoLoad</code></p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-17.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">namespace eval ::CDNSCustomAppInstall {
+    set packageLoaded 0
+    InsertXMLMenu  [list [list &quot;Place&quot; &quot;PSpiceComponent&quot; &quot;CDNS&quot;] &quot;&quot; &quot;&quot; [list &quot;popup&quot; &quot;CDNS Browser&quot;  &quot;&quot; &quot;&quot; &quot;&quot; &quot;&quot; &quot;&quot;] &quot;&quot;]
+    InsertXMLMenu  [list [list &quot;Place&quot; &quot;PSpiceComponent&quot;  &quot;AlignSep2&quot;] &quot;0&quot; &quot;CDNS&quot; [list &quot;separator&quot;] &quot;&quot;]
+    InsertXMLMenu  [list [list &quot;Place&quot; &quot;PSpiceComponent&quot;  &quot;CDNS&quot;  &quot;Search&quot;] &quot;&quot; &quot;&quot; [list &quot;action&quot; &quot;Search&quot;  &quot;0&quot; &quot;OnCDNSSearch&quot; &quot;OnUpdateCDNSSearch&quot; &quot;&quot; &quot;&quot; &quot;&quot; &quot;Search&quot;] &quot;&quot;]
+    RegisterAction &quot;OnCDNSSearch&quot;   &quot;::CDNSCustomAppInstall::enable&quot; &quot;&quot; &quot;::CDNSCustomAppInstall::OnSearch&quot; &quot;&quot;
+    RegisterAction &quot;OnUpdateCDNSSearch&quot; &quot;::CDNSCustomAppInstall::enable&quot; &quot;&quot; &quot;::CDNSCustomAppInstall::enableUpdate&quot; &quot;&quot;
+    proc enable { args } {
+        return 1
+    }
+    proc enableUpdate { args } {
+        if { [capIsPSpiceProject] &amp;&amp; [IsSchematicViewActive] } {
+            return true
+        }
+        return false
+    }
+    proc OnSearch {} {
+        if {$::CDNSCustomAppInstall::packageLoaded == 0} {
+            package require CDNSCustomApp
+            set $::CDNSCustomAppInstall::packageLoaded 1
+            puts &quot;Package Loaded&quot;
+        }
+        CDNSCustomApp::OnSearch
+    }
+}</pre>
+</div>
+</div>
+</li><li>
+<p>Add the following TCL source code files, <code>CDNSCustomApp.tcl</code> and <code>pkgIndex.tcl</code>, to the<code> Sample-17</code> folder</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>CDNSCustomApp.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">package provide CDNSCustomApp 1.0
+namespace eval ::CDNSCustomApp {
+    proc OnSearch {} {
+        puts &quot;Method OnSearch Called&quot;
+    }
+}</pre>
+</div>
+</div>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>pkgindex.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">package ifneeded CDNSCustomApp 1.0 [list source [file join $dir CDNSCustomApp.tcl]]</pre>
+</div>
+</div>
+</li><li>Copy the <em><code>Sample-17</code></em> folder to <code> &lt;installation&gt;\tools\capture\tclscripts</code>.</li><li>Restart Capture.</li><li>Open the <em>Full Adder</em> design file.</li><li>Verify in session log that the package is loaded only on menu click.</li><li>
+<p>Add the following code in the <code>Sample-17.tcl</code> source file:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">    proc enableUpdate { args } {
+        if { [capIsPSpiceProject] &amp;&amp; [IsSchematicViewActive] } {
+            return true
+        }
+        return false
+    }</pre>
+</div>
+</div>
+</li><li>Restart Capture.</li><li>Open the <em>Full Adder</em> design file.</li><li>Verify that the menu is disabled as the Full Adder design is not a PSpice project.</li><li>Open any project from <code>&lt;installation&gt;\tools\pspice\capture_samples</code> folder.</li><li>Verify that the menu is enabled.</li></ol><div class="confluence-information-macro confluence-information-macro-note"><span class="aui-icon aui-icon-small aui-iconfont-warning confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>It is important to load the application package only when a user clicks on the menu. Use the package provided and the <code>pkgIndex.tcl</code> file to load on &quot;package require&quot;.</p>
+</div>
+</div>
+<h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-AccessingSession,Design,andPageObjectsinCapture">Accessing Session, Design, and Page Objects in Capture</h1>
+
+<p>The following sample TCL source file:</p>
+<ul><li>gets the session objects from Capture and lists open designs</li><li>finds full path of the current active project</li><li>gets the active design</li><li>queries the page in focus</li><li>uses the&#160;<code>DboState</code> function to write to the session log</li><li>uses the&#160;<code>capMessageBox</code> function to display a message</li></ul>
+<p>Do the following steps to access session, design, and page objects in Capture:</p>
+<ol><li>Start Capture.</li><li>Open the<em> Full Adder</em> design.</li><li>Open another design from <code>&lt;installation&gt;\tools\pspice\capture_samples</code>.&#160;</li><li>Select the Project Manager window of the Full Adder design.</li><li>Open the Full Adder page of the Full Adder schematic.</li><li>Make the Full Adder page active.</li><li>
+<p>Using the <code>source</code> command, source the <code>Sample-18.tcl</code> file in the command window.<br /><code>source {&lt;Absolute path of the Sample 18.tcl file&gt;}</code></p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-18.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">interp alias {} ? {} puts $errorInfo
+set lSession $::DboSession_s_pDboSession 
+DboSession -this $lSession 
+set lStatus [DboState]
+set lDesignsIter [$lSession NewDesignsIter $lStatus] 
+set lDesign [$lDesignsIter NextDesign $lStatus]
+set lCStr [DboTclHelper_sMakeCString] 
+while { $lDesign!= &quot;NULL&quot;} { 
+    DboDesign_GetRootName $lDesign $lCStr
+    DboState_WriteToSessionLog $lCStr
+    
+    set lDesign [$lDesignsIter NextDesign $lStatus] 
+} 
+delete_DboSessionDesignsIter $lDesignsIter
+catch {set lProjectPath [GetActiveOpjName]}
+DboTclHelper_sSetCString  $lCStr &quot;Current Project file $lProjectPath&quot;
+DboState_WriteToSessionLog  $lCStr
+catch {set lCurrentDesign [GetActivePMDesign]}
+DboTclHelper_sSetCString  $lCStr &quot;Current Design $lCurrentDesign&quot;
+DboState_WriteToSessionLog  $lCStr
+catch {set lCurrentPage [GetActivePage]}
+DboTclHelper_sSetCString  $lCStr &quot;Current Page $lCurrentPage&quot;
+DboState_WriteToSessionLog  $lCStr
+catch {set isSchViewActive [IsSchematicViewActive]}
+DboTclHelper_sSetCString  $lCStr &quot;Is Schematic View active: $isSchViewActive&quot;
+DboState_WriteToSessionLog  $lCStr
+capDisplayMessageBox &quot;Execution Completed. \n See output of this in Session Log&quot; &quot;Info&quot;</pre>
+</div>
+</div>
+</li></ol><h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-UsingRecordandReplayCommands">Using Record and Replay Commands</h1>
+
+<p>Capture provides capabilities to record and replay commands. When journaling is enabled all commands are saved in a file.</p>
+
+<p>The following example:</p>
+<ul><li>enables command echo and journaling</li><li>saves commands for future replay</li><li>replays commands from Capture command line</li></ul>
+<p>Do the following steps to record and replay commands:</p>
+<ol><li>Open the <code>Sample-19\Sample-19.dsn</code> design.</li><li>Open the design file from the project window.</li><li>Enable Journaling<ol><li>Choose <em>Preferences - More Preferences</em></li><li>Select Command Shell</li><li>Enable all options under journaling</li></ol></li><li>Restart Capture.</li><li>Open the <code>Sample-19\Sample-19.dsn</code> design.</li><li>Create two hierarchical blocks as shown and connect the pins</li><li>Save and Exit Capture</li><li>Locate Capture Log<ol><li>Type <code>%TEMP%</code> in windows start</li><li>Locate CAPTURELOG directory</li><li>Copy the latest directory to <code>Sample-19\Sample-19\stage1</code></li></ol></li><li>Restore the Capture design to original state - copy <code>Sample-19\backup\Sample-19.dsn</code> to <code>Sample-19</code>.</li><li>Copy the contents of the <code>OrCAptureLogFile.captl</code> file to <code>Sample-19.tcl</code>. Add the following commands at the end of the file:<br /><code>SelectPMltem &quot;./Sample-19.dsn&quot;</code><br /><code>Menu &quot;File::Close&quot;</code><br /><code>Menu &quot;File::Exit&quot;</code></li><li>Open Windows Command Shell in the database directory.</li><li>Execute the following command: <code>capture -product=&quot;OrCAD Capture&quot; Sample-19.tcl</code></li><li>Capture will come up and execute the TCL file that will recreate the blocks and wire. At the end Capture.exe will automatically close the design and exit.</li></ol><div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-19.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">Open d:/Sample_Scripts/Sample-19/Sample-19.opj
+SelectPMItem &quot;./Sample-19.dsn&quot;
+OPage &quot;SCHEMATIC1&quot; &quot;PAGE1&quot;
+SelectPMItem &quot;SCHEMATIC1/PAGE1&quot;
+OPage &quot;SCHEMATIC1&quot; &quot;PAGE1&quot; 
+PlaceBlock 1.89 1.63 3.61 2.99 &quot;&quot; &quot;&quot; &quot;H1&quot; &quot;DEFAULT&quot;
+SetProperty {Implementation Type} {&lt;none&gt;}
+PlacePin 3.60 2.30 &quot;A&quot; &quot;Passive&quot; FALSE
+EndPlace
+UnSelectAll
+PlaceBlock 4.99 1.63 6.51 2.99 &quot;&quot; &quot;&quot; &quot;H2&quot; &quot;DEFAULT&quot;
+SetProperty {Implementation Type} {&lt;none&gt;}
+PlacePin 5.00 2.30 &quot;B&quot; &quot;Passive&quot; FALSE
+EndPlace
+UnSelectAll
+MenuCommand &quot;13992&quot; 
+PlaceWire 3.60 2.30 5.00 2.30
+EndPlace
+UnSelectAll
+Menu &quot;File::Save&quot;</pre>
+</div>
+</div>
+
+<p>This provides an easy way to record and execute OrCAD Capture commands.</p>
+
+<p>It is recommended to try out each of the commands manually by pasting them on the command window.</p>
+<h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-AccessingOrCADDatabaseObjectsfromGUI">Accessing OrCAD Database Objects from GUI</h1>
+
+<p>Capture provides an API to access database objects from GUI using <code>GetSelectedObjects</code>. This API provides a list of objects that are currently selected on canvas.</p>
+
+<p>The following example:</p>
+<ul><li>accesses the list of selected objects</li><li>prints out the list of Selected objects and their types</li></ul>
+<p>Do the following steps to access OrCAD Database Objects from GUI:</p>
+<ol><li>Launch Capture.</li><li>Open the Full Adder design.</li><li>Open the Half Adder schematic page.</li><li>Select any set of the objects on Half Adder page.</li><li>
+<p>In the TCL command window, source the <code>Sample-20.tcl</code> file using the <code>source</code> command.<br /><code>source {&lt;Absolute path of the Sample 20.tcl file&gt;}</code></p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-20.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lCStr [DboTclHelper_sMakeCString]
+set lSelectedObjectsList [GetSelectedObjects] 
+puts &quot;Total number of Selected Objects: [llength $lSelectedObjectsList]&quot;
+foreach lObject $lSelectedObjectsList {
+    $lObject GetTypeString $lCStr
+    set lObjTypeStr [DboTclHelper_sGetConstCharPtr $lCStr]
+    $lObject GetName $lCStr
+    set lObjName [DboTclHelper_sGetConstCharPtr $lCStr]
+    puts &quot;Object:$lObject  Type:$lObjTypeStr  $lObjName&quot;
+}</pre>
+</div>
+</div>
+</li></ol>
+<p>This lists the selected objects and their&#160;total number.</p>
+<h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-ReadingandUpdatingPartReferencefromOccurrenceofSelectedinstances">Reading and Updating Part Reference from Occurrence of Selected instances</h1>
+
+<p>The <code>GetSelectedObjects</code>&#160;command&#160;lists the instances selected in a page.</p>
+
+<p>The following example will:</p>
+<ul><li>filter Parts and Hierarchical Blocks from selected objects</li><li>read Reference property from Inst</li><li>jump to the hierarchical occurrence of the active schematic</li><li>get occurrence of the instance under schematic occurrence container</li><li>read Reference property from Occurrences</li></ul>
+<p>Do the following steps to read and update part reference from selected instances occurrences:</p>
+<ol><li>Launch Capture.</li><li>Open the Full Adder design.</li><li>Open the Half Adder schematic page.</li><li>Select any number of objects on the Half Adder page.</li><li>
+<p>Source the <code>Sample-21.tcl</code> file in the command window.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-21.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">package provide myFirstAppPackage 1.0
+namespace eval ::capRotate {
+    namespace export capRotatePart
+    namespace export capRotatePartEnabler
+    RegisterAction &quot;Rotate 180 degree&quot; &quot;::capRotate::capRotatePartEnabler&quot; &quot;Shift+R&quot; &quot;::capRotate::capRotatePart&quot; &quot;Schematic&quot;
+}
+proc ::capRotate::capRotatePartEnabler  {} {
+    set lEnableRotate 0
+    set lSelObjs [GetSelectedObjects]
+    set lObjType [DboBaseObject_GetObjectType $lSelObjs]
+    if { ($lObjType == $::DboBaseObject_PLACED_INSTANCE) &amp;&amp; ([llength $lSelObjs] == 1)} {
+
+        set lEnableRotate 1
+    }
+    return $lEnableRotate
+}
+proc ::capRotate::capRotatePart  {} {
+        set lobj [GetSelectedObjects]
+        set ltype [$lobj GetObjectType]
+        if { $ltype == $::DboBaseObject_PLACED_INSTANCE &amp;&amp; [llength $lobj] == 1} {
+
+                Rotate
+                Rotate
+        }    
+    }</pre>
+</div>
+</div>
+</li></ol><h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-MakingaPropertyVisible">Making a Property Visible</h1>
+
+<p>A new Display Property object is needed to make a property visible.</p>
+
+<p>The following example that shows the use of the Font and Position API, performs the following tasks :</p>
+<ul><li>makes a property visible in the database</li><li>uses GUI interface to properly position the property with default Capture algorithm</li><li>refreshes the page automatically to display changes</li></ul>
+<p>Do the following steps to make a property visible:</p>
+<ol><li>Launch Capture.</li><li>Open the <em>Full Adder</em> design</li><li>Open page <em>HALFADD</em></li><li>Select any set of objects on HALFADD</li><li>In Tcl command window source <code>Sample-22.tcl</code></li></ol><div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-22.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lStatus [DboState]
+set lCStr [DboTclHelper_sMakeCString]
+set lPropName [DboTclHelper_sMakeCString &quot;Source Package&quot;]
+set pLocation [DboTclHelper_sMakeCPoint 0 0]
+set pFont [DboTclHelper_sMakeLOGFONT &quot;Arial&quot; 8 0 0 0 400 0 0 0 0 7 0 1 16]
+set lPage [GetActivePage]
+set lSelectedObjectsList [GetSelectedObjects] 
+puts &quot;Total number of Selected Objects: [llength $lSelectedObjectsList]&quot;
+foreach lObj $lSelectedObjectsList {
+    $lObj GetTypeString $lCStr
+    set lObjTypeStr [DboTclHelper_sGetConstCharPtr $lCStr]
+    if { $lObjTypeStr == &quot;Placed Instance&quot; } {
+        set lProp [$lObj NewDisplayProp $lStatus $lPropName $pLocation 0 $pFont 48]
+        DboPartInst_PositionDisplayProp $lPage $lProp
+    }
+}
+UnSelectAll
+catch {Menu View::Zoom::Redraw}</pre>
+</div>
+</div>
+<h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-MakingaPropertyInvisible">Making a Property Invisible</h1>
+
+<p>Display Property object needs to be deleted to make a property invisible.</p>
+
+<p>The following example will:</p>
+<ul><li>delete a property visibility from Database</li><li>refresh the page automatically to display changes</li></ul>
+<p>Do the following steps to make a property invisible:</p>
+<ol><li>Launch Capture.</li><li>Open the Full Adder design.</li><li>Open page HALFADD</li><li>Select any set of objects on HALFADD</li><li>In the command window, source the <code>Sample-22.tcl</code> file</li><li>Source Package property becomes visible</li><li>Select any set of objects on HALFADD</li><li>
+<p>In the command window source the <code>Sample-23.tcl</code> file</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-24.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lStatus [DboState]
+set lCStr [DboTclHelper_sMakeCString]
+set lPropName [DboTclHelper_sMakeCString &quot;Source Package&quot;]
+set pLocation [DboTclHelper_sMakeCPoint 0 0]
+set pFont [DboTclHelper_sMakeLOGFONT &quot;Arial&quot; 8 0 0 0 400 0 0 0 0 7 0 1 16]
+set lPage [GetActivePage]
+set lSelectedObjectsList [GetSelectedObjects] 
+puts &quot;Total number of Selected Objects: [llength $lSelectedObjectsList]&quot;
+foreach lObj $lSelectedObjectsList {
+    $lObj GetTypeString $lCStr
+    set lObjTypeStr [DboTclHelper_sGetConstCharPtr $lCStr]
+    if { $lObjTypeStr == &quot;Placed Instance&quot; } {
+        set lDispProp [$lObj GetDisplayProp $lPropName $lStatus]
+        $lObj DeleteDisplayProp $lDispProp
+    }
+}
+UnSelectAll
+catch {Menu View::Zoom::Redraw}</pre>
+</div>
+</div>
+</li></ol><h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-ModifyingProperties">Modifying Properties</h1>
+
+<p>The following example will:</p>
+<ul><li>change the value of an existing property</li><li>call Page Connectivity update as some property changes may change connectivity</li></ul>
+<p>Do the following steps do modify existing properties in an OrCAD Capture project:</p>
+<ol><li>Launch Capture.</li><li>Open the Full Adder design.</li><li>Open the HALFADD page.</li><li>Select any set of objects on HALFADD.</li><li>
+<p>In the command window, source the <code>Sample-25.tcl</code> file.</p>
+<div class="confluence-information-macro confluence-information-macro-note"><span class="aui-icon aui-icon-small aui-iconfont-warning confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>Using Effective property &#8211; the reference property is reset. As we are working with Instance object &#8211; the property of instance object is changed</p>
+</div>
+</div>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-25.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lStatus [DboState]
+set lCStr [DboTclHelper_sMakeCString]
+set lPropValue [DboTclHelper_sMakeCString]
+set lPropName [DboTclHelper_sMakeCString &quot;Reference&quot;]
+set lSelectedObjectsList [GetSelectedObjects] 
+puts &quot;Total number of Selected Objects: [llength $lSelectedObjectsList]&quot;
+foreach lObj $lSelectedObjectsList {
+    $lObj GetTypeString $lCStr
+    set lObjTypeStr [DboTclHelper_sGetConstCharPtr $lCStr]
+    if { $lObjTypeStr == &quot;Placed Instance&quot; } {
+        $lObj GetEffectivePropStringValue $lPropName $PropValue
+        set lCurrentValue [DboTclHelper_sGetConstCharPtr $lPropValue]
+        DboTclHelper_sSetCString $lPropValue &quot;?&quot;
+        $lObj SetEffectivePropStringValue $lPropName $lPropValue
+    }
+}
+UnSelectAll
+DboTclHelper_sEvalPage [GetActivePage]
+catch {Menu View::Zoom::Redraw}</pre>
+</div>
+</div>
+</li></ol><h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-DeletingProperties">Deleting Properties</h1>
+
+<p>The following example will:</p>
+<ul><li>change the value of an existing property</li><li>call Page Connectivity update as some property changes may change connectivity</li></ul>
+<p>Do the following steps to delete existing property in a Capture project:</p>
+<ol><li>Launch Capture.</li><li>Open the Full Adder design.</li><li>Open the <code>HALFADD</code> page with the <code>halfadd_B</code> occurrence.</li><li>Select any set of objects on <code>HALFADD</code></li><li>
+<p>In the Capture command window source the <code>Sample26.tcl</code> file.<br />Once the TCL file is sourced, the occurrence property is deleted.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-26.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">set lStatus [DboState]
+set lCStr [DboTclHelper_sMakeCString]
+set lSelectedObjectsList [GetSelectedObjects] 
+puts &quot;Total number of Selected Objects: [llength $lSelectedObjectsList]&quot;
+foreach lObj $lSelectedObjectsList {
+    $lObj GetTypeString $lCStr
+    set lObjTypeStr [DboTclHelper_sGetConstCharPtr $lCStr]
+    set InstOcc [GetInstanceOccurrence]
+    if { &quot;NULL&quot; != $InstOcc} {
+        if { $lObjTypeStr == &quot;Placed Instance&quot; } {
+            $lObj GetName $lCStr
+            set lObjName [DboTclHelper_sGetConstCharPtr $lCStr]
+            set lPartOcc [$lObj GetObjectOccurrence $InstOcc]
+            set lInstOcc [DboOccurrenceToDboInstOccurrence $lPartOcc]
+            $lInstOcc DeleteEffectiveProp $lPropName
+        }
+    }
+}
+UnSelectAll
+DboTclHelper_sEvalPage [GetActivePage]
+catch {Menu View::Zoom::Redraw}</pre>
+</div>
+</div>
+</li></ol><h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-PlacingaPartinaCaptureDesign">Placing a Part in a Capture Design</h1>
+
+<p>There are many ways to place parts in Capture canvas. A very complicated way is to add it only using database commands. Ideally, this method may be avoided and instead GUI commands may be used with Capture in Batch mode if an action has to be done in automation.</p>
+
+<p>In GUI commands, there are again two methods &#8211;</p>
+<ul><li>Interactive Method &#8211; an example is to place PSpice Ground on menu click</li><li>Non-Interactive Method &#8211; to provide the location where part needs to be placed through code</li></ul>
+<p>The following example will:</p>
+<ul><li>place a part in the interactive mode</li><li>place a part in the non-interactive Mode</li></ul>
+<p>Do the following steps to place a part in a Capture design:</p>
+<ol><li>Launch Capture</li><li>Open the Full Adder design</li><li>Open page HALFADD with occurrence <code>halfadd_B</code></li><li>Enter the following commands in command window:<br /><code>PlacePart 1.50 1.20 &quot;[exec cds_root cds_root]\\tools\\capture\\library\\Amplifier.olb&quot; MAX469 &quot;&quot; FALSE</code><br /><code>PlacePart 7.00 1.00 &quot;[exec cds_root cds_root]\\tools\\capture\\library\\Amplifier.olb&quot; AD8072 &quot;B&quot; FALSE</code></li><li>Enter the following command to place component interactively with mouse:<br /><code>::PlacePartEx &quot;[exec cds_root cds_root]\\tools\\capture\\library\\pspice\\breakout.olb&quot; &quot;Dbreak&quot; &quot;&quot; 0</code></li></ol><h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-ImportingandExportingofXMLandTCLCodeforaCaptureLibrary">Importing and Exporting of XML and TCL Code for a Capture Library</h1>
+
+<p>Capture supports export and import of XML for libraries. While importing XML it is also possible to generate the TCL code that generates the same library.</p>
+
+<p>The following example will:</p>
+<ul><li>export XML from Capture library (<code>.olb</code>)</li><li>import XML to create new Capture library (<code>.olb</code>)</li><li>view TCL on the methods to create Capture library (<code>.olb</code>)</li></ul>
+<p>Do the following steps to export and import XML, and view TCL:</p>
+<ol><li>Open Windows Command line.</li><li>
+<p>Set environment variable with the following command:<br /><code>set CAPTURE_WRITE_TCL_ONXMLIMPORT=1</code></p>
+<div class="confluence-information-macro confluence-information-macro-note"><span class="aui-icon aui-icon-small aui-iconfont-warning confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>You can also set the environment variable in the Windows environment user interface.</p>
+</div>
+</div>
+</li><li>Create a new folder <code>Sample-27</code></li><li>Launch Capture.</li><li>Execute the following commands in the command window.<br /><code>cd {&lt;The absolute path of the Sample-27 folder&gt;}</code><br /><code>set pLibPath [file normalize &quot;[exec cds_root cds_root]/tools/capture/library/amplifier.olb&quot;]</code><br /><code>XMATIC_OLB2XML $pLibPath amplifier.xml</code><br /><code>XMATIC_XML2OLB amplifier.xml temp.olb</code><br /><code>exec notepad l.tcl</code></li></ol>
+<p>You will notice that the Sample-27 folder has the following three new files:</p>
+<ul><li><code>Amplifier.xml</code> - XML exported from the amplifier.olb file</li><li><code>Temp.olb</code> - a library created from the XML</li><li><code>l.tcl</code> - TCL commands used to create Temp.olb</li></ul><div class="confluence-information-macro confluence-information-macro-note"><span class="aui-icon aui-icon-small aui-iconfont-warning confluence-information-macro-icon"></span><div class="confluence-information-macro-body">
+<p>The TCL file created is large because of the large library used here. To understand the TCL API, it is recommended to create a library with just one part library for which you would like to see the TCL file and then execute the statements again.</p>
+</div>
+</div>
+<h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-ImportingandExportingXMLandTCLCodeforaDesign">Importing and Exporting XML and TCL Code for a Design</h1>
+
+<p>Capture supports export and import of XML for design files. While importing XML it is also possible to generate Tcl code that generates the same design.&#160;</p>
+
+<p>The following example will:</p>
+<ul><li>export XML from Capture design (.dsn)</li><li>import XML to create new Capture design (.dsn)</li><li>view TCL code on the methods to create Capture designs (.dsn)</li></ul>
+<p>In this example, the goal is to learn the TCL API to create a hierarchical block with a pin. For this reason, we have taken a design with just one hierarchical block and a one pin on it.</p>
+
+<p>Do the following steps to import and export XML and TCL file for a design:</p>
+<ol><li>Open Windows Command prompt.</li><li>Set environment variable with the following command:<br /><code>set CAPTURE_WRITE_TCL_ONXMLIMPORT=1</code></li><li>Launch Capture.</li><li>Execute the following commands in Capture command window:<br />
+<p><code>cd {&lt;absolute path of the Sample-28 design file&gt;}</code></p>
+
+<p><code>XMATIC_DSN2XML Sample-28.dsn fulladd.xml</code></p>
+
+<p><code>XMATIC_XML2DSN fulladd.xml temp.dsn</code></p>
+
+<p><code>exec notepad l.tcl</code></p>
+</li><li>In the Sample-28 folder, the following three new files are created:<ol><li><code>Sample-28.xml</code> - XML exported from Sample-28.dsn</li><li><code>Temp.dsn</code> - design created from the XML file</li><li><code>l.tcl</code> - TCL commands used to create Temp.dsn</li></ol></li></ol>
+<p>On examining generated Tcl file, we can locate the code needed for creating a hierarchical block with one pin. Using this method, we can get the exact TCL code for creating various types of database scenarios.</p>
+<h1 id="TCLProgrammimgwithOrCADCaptureGUIInterface-UsingCallbacks">Using Callbacks</h1>
+
+<p>OrCAD Capture provides callbacks that allow you to embed code for different actions. For example, a function can be added to be called after the design is saved. The function might then check-in the file into a repository automatically after every save.</p>
+
+<p>The following example will:</p>
+<ul><li>add user-defined pre-save function to be called before any library is saved</li><li>add user-defined post-save function to be called after any library is saved</li><li>add user-defined pre-save function to be called before any design is saved</li><li>add user-defined post-save function to be called after any design is saved</li></ul>
+<p>Do the following steps to get the callbacks function names:</p>
+<ol><li>Launch Capture.</li><li>
+<p>Source <code>Sample-29.tcl</code> into Capture&#39;s&#160;command window.</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>Sample-29.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: true; first-line: 1; theme: Confluence" data-theme="Confluence">proc capSaveTriggerTrue {args} {
+    return 1
+}
+proc capPreLibSave { pLibrary } {
+       puts &quot;capPreLibSave on $pLibrary called&quot;
+}
+proc capPostLibSave { pLibrary } {
+       puts &quot;capPostLibSave on $pLibrary called&quot;
+}
+proc capPreDesignSave { pDesign } {
+       puts &quot;capPreDesignSave on $pDesign called&quot;
+}
+proc capPostDesignSave { pDesign } {
+       puts &quot;capPostDesignSave on $pDesign called&quot;
+}
+RegisterAction &quot;_cdnOrOnLibraryPreSave&quot; &quot;capSaveTriggerTrue&quot; &quot;&quot; &quot;capPreLibSave&quot; &quot;&quot;
+RegisterAction &quot;_cdnOrOnLibraryPostSave&quot; &quot;capSaveTriggerTrue&quot; &quot;&quot; &quot;capPostLibSave&quot; &quot;&quot;
+RegisterAction &quot;_cdnOrOnDesignPreSave&quot; &quot;capSaveTriggerTrue&quot; &quot;&quot; &quot;capPreDesignSave&quot; &quot;&quot;
+RegisterAction &quot;_cdnOrOnDesignPostSave&quot; &quot;capSaveTriggerTrue&quot; &quot;&quot; &quot;capPostDesignSave&quot; &quot;&quot;</pre>
+</div>
+</div>
+</li><li>Open any design or library.</li><li>On saving note the messages printed from user defined called functions.</li></ol>
+<p>&#160;</p>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="TCL_Programming_with_OrCAD_Capture_Database.html" id="prev" title="TCL_Programming_with_OrCAD_Capture_Database">TCL_Programming_with_OrCAD_Cap ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" /></body></html>

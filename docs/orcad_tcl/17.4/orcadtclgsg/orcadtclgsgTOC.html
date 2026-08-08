@@ -1,0 +1,298 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2 Final//EN" "http://www.w3.org/MarkUp/Wilbur/HTML32.dtd">
+<html xmlns="http://www.w3.org/MarkUp/Wilbur/HTML32.dtd">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+    <title>Table of Contents</title><META NAME="Approver" CONTENT="Technical Publications">
+<META NAME="Approver" CONTENT="Technical Publications">
+<META NAME="Author" CONTENT="Technical Publications">
+<META NAME="CreateDate" CONTENT="2020-03-19">
+<META NAME="CreateTime" CONTENT="1584621426">
+<META NAME="DataType" CONTENT="Manuals">
+<META NAME="Description" CONTENT="An introductory guide to OrCAD TCL.">
+<META NAME="DocTitle" CONTENT="Getting Started with OrCAD TCL">
+<META NAME="DocType" CONTENT="Getting Started">
+<META NAME="FileTitle" CONTENT="Table of Contents">
+<META NAME="FileType" CONTENT="TOC">
+<META NAME="Keyword" CONTENT="orcadtclgsg">
+<META NAME="Language" CONTENT="English">
+<META NAME="ModifiedDate" CONTENT="2020-03-19">
+<META NAME="ModifiedTime" CONTENT="1584621426">
+<META NAME="NextFile" CONTENT="Overview.html">
+<META NAME="Group" CONTENT="OrCAD Capture TCL Scripting">
+<META NAME="Platform" CONTENT="Silicon-Package-Board Co-Design,">
+<META NAME="PrevFile" CONTENT="">
+<META NAME="Product" CONTENT="OrCAD Capture,Allegro Design Entry CIS,">
+<META NAME="ProductFamily" CONTENT="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design,">
+<META NAME="ProductVersion" CONTENT="17.4-2019">
+<META NAME="RightsManagement" CONTENT="Copyright 2012-2020 Cadence Design Systems Inc.">
+<META NAME="Title" CONTENT="Getting Started with OrCAD TCL -- Table of Contents">
+<META NAME="Version" CONTENT="17.4-2019">
+<META NAME="Renderer" CONTENT="WIKI">
+<META NAME="SpaceKey" CONTENT="orcadtclgsg174">
+<META NAME="confluence-version" CONTENT="6.13.3">
+<META NAME="ecms-plugin-version" CONTENT="03.30.005">
+
+ <style>
+  p, dl, dd {
+  line-height: 1.25;
+  margin-top: 7px;
+  margin-bottom: 7px;
+  }
+   dd {
+   display: block;
+    }</style>
+
+    <script type="text/javascript" src="styles/jquery.js"></script>
+    <script type="text/javascript">
+      $.noConflict();
+      jQuery( document ).ready(function ( $ ) {
+
+          $("div").find("h2>a:nth-child(2)").parent().addClass("demo expand");
+          $("h2.demo").parent().before("<div class='showTree expand'></div>");
+
+          $("h2.demo").nextUntil("h2.demo").toggleClass("expand");  
+          $(".showTree").attr('title','Collapse All');
+
+          $(".demo").click(function(){
+            var h2 = this;
+            $(h2).toggleClass("expand");
+            $(h2).nextUntil("h2").toggleClass("hidden");        
+            })  
+
+          $(".showTree").click(function(){
+            $(".showTree").toggleClass("expand");
+            if($(".showTree").hasClass("expand")){
+            $(this).attr('title','Collapse All');
+            $("h2.demo").addClass("expand");
+            $("h2.demo").nextUntil("h2.demo").removeClass("hidden");  
+            }
+            else{
+            $(this).attr('title','Expand All');
+            $("h2.demo").removeClass("expand");
+            $("h2.demo").nextUntil("h2.demo").addClass("hidden");  
+
+            }    
+            });
+      });
+
+    </script>
+<style>
+  .showTree:before{content:'+';display: inline-block;margin:-5px -20px -15px 0px;font-size:16pt;font-weight:bold;color:green;background: #e8e8e8;
+  width: 23px;
+  height: 23px;
+  text-align: center;
+  border: 1px solid green;}
+  .showTree.expand:before{content:'-';}
+
+  .demo:before{background:#5896ff;margin-right: 10px;border-radius:50%;color:#fff;content:'\276f';font-size:8pt;display: inline-block;padding: 1px 0;
+    text-align: center;
+    height: 15px;
+    width: 16px;}
+
+  .demo ~ p {
+    margin-left: 32px;
+  }
+
+  .showTree+div>h2:first-child {
+     display: none;
+   }
+   .showTree.expand+div>h2:first-child { 
+     display:block;
+   }
+
+  dd {
+    margin-left: 60px;
+  }
+
+  @-moz-document url-prefix() {
+    dd {
+      margin-inline-start: 20px;
+    }
+    dl {
+      margin-inline-start: 40px;
+    }
+  }
+
+  h2.demo.expand:before{
+    -webkit-transform: rotate(90deg);
+    -moz-transform: rotate(90deg);
+    -o-transform: rotate(90deg);
+    -ms-transform: rotate(90deg);
+    transform: rotate(90deg);
+    padding: 1px 1px;
+    width: 15px;
+  }
+  h2.demo:before{
+  }
+  .hidden{
+    display:none;
+  }
+  p, dl, dd {
+    line-height: 1.25;
+    margin-top: 7px;
+    margin-bottom: 7px;
+  }
+
+  .docHeadr {  
+    color: #666; 
+    padding: 7px 0 10px 42px;
+    background: url(./images/file2.png) no-repeat 10px 6px; 
+    background-size: 25px 25px; 
+  } 
+
+
+  nav.blueHead ul { 
+    padding: 0;
+    margin: 0; 
+  }   
+  .docHeadr>img { 
+    width: 90px; 
+    float: right; 
+    margin: 4px 15px; 
+  }  
+  nav.blueHead {background: #26abe4;} 
+  nav.blueHead a{ color: #fff;text-decoration: none;padding: 5px 24px;}    
+  nav.blueHead ul{ 
+    padding: 0; 
+    margin: 0; 
+  }     
+  nav.blueHead li{ 
+    display: inline-block; 
+    padding: 12px 5px;
+    margin: 0 15px;  
+  }  
+  footer nav.blueHead li { 
+    padding: 8px 5px; 
+  } 
+  .blueHead a.prev { 
+    background: url(./images/arrows2.png) no-repeat 0px center;background-size: 24px 24px; 
+  }
+  .blueHead a.content{
+    background: url(./images/document-content.png) no-repeat 0px center;background-size: 20px 20px; 
+  }  
+
+  .blueHead a.viewPrint{ 
+    background: url(./images/printerV.png) no-repeat 0px center;background-size: 20px 20px; 
+  } 
+
+  .blueHead a.nextd{
+  background: url(./images/arrows.png) no-repeat right center;background-size: 24px 24px; 
+  } 
+
+  footer a { 
+  text-decoration: none;   
+  color: #336699;    
+  font-size: 10.5pt;
+  }  
+  footer>div {  
+  font-size: 80%; 
+  color: #666;  
+  margin: 5px; 
+  text-align: center; 
+  border-top: 1px solid #eee;    
+  } 
+  footer nav {  
+  margin: 20px;
+}
+footer a#prev, footer a#nex {                                                                                                
+  color: #000;                                                                                                               
+  background: url(./images/left-arrowB.png) no-repeat left center;                                                          
+  background-size: 20px 20px;                                                                                                
+  padding: 1px 25px;                                                                                                         
+  opacity: 0.7;                                                                                                              
+  font-size: 10.5pt;                                                                                                         
+}                                                                                                                            
+
+footer a#nex {                                                                                                               
+  background: url(./images/right-arrowB.png) no-repeat right center;                                                        
+  background-size: 20px 20px;                                                                                                
+  float: right;                                                                                                              
+  margin: 0;                                                                                                                 
+}   
+</style>
+
+  </head>
+  <body style="background-color: #FFFFFF;">
+    <a name="pagetop"></a>
+    <a name="firstpage"></a>
+    <!-- Begin Buttons -->
+    <header>                                                                                                                 
+    <div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>                                 
+    <nav class="blueHead">                                                                                                 
+    <ul>                                                                                                                 
+      <li><a class="content">Contents</a></li>                                                        
+      <li><a href="titlecopy.html" class="prev" title="Titlecopy">titlecopy</a></li>                                                                                                       
+      <li style="float: right;"><a href="orcadtclgsg.pdf" class="viewPrint">View/Print PDF</a></li>                               
+      <li style="float: right;margin-right: 25px;"><a href="Overview.html" class="nextd" title="Next">Next</a></li>                                                                         
+
+    </ul>                                                                                                                
+    </nav>                                                                                                                 
+    </header> 
+    <!-- End Buttons -->
+    <div style="margin-left:5%;">
+    <p>
+    <p>
+      <h4>
+        <center>
+          <font >
+            <div>Getting Started with OrCAD TCL</div>
+            <font >
+              <div>Product Version 17.4-2019  October 2019</div>
+            </font>
+          </font>
+        </center>
+      </h4>
+      <br>
+    </p><h1>Contents</h1>
+    <div>
+      <h2><a href="Overview.html" title="Overview" name="99512"><font color="#0000ff"><u>1</u></font>
+</a></h2>
+      <h2> <a name=""></a><a href="Overview.html" title="Overview" name="853051"><font color="#0000ff"><u>Overview</u></font></a><font color="#000000">  </font><font color="#000000"></font></h2>
+      <p> <a name=""></a><a href="Overview.html#Overview-Audience" title="Audience" name="46284"><font color="#0000ff"><u>Audience</u></font></a></p>
+      <p> <a name=""></a><a href="Overview.html#Overview-Prerequisites" title="Prerequisites" name="46284"><font color="#0000ff"><u>Prerequisites</u></font></a></p>
+      <h2><a href="Introduction_to_the_OrCAD_TCL_Environment.html" title="Introduction to the OrCAD TCL Environment" name="99512"><font color="#0000ff"><u>2</u></font>
+</a></h2>
+      <h2> <a name=""></a><a href="Introduction_to_the_OrCAD_TCL_Environment.html" title="Introduction to the OrCAD TCL Environment" name="853051"><font color="#0000ff"><u>Introduction to the OrCAD TCL Environment</u></font></a><font color="#000000">  </font><font color="#000000"></font></h2>
+      <h2><a href="Setting_up_the_OrCAD_TCL_Environment.html" title="Setting up the OrCAD TCL Environment" name="99512"><font color="#0000ff"><u>3</u></font>
+</a></h2>
+      <h2> <a name=""></a><a href="Setting_up_the_OrCAD_TCL_Environment.html" title="Setting up the OrCAD TCL Environment" name="853051"><font color="#0000ff"><u>Setting up the OrCAD TCL Environment</u></font></a><font color="#000000">  </font><font color="#000000"></font></h2>
+      <h2><a href="Basics_of_the_TCL_Language.html" title="Basics of the TCL Language" name="99512"><font color="#0000ff"><u>4</u></font>
+</a></h2>
+      <h2> <a name=""></a><a href="Basics_of_the_TCL_Language.html" title="Basics of the TCL Language" name="853051"><font color="#0000ff"><u>Basics of the TCL Language</u></font></a><font color="#000000">  </font><font color="#000000"></font></h2>
+      <p> <a name=""></a><a href="Basics_of_the_TCL_Language.html#BasicsoftheTCLLanguage-FewRulesforSubstitutioninTCL" title="Few Rules for Substitution in TCL" name="46284"><font color="#0000ff"><u>Few Rules for Substitution in TCL</u></font></a></p>
+      <p> <a name=""></a><a href="Basics_of_the_TCL_Language.html#BasicsoftheTCLLanguage-TCLVariableTypes" title="TCL Variable Types" name="46284"><font color="#0000ff"><u>TCL Variable Types</u></font></a></p>
+      <h2><a href="Guidelines_for_New_OrCAD_TCL_Applications.html" title="Guidelines for New OrCAD TCL Applications" name="99512"><font color="#0000ff"><u>5</u></font>
+</a></h2>
+      <h2> <a name=""></a><a href="Guidelines_for_New_OrCAD_TCL_Applications.html" title="Guidelines for New OrCAD TCL Applications" name="853051"><font color="#0000ff"><u>Guidelines for New OrCAD TCL Applications</u></font></a><font color="#000000">  </font><font color="#000000"></font></h2>
+      <h2><a href="Creating_OrCAD_TCL_Application.html" title="Creating OrCAD TCL Application" name="99512"><font color="#0000ff"><u>6</u></font>
+</a></h2>
+      <h2> <a name=""></a><a href="Creating_OrCAD_TCL_Application.html" title="Creating OrCAD TCL Application" name="853051"><font color="#0000ff"><u>Creating OrCAD TCL Application</u></font></a><font color="#000000">  </font><font color="#000000"></font></h2>
+      <p> <a name=""></a><a href="Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-MyFirstTCLSourceFile" title="My First TCL Source File" name="46284"><font color="#0000ff"><u>My First TCL Source File</u></font></a></p>
+      <dd> <a name=""></a><a href="Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-CreatingtheLogic" title="Creating the Logic" name="46288"><font color="#0000ff"><u>Creating the Logic</u></font></a></dd>
+      <dd> <a name=""></a><a href="Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-SourcingtheTCLSourceFile" title="Sourcing the TCL Source File" name="46288"><font color="#0000ff"><u>Sourcing the TCL Source File</u></font></a></dd>
+      <dd> <a name=""></a><a href="Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-AccessingtheTCLSourceFilefromOrCADCaptureGUI" title="Accessing the TCL Source File from OrCAD Capture GUI" name="46288"><font color="#0000ff"><u>Accessing the TCL Source File from OrCAD Capture GUI</u></font></a></dd>
+      <p> <a name=""></a><a href="Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-GeneratingtheTCLsourcefilepackage" title="Generating the TCL source file package" name="46284"><font color="#0000ff"><u>Generating the TCL source file package</u></font></a></p>
+      <p> <a name=""></a><a href="Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-Auto-loadingtheTCLapplicationpackage" title="Auto-loading the TCL application package" name="46284"><font color="#0000ff"><u>Auto-loading the TCL application package</u></font></a></p>
+      <p> <a name=""></a><a href="Creating_OrCAD_TCL_Application.html#CreatingOrCADTCLApplication-EncryptingtheTCLsolution" title="Encrypting the TCL solution" name="46284"><font color="#0000ff"><u>Encrypting the TCL solution</u></font></a></p>
+
+
+    </div>
+    <br>
+    <br>
+    <a href="#pagetop">Return to top of page</a>
+    <br>
+  </div>
+   
+    <footer>                                                                                                               
+    <nav class="navigation">                                                                                             
+    <b><em><a href="#pagetop" id="prev" title="TOC">^ </a></em></b>  
+    <b><em><a href="Overview.html" id="nex" title="Next">Next</a></em></b>  
+    </nav>  
+    <div>  
+      For further assistance, contact <a href="https://support.cadence.com" >Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.                               
+    </div>  
+    </footer>
+     
+    <br>
+  </body>
+</html>

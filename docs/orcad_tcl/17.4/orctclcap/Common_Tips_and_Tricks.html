@@ -1,0 +1,208 @@
+
+<html><head><title>Common Tips and Tricks</title>
+<meta name="Approver" content="Technical Publications" />
+<meta name="Author" content="shailly" />
+<meta name="CreateDate" content="2020-03-19" />
+<meta name="CreateTime" content="1584621438" />
+<meta name="DataType" content="Manuals" />
+<meta name="Description" content="Provides most common TCL scripts that can be directly used." />
+<meta name="DocTitle" content="OrCAD Capture TCL Solutions" />
+<meta name="DocType" content="Reference" />
+<meta name="FileTitle" content="Common Tips and Tricks" />
+<meta name="Keywords" content="" />
+<meta name="topic_type" content="" />
+<meta name="reference_type" content="" />
+<meta name="prod_feature" content="" />
+<meta name="prod_subfeature" content="" />
+<meta name="FileType" content="Chapter" />
+<meta name="Keyword" content="orctclcap" />
+<meta name="Language" content="English" />
+<meta name="ModifiedDate" content="2020-03-19" />
+<meta name="ModifiedTime" content="1584621438" />
+<meta name="NextFile" content="" />
+<meta name="Group" content="OrCAD Capture TCL Scripting" />
+<meta name="Platform" content="Silicon-Package-Board Co-Design," />
+<meta name="PrevFile" content="Adding_Property_to_a_Selected_Wire.html" />
+<meta name="Product" content="OrCAD Capture,Allegro Design Entry CIS," />
+<meta name="ProductFamily" content="Silicon-Package-Board Co-Design,Silicon-Package-Board Co-Design," />
+<meta name="ProductVersion" content="17.4-2019" />
+<meta name="RightsManagement" content="Copyright 2012-2020 Cadence Design Systems Inc." />
+<meta name="Title" content="OrCAD Capture TCL Solutions -- Common Tips and Tricks" />
+<meta name="Version" content="17.4-2019" />
+<meta name="Renderer" content="WIKI" />
+<meta name="SpaceKey" content="orcadcaptcl174" />
+<meta name="confluence-version" content="6.13.3" />
+<meta name="ecms-plugin-version" content="03.30.005" />
+<script type="text/javascript" src="styles/shCore1.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shCore.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushCpp.js">/*<![CDATA[*//*]]>*/</script><script type="text/javascript" src="styles/shBrushJava.js">/*<![CDATA[*//*]]>*/</script><link rel="stylesheet" href="styles/shCoreDefault.css" type="text/css" /><script type="text/javascript">/*<![CDATA[*/
+SyntaxHighlighter.all();
+/*]]>*/</script>
+        
+        <link href="styles/site.css" rel="stylesheet" type="text/css" />
+        <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    
+
+    </head><body style="background-color: #FFFFFF;"><!-- Begin Buttons --><header xmlns:html="http://www.w3.org/1999/xhtml"><div class="docHeadr">Product Documentation<img src="images/Cadence-Logo.jpg" /></div>
+<nav class="blueHead"><ul><li><a class="content" href="orctclcapTOC.html">Contents</a></li><li><a class="prev" href="Adding_Property_to_a_Selected_Wire.html" title="Adding_Property_to_a_Selected_Wire">Adding_Property_to_a_Selected_ ...</a></li><li style="float: right;"><a class="viewPrint" href="orctclcap.pdf">View/Print PDF</a></li></ul></nav></header><!-- End Buttons --><div xmlns:html="http://www.w3.org/1999/xhtml" style="font-size:14px;line-height:1.42857142857;margin:20px 0 0 0;font-weight:bold;"><center>OrCAD Capture TCL Solutions<br />Product Version 17.4-2019, October 2019</center></div>
+<div xmlns:html="http://www.w3.org/1999/xhtml" style="margin-left:5%;">
+<p></p>
+
+<p></p>
+<div id="main-header">
+                    
+                    
+                                                <div style="width: 100%; font-size: 32px; text-align: left;               font-weight: bold;">2</div>
+<h1 style="margin: 4px 0 4px;"><span>Common Tips and Tricks</span></h1>
+
+                    
+                </div>
+<div class="wiki-content group" id="main-content">
+                    
+<p>This chapter lists some of the common tips and tricks that make&#160;it easy for the user to create TCL scripts for some of the key Capture features. Following are some of the common tips and tricks:</p>
+<ul><li>
+<p>DRC markers are placed on instance rather than on occurrence. If you place a DRC marker on an occurrence, it will be visible on each and every occurrence of an instance.</p>
+</li><li>
+<p>To get the version information of the installed Capture CIS, use the&#160;<code>GetProductVersion</code>&#160;command on the command window.</p>
+</li><li>To place a particular part from a particular library on a schematic page, use the following TCL command in the command window: <code>PlacePart &lt;X-axis&gt; &lt;Y-Axis&gt; &lt;Path To Library&gt; &lt;Package Name&gt; &lt;Designator&gt; FALSE</code><br />For example, if &quot;Gate.olb&quot; is name of the library and &quot;74LS04&quot; is package name, you can use the above script as&#160;<code>PlacePart 5.00 5.00 &quot;D:/Cadence/SPB_17.2/tools/capture/library/Gate.</code>OLB&quot; &quot;74LS04&quot; &quot;<code>A&quot; FALSE.</code></li><li>To set the properties of a selected part on a schematic page in Capture, use the following TCL command:&#160;<code>SetProperty&#160;{Property Name}&#160;{Property Value}</code>.<br />For example, if you want to set the Part Reference property on a selected part, use the following command:&#160;<code><span>SetProperty&#160;{Part Reference}&#160;{U-1113A}</span></code></li><li>To place a wire on a schematic page in Capture&#160;by providing (X1, Y1) (X2, Y2) locations, use the following TCL command:&#160;<code>PlaceWire &lt;X1 Y1&gt; &lt;X2 Y2&gt;</code><br />For example, if X1 and Y1 are&#160;88.90 and 106.68 respectively. X2 and Y2 are&#160;165.10 and 106.68 respectively. Use the following command:&#160;<code>PlaceWire 88.90 106.68 165.10 106.68</code></li><li>
+<p>To create a new schematic folder in Capture, do the following in the command window:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: false; theme: Confluence" data-theme="Confluence">SelectPMItem &quot;./new_proj.dsn&quot;   #In this case, the design file name is new_proj.dsn
+NSchematic SCHEMATIC2   #In this case, the new schematic folder is schematic2</pre>
+</div>
+</div>
+</li><li>
+<p>To add a new schematic page in a schematic folder, do the following in the command window:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: false; theme: Confluence" data-theme="Confluence">SelectPMItem &quot;SCHEMATIC2&quot;  #In this case, the schematic folder name is SCHEMATIC2
+NPage SCHEMATIC2 PAGE1   #In this case, the new schematic page is PAGE1</pre>
+</div>
+</div>
+</li><li>
+<p>To generate Capture CIS Bill of Material (BOM), do the following in the command window:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: false; theme: Confluence" data-theme="Confluence">Menu &quot;Reports::CIS Bill of Materials::Standard&quot; | DialogBox  &quot;OK&quot; &#8220;C:/temp/1.xml&#8221;
+MenuCommand &quot;57927&quot;  | MessageBox &quot;YES&quot; &quot;Save changes to D:/CAPTURE_AUT&quot; | FileDialog  &quot;OK&quot; D:/TEST.BOM&quot; 
+#Update the path (D:/TEST.BOM) as per the requirement</pre>
+</div>
+</div>
+</li><li>
+<p>Following are the common colors types that are supported by Capture using a <code>ColorT</code> Enum:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: java; gutter: false; theme: Confluence" data-theme="Confluence">COLOR1=&#160;RGB(255,255,128) //
+COLOR2=&#160;RGB(128,255,128) //
+COLOR3=&#160;RGB( 0,255,128) //
+COLOR4=&#160;RGB(128,255,255) //
+COLOR5=&#160;RGB( 0,128,255) //
+COLOR6=&#160;RGB(255,128,192) //
+COLOR7=&#160;RGB(255,128,255) //
+COLOR8=&#160;RGB(255, 0, 0) // RED
+COLOR9=&#160;RGB(255,255, 0) //
+COLOR10=&#160;RGB(128,255, 0) //
+COLOR11=&#160;RGB( 0,255, 64) //
+COLOR12=&#160;RGB( 0,255,255) //
+COLOR13=&#160;RGB( 0,128,192) //
+COLOR14=&#160;RGB(128,128,192) //
+COLOR15=&#160;RGB(255, 0,255) //
+COLOR16=&#160;RGB(128, 64, 64) //
+COLOR17=&#160;RGB(255,128, 64) //
+COLOR18=&#160;RGB( 0,255, 0) // #####GREEN
+COLOR19=&#160;RGB( 0,128,128) //
+COLOR20=&#160;RGB( 0,64,128) //
+COLOR21=&#160;RGB(128,128,255) //
+COLOR22=&#160;RGB(128, 0, 64) //
+COLOR23=&#160;RGB(255, 0,128) //
+COLOR24=&#160;RGB(128, 0, 0) //
+COLOR25=&#160;RGB(255,128, 0) //
+COLOR26=&#160;RGB( 0,128, 0) //
+COLOR27=&#160;RGB( 0,128, 64) //
+COLOR28=&#160;RGB( 0, 0,255) // #####BLUE
+COLOR29=&#160;RGB( 0, 0,160) //
+COLOR30=&#160;RGB(128, 0,128) //
+COLOR31=&#160;RGB(128, 0,255) //
+COLOR32=&#160;RGB( 64, 0, 0) //
+COLOR33=&#160;RGB(128, 64, 0) //
+COLOR34=&#160;RGB( 0, 64, 0) //
+COLOR35=&#160;RGB( 0, 64, 64) //
+COLOR36=&#160;RGB( 0, 0,128) //
+COLOR37=&#160;RGB( 0, 0, 64) //
+COLOR38=&#160;RGB( 64, 0, 64) //
+COLOR39=&#160;RGB( 64, 0,128) //
+COLOR40=&#160;RGB( 0, 0, 0) // #####BLACK
+COLOR41=&#160;RGB(128,128, 0) //
+COLOR42=&#160;RGB(128,128,64) //
+COLOR43=&#160;RGB(128,128,128) //
+COLOR44=&#160;RGB( 64,128,128) //
+COLOR45=&#160;RGB(192,192,192) //
+COLOR46=&#160;RGB( 64, 0, 64) //
+COLOR47=&#160;RGB(255,255,255) // #####WHITE</pre>
+</div>
+</div>
+</li><li>To add a library in Place Part dialog box, use the following command in the command window:&#160;<code>PlacePartAddLib &lt;library absolute path&gt;</code><br />For example&#160;if the library is <strong>Gate.olb</strong>, you can use the following command to add <strong>Gate.olb</strong> in the Place Part dialog box:&#160;<code>PlacePartAddLib {D:/Cadence/SPB_17.2/tools/capture/library/Gate.olb}</code></li><li>To remove a selected library from the Place Part dialog box, use the following command in the command window:&#160;<code>PlacePartRemoveLib</code><br />This command will remove any number of selected libraries from the Place Part dialog box.</li><li>
+<p>You can lock a schematic page, unlock a schematic page, and get lock status of the schematic page using the following TCL commands:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>lockActivePage.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: false; theme: Confluence" data-theme="Confluence">###The following TCL command locks the active schematic page
+set lPage [GetActivePage]
+$lPage SetBitmask $::DboBaseObject_MASK_LOCKED
+$lPage SetBitmask $::DboBaseObject_MASK_TEMPLOCK</pre>
+</div>
+</div>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>unlockActivePage.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: false; theme: Confluence" data-theme="Confluence">###The following TCL command unlocks the active schematic page
+set lPage [GetActivePage]
+$lPage UnsetBitmask $::DboBaseObject_MASK_LOCKED
+$lPage UnsetBitmask $::DboBaseObject_MASK_TEMPLOCK</pre>
+</div>
+</div>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>dispLockStatus.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: false; theme: Confluence" data-theme="Confluence">###The following TCL command displays the lock status
+set lPage [GetActivePage]
+set lLockStatus [$lPage IsObjLocked]</pre>
+</div>
+</div>
+</li><li>
+<p>To get the pin type of a selected pin, use the following TCL commands in the command window:</p>
+<div class="code panel pdl" style="border-width: 1px;"><div class="codeHeader panelHeader pdl" style="border-bottom-width: 1px;"><b>getPinType.tcl</b></div>
+<div class="codeContent panelContent pdl">
+<pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: powershell; gutter: false; theme: Confluence" data-theme="Confluence">set lstatus [DboState]
+set pinobj [GetSelectedObjects]
+$pinobj GetPinType $lstatus</pre>
+</div>
+</div>
+
+<p>The script will return an integer value. To interpret&#160;the returned integer value, see the following table:</p>
+<div class="table-wrap"><table class="confluenceTable"><tbody><tr><th class="confluenceTh">Integer</th><th class="confluenceTh">Pin Type</th></tr>
+<tr><td class="confluenceTd">0</td>
+<td class="confluenceTd">DboValue_DBO_IN</td>
+</tr>
+<tr><td class="confluenceTd">1</td>
+<td class="confluenceTd"><span style="color: rgb(0,0,0);">DboValue_IO</span></td>
+</tr>
+<tr><td class="confluenceTd">2</td>
+<td class="confluenceTd"><span style="color: rgb(0,0,0);">DboValue_DBO_OUT</span></td>
+</tr>
+<tr><td class="confluenceTd" colspan="1">3</td>
+<td class="confluenceTd" colspan="1"><span style="color: rgb(0,0,0);">DboValue_OC</span></td>
+</tr>
+<tr><td class="confluenceTd" colspan="1">4</td>
+<td class="confluenceTd" colspan="1"><span style="color: rgb(0,0,0);">DboValue_PAS</span></td>
+</tr>
+<tr><td class="confluenceTd" colspan="1">5</td>
+<td class="confluenceTd" colspan="1"><span style="color: rgb(0,0,0);">DboValue_HIZ</span></td>
+</tr>
+<tr><td class="confluenceTd" colspan="1">6</td>
+<td class="confluenceTd" colspan="1"><span style="color: rgb(0,0,0);">DboValue_OE</span></td>
+</tr>
+<tr><td class="confluenceTd" colspan="1">7</td>
+<td class="confluenceTd" colspan="1"><span style="color: rgb(0,0,0);">DboValue_POWER</span></td>
+</tr>
+</tbody></table></div>
+</li></ul><p class="MsoNormal" style="margin-top: 10.0px;padding: 0.0px;">&#160;</p>
+
+                    </div>
+<br /><br /></div>
+<footer xmlns:html="http://www.w3.org/1999/xhtml"><nav class="navigation"><b><em><a href="Adding_Property_to_a_Selected_Wire.html" id="prev" title="Adding_Property_to_a_Selected_Wire">Adding_Property_to_a_Selected_ ...</a></em></b></nav><div>
+          For further assistance, contact <a href="https://support.cadence.com">Cadence Online Support</a>. Copyright &#169; 2020, <a href="https://www.cadence.com">Cadence Design Systems, Inc.</a> All rights reserved.
+        </div>
+</footer><br xmlns:html="http://www.w3.org/1999/xhtml" /></body></html>
