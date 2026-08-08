@@ -56,8 +56,8 @@ Capture 验收**。当前状态：
 | 无效结果合成 `INVALID_RESULT` 并释放 busy | **真实 Capture 已验证**：坏 JSON 后下一条命令正常返回 |
 | Stop 清理描述文件 | **真实 Capture 已验证** |
 | 退出 Capture 后 watchdog 收尾 | **真实 Capture 已验证**：8767 无监听、描述文件已删 |
-| Token 每次启动轮换 | **未实测比对**（只取到 Start 后的值）。结构上有保证：每次启动服务端调用一次 `secrets.token_urlsafe(32)`，且 Stop 会删除描述文件 |
-| 控制台不刷屏（同一确定性 4xx 只报一次） | **未观察**：验收时未记录 Capture 控制台的输出条数 |
+| Token 每次启动轮换 | **真实 Capture 已验证**：Stop→Start 前后 token 的 SHA-256 不同，serverPid 也变化，其间描述文件确实被删除（全程未打印 token 明文） |
+| 控制台不刷屏（同一确定性 4xx 只报一次） | **真实 Capture 已验证**：诊断日志中该次失败**恰好一条**记录 |
 
 自动测试不等于真实验收。在真实 Capture 中签收之前，`tcl_bom` 仍是回退来源；
 不要把它的工作树或源文件作为本次迁移的一部分删除。
