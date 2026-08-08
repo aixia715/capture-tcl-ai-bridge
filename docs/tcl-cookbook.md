@@ -341,6 +341,9 @@ proc _listComponentsWalk {st occHandle} {
 set st [DboState]
 try {
     set design [GetActivePMDesign]
+    if {$design eq {NULL}} {
+        error "NO_ACTIVE_DESIGN: open a design in Capture before running this script"
+    }
     set rootOcc [$design GetRootOccurrence $st]
     _requireOk $st {GetRootOccurrence}
     _listComponentsWalk $st $rootOcc
@@ -641,6 +644,9 @@ set st [DboState]
 set matches {}
 try {
     set design [GetActivePMDesign]
+    if {$design eq {NULL}} {
+        error "NO_ACTIVE_DESIGN: open a design in Capture before running this script"
+    }
     set rootOcc [$design GetRootOccurrence $st]
     _requireOk $st {GetRootOccurrence}
     _findComponentByRefdes $st $rootOcc $targetRefdes matches
@@ -828,6 +834,9 @@ proc _stringOut {obj method what} {
 set st [DboState]
 try {
     set design [GetActivePMDesign]
+    if {$design eq {NULL}} {
+        error "NO_ACTIVE_DESIGN: open a design in Capture before running this script"
+    }
     set netsIter [$design NewFlatNetsIter $st]
     _requireOk $st {NewFlatNetsIter}
     try {
@@ -1097,6 +1106,9 @@ set st [DboState]
 set matches {}
 try {
     set design [GetActivePMDesign]
+    if {$design eq {NULL}} {
+        error "NO_ACTIVE_DESIGN: open a design in Capture before running this script"
+    }
     set rootOcc [$design GetRootOccurrence $st]
     _requireOk $st {GetRootOccurrence}
     _findComponentByRefdes $st $rootOcc $targetRefdes matches

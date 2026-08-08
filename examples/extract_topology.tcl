@@ -89,6 +89,9 @@ proc _stringOut {obj method what} {
 set st [DboState]
 try {
     set design [GetActivePMDesign]
+    if {$design eq {NULL}} {
+        error "NO_ACTIVE_DESIGN: open a design in Capture before running this script"
+    }
     set netsIter [$design NewFlatNetsIter $st]
     _requireOk $st {NewFlatNetsIter}
     try {

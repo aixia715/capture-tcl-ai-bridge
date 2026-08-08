@@ -122,6 +122,9 @@ proc _listComponentsWalk {st occHandle} {
 set st [DboState]
 try {
     set design [GetActivePMDesign]
+    if {$design eq {NULL}} {
+        error "NO_ACTIVE_DESIGN: open a design in Capture before running this script"
+    }
     set rootOcc [$design GetRootOccurrence $st]
     _requireOk $st {GetRootOccurrence}
     _listComponentsWalk $st $rootOcc

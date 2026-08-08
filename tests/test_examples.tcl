@@ -870,6 +870,26 @@ proc fx::buildDuplicateC3Tree {} {
     return [list $root $r1 $c3u1 $c3u2]
 }
 
+proc suite_no_design {} {
+    fx::resetAll
+    # Real Capture returns the string NULL from GetActivePMDesign when no
+    # design is open. Without a guard the examples hand that to a Dbo call
+    # and the operator gets "invalid command name NULL" instead of being
+    # told the actual problem.
+    set ::fx::activeDesign NULL
+    foreach name {list_components.tcl get_component_value.tcl
+                  set_component_value.tcl extract_topology.tcl} {
+        lassign [fx::runExample $name] code message output
+        check "$name fails when no design is open" $code 1
+        checkTrue "$name says no design is open, not something cryptic" \
+            [expr {[string first {NO_ACTIVE_DESIGN} $message] >= 0}]
+        check "$name produces no output when no design is open" $output {}
+    }
+    if {!$::fail} {
+        puts {PASS: no-design}
+    }
+}
+
 proc suite_occurrence {} {
     fx::resetAll
     lassign [fx::buildDuplicateC3Tree] root r1 c3u1 c3u2
@@ -1298,7 +1318,7 @@ proc suite_safety {} {
 
 # --- driver ----------------------------------------------------------------
 
-set allSuites {fixture occurrence selection topology write safety}
+set allSuites {fixture occurrence selection topology write safety no-design}
 set requestedSuite {}
 if {[llength $argv] >= 1} {
     set requestedSuite [lindex $argv 0]
@@ -1321,6 +1341,7 @@ foreach suiteName $suitesToRun {
         topology   { suite_topology }
         write      { suite_write }
         safety     { suite_safety }
+        no-design  { suite_no_design }
     }
 }
 
