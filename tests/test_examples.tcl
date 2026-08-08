@@ -521,16 +521,25 @@ proc fx::deleteIter {handle expectedKind} {
 # DboFlatNetNetOccurrencesIter_GetKey, DboFlatNetNetOccurrencesIter_Next
 # and DboFlatNetNetOccurrencesIter_NextNetOccurrence -- so NextNetOccurrence
 # is real (an earlier draft of this project was told otherwise and dropped
-# the walk entirely; that was wrong). What remains unconfirmed is the free
-# function for this iterator class and what fields a net occurrence itself
-# exposes, so extract_topology.tcl opens the iterator and steps it with
-# NextNetOccurrence, but never calls delete_Dbo... on it and never calls
-# any method on a net occurrence handle. The fixture enforces the second
-# half of that: fx::netOccDispatch errors loudly on *any* method call, so
-# if a future edit accidentally reaches into a net occurrence before the
-# real field API is confirmed, the test suite catches it immediately
-# instead of silently "working" against a fixture that over-modelled the
-# real, still-unconfirmed surface.
+# the walk entirely; that was wrong). What remains unconfirmed is what
+# fields a net occurrence itself exposes, so extract_topology.tcl opens the
+# iterator and steps it with NextNetOccurrence but never calls any method
+# on a net occurrence handle. The fixture enforces that: fx::netOccDispatch
+# errors loudly on *any* method call, so if a future edit accidentally
+# reaches into a net occurrence before the real field API is confirmed, the
+# test suite catches it immediately instead of silently "working" against a
+# fixture that over-modelled the real, still-unconfirmed surface.
+#
+# The free function IS modelled, and freeing it is no longer optional: a
+# wrongly-typed *handle* passed to a real type-specific method crashes
+# Capture, but calling a Tcl *command name* that simply does not exist is
+# an ordinary catchable error -- so extract_topology.tcl probes
+# `info commands delete_DboFlatNetNetOccurrencesIter` at runtime and frees
+# only if it is present. The fixture models both branches of that guard:
+# normally the command exists (see delete_DboFlatNetNetOccurrencesIter
+# below) and the iterator is freed like any other; suite_topology also
+# renames it away for one run to prove the guarded call is a harmless no-op
+# -- not a crash -- when the name turns out to be wrong.
 
 proc fx::makeFlatNet {name ports netOccs} {
     set handle [fx::makeHandle net fx::netDispatch]
@@ -564,12 +573,9 @@ proc ::delete_DboFlatNetPortOccurrencesIter {iterHandle} {
     fx::deleteIter $iterHandle ports
 }
 
-# Deliberately NOT modelled: the free function for a
-# DboFlatNetNetOccurrencesIter. extract_topology.tcl does not call one
-# (the real name is unconfirmed), so the fixture provides none either --
-# if a future edit to the example invents a name and calls it, this fixture
-# has no such command and the test run fails with a plain "invalid command
-# name", which is exactly the signal that edit needs to be reverted.
+proc ::delete_DboFlatNetNetOccurrencesIter {iterHandle} {
+    fx::deleteIter $iterHandle netOccs
+}
 
 proc fx::makePortOccurrence {name} {
     set handle [fx::makeHandle port fx::portDispatch]
@@ -759,9 +765,7 @@ proc suite_fixture {} {
         [$netOccIter NextNetOccurrence $st] $netOcc
     checkTrue {fixture: a net occurrence rejects any method call} \
         [catch {$netOcc GetName {}}]
-    # This iterator's own delete_Dbo...Iter is deliberately left uncalled
-    # here too, matching extract_topology.tcl; there is no free function
-    # to demonstrate yet.
+    delete_DboFlatNetNetOccurrencesIter $netOccIter
 
     # Selection-family object: DRAWN_INSTANCE/PLACED_INSTANCE, not
     # PART_INSTANCE, and no downcast at all -- refdes comes from the
@@ -899,6 +903,16 @@ proc suite_selection {} {
     }
 }
 
+proc fx::countOpenNetOccIters {} {
+    set openIters {}
+    foreach iterHandle [array names ::fx::iterKind] {
+        if {$::fx::iterKind($iterHandle) eq {netOccs} && $::fx::iterAlive($iterHandle)} {
+            lappend openIters $iterHandle
+        }
+    }
+    return [llength $openIters]
+}
+
 proc suite_topology {} {
     fx::resetAll
 
@@ -906,10 +920,9 @@ proc suite_topology {} {
     # suite's hierarchy tree. extract_topology.tcl reports net names, their
     # hierarchical ports, and a net-occurrence count: NewPortOccurrencesIter
     # and NewNetOccurrencesIter/NextNetOccurrence are all confirmed APIs,
-    # but the script never inspects a net occurrence's fields and never
-    # frees the net-occurrence iterator (see the comment above
-    # fx::makeFlatNet) -- two net occurrences are enough to prove counting
-    # works without ever touching one.
+    # but the script never inspects a net occurrence's fields (see the
+    # comment above fx::makeFlatNet) -- two net occurrences are enough to
+    # prove counting works without ever touching one.
     set portIn [fx::makePortOccurrence IN]
     set netOccA [fx::makeNetOccurrence]
     set netOccB [fx::makeNetOccurrence]
@@ -924,20 +937,47 @@ proc suite_topology {} {
             [dict create net N1] \
             [dict create net N1 port IN] \
             [dict create net N1 netOccurrenceCount 2]]
-    # nets iterator (1) + ports iterator (1) for the single net N1 are
-    # freed; the net-occurrences iterator is deliberately left open (its
-    # free function is unconfirmed), so the count stays at 2, not 3.
-    check {extract_topology.tcl frees the nets and ports iterators exactly once} \
-        $::fx::iterDeleteCalls 2
-    set openNetOccIters {}
-    foreach iterHandle [array names ::fx::iterKind] {
-        if {$::fx::iterKind($iterHandle) eq {netOccs} && $::fx::iterAlive($iterHandle)} {
-            lappend openNetOccIters $iterHandle
-        }
-    }
-    check {extract_topology.tcl leaves exactly one net-occurrence iterator open, pending a confirmed free function} \
-        [llength $openNetOccIters] 1
+    # nets iterator (1) + ports iterator (1) + net-occurrences iterator (1)
+    # for the single net N1, each opened and freed exactly once: calling a
+    # Tcl command that does not exist is an ordinary catchable error, not a
+    # crash, so the free function's conventional name is probed with
+    # `info commands` and called for real rather than being guessed at
+    # blindly or skipped altogether.
+    check {extract_topology.tcl frees every iterator exactly once} \
+        $::fx::iterDeleteCalls 3
+    check {extract_topology.tcl leaves no net-occurrence iterator open} \
+        [fx::countOpenNetOccIters] 0
     check {extract_topology.tcl never mutates the design} $::fx::setPropCalls 0
+
+    # The other branch of the guard: if delete_DboFlatNetNetOccurrencesIter
+    # did not exist (the conventional name turned out wrong), the script
+    # must still run cleanly rather than erroring out or crashing -- it
+    # just leaks that one iterator, exactly as it did before the free
+    # function was confirmed to exist as a command.
+    fx::resetAll
+    set portIn2 [fx::makePortOccurrence IN]
+    set netOccC [fx::makeNetOccurrence]
+    set n1b [fx::makeFlatNet N1 [list $portIn2] [list $netOccC]]
+    set root2 [fx::makeOccurrence {} {} / {} 0]
+    set ::fx::activeDesign [fx::makeDesign $root2 [list $n1b]]
+
+    rename ::delete_DboFlatNetNetOccurrencesIter ::fx::realDeleteDboFlatNetNetOccurrencesIter
+    lassign [fx::runExample extract_topology.tcl] codeNoFree messageNoFree outputNoFree
+    rename ::fx::realDeleteDboFlatNetNetOccurrencesIter ::delete_DboFlatNetNetOccurrencesIter
+
+    check {extract_topology.tcl still runs cleanly when the free function name does not exist} \
+        $codeNoFree 0
+    check {extract_topology.tcl still reports the right net-occurrence count without the free function} \
+        $outputNoFree [list \
+            [dict create net N1] \
+            [dict create net N1 port IN] \
+            [dict create net N1 netOccurrenceCount 1]]
+    # nets + ports freed as before; the net-occurrences iterator this time
+    # is left open because the guard correctly found no free command to call.
+    check {extract_topology.tcl frees only the nets and ports iterators when the free function is absent} \
+        $::fx::iterDeleteCalls 2
+    check {extract_topology.tcl leaves exactly one net-occurrence iterator open when the free function is absent} \
+        [fx::countOpenNetOccIters] 1
 
     if {!$::fail} {
         puts {PASS: topology}

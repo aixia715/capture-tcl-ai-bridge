@@ -30,6 +30,30 @@
 
 ---
 
+## 入口命令
+
+`GetActivePMDesign` 是**全局命令，无参数、不需要 status**，直接返回 `DboDesign`
+句柄（实测确认）。`GetSelectedObjects` 同理。
+
+## 命令名 vs 句柄：风险完全不同
+
+这条区分决定什么时候可以试探、什么时候绝对不能：
+
+| 情况 | 后果 | 能否试探 |
+| --- | --- | --- |
+| 调用**不存在的命令名** | 普通的 Tcl 错误，可 `catch` | ✅ 可以，`info commands` 守卫即可 |
+| 给真实的类型专属函数传**错类型的句柄** | 解引用野指针，**Capture 进程闪退** | ❌ 绝对不行 |
+
+所以对不确定的函数名，写成守卫调用是安全且划算的：
+
+```tcl
+if {[llength [info commands delete_DboFlatNetNetOccurrencesIter]] > 0} {
+    delete_DboFlatNetNetOccurrencesIter $iterHandle
+}
+```
+
+名字对就正常释放，名字错就静默跳过，两种情况都不会崩。
+
 ## 状态对象
 
 几乎所有会失败的调用都要一个 `DboState`：

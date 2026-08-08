@@ -101,14 +101,23 @@ occurrence（flat net 上引脚级连接的等价物——`info commands *PinOcc
 用例而误判 `NextNetOccurrence` 不存在、整段砍掉，那个判断是错的：
 Cadence 自带脚本没用到不等于真实 API 里没有。
 
-但两件事仍然没有确认：**(a)** 这个迭代器的释放函数叫什么；**(b)** 一个
-net occurrence 本身能读到什么字段（位号、引脚名、引脚号、所属器件——一概
-未验证）。猜类型专属方法或转型函数的名字不是语法风险，是崩溃风险，所以
-脚本只用已确认的 `NextNetOccurrence` 把每个网络的 net occurrence **数一遍**，
-从不在返回的句柄上调用任何方法，也从不释放这个迭代器（宁可暂时不回收，也
-不猜一个可能是错的释放函数名）。脚本文件顶部和对应位置都用 `UNCONFIRMED`
-标出这两处，并给出下一步在真机上探测的具体命令，等确认后只需要在标记处
-补一行代码。
+但一件事仍然没有确认：一个 net occurrence 本身能读到什么字段（位号、
+引脚名、引脚号、所属器件——一概未验证）。猜一个类型专属方法的名字不是
+语法风险，是崩溃风险——把类型不对的**句柄**喂给一个真实存在的类型专属
+方法会让 Capture 直接崩溃，因此脚本只用已确认的 `NextNetOccurrence` 把
+每个网络的 net occurrence **数一遍**，从不在返回的句柄上调用任何方法。
+脚本文件顶部和对应位置都用 `UNCONFIRMED` 标出这一处，并给出下一步在真机
+上探测的具体命令，等确认后只需要在标记处补一段代码。
+
+这个迭代器本身**会**被释放，这和"不猜字段方法名"不矛盾：释放函数按这个
+API 里"每种迭代器都有自己的 `delete_<迭代器类>`"的命名规律，猜测名字是
+`delete_DboFlatNetNetOccurrencesIter`（`DboFlatNetNetOccurrencesIter` 这个
+类名本身已经用 `info commands` 实测确认存在）。调用一个类型专属方法时
+喂错**句柄**会崩溃，但调用一个根本不存在的 Tcl **命令名**只是一个普通的、
+`catch` 得住的错误——两者是不同的风险类别。脚本因此用
+`info commands delete_DboFlatNetNetOccurrencesIter` 在运行时探测这个猜测
+出来的名字是否存在，存在才调用，不存在就照旧跳过，两条分支
+`tests/test_examples.tcl` 的 `topology` suite 都测到了。
 
 ## 三种调用方式
 
@@ -688,9 +697,23 @@ Invoke-RestMethod -Method Post -Uri "$($runtime.baseUrl)/v1/execute" `
 和 `NextNetOccurrence` 都已确认存在，脚本也确实打开了这个迭代器、用
 `NextNetOccurrence` 数出了总数，但一个 net occurrence 本身能读到什么字段
 （位号、引脚名、引脚号、所属器件）还没确认，脚本因此只数数，不读取任何
-字段，也不释放这个迭代器——它的释放函数名同样没有确认，宁可暂时不回收，
-也不猜一个可能是错的名字去调用一个真实存在的对象，那样猜错了是崩溃
-Capture 的风险，不是语法风险。
+字段——猜一个类型专属方法的名字去读字段，猜错了是崩溃 Capture 的风险，
+不是语法风险。
+
+这个迭代器**会**被释放，和只读部分的谨慎程度不一样：调用一个根本不存在
+的 Tcl 命令名，只是一个普通的、能被 `catch` 住的错误，不是崩溃风险
+——真正危险的是把类型不对的**句柄**喂给一个真实存在的类型专属方法。
+所以脚本用 `info commands delete_DboFlatNetNetOccurrencesIter` 在运行时
+探测这个按惯例推测出的释放函数名是否存在，存在就调用释放，不存在就照旧
+跳过——这样命名猜对时不会在大设计上每个网络泄漏一个迭代器，猜错时也
+不会崩溃，只是退回到之前"暂不回收"的状态。
+
+**风险提示**（不是 crash 风险，是设计选择的边界）：`delete_DboFlatNetNetOccurrencesIter`
+这个具体名字沿用了这个 API 里"每种迭代器都有自己的 `delete_<迭代器类>`"
+这一贯穿全文档的命名规律，`DboFlatNetNetOccurrencesIter` 这个类名本身是
+`info commands` 实测确认存在的，因此这个猜测有很强的依据，但**依据不等于
+确认**，`tests/test_examples.tcl` 的 `topology` suite 两个分支都测：命令
+存在时确实释放、命令不存在时确实优雅跳过。
 
 **UI 阻塞风险**：和 `list_components.tcl` 一样，Capture 在 Tcl/UI
 线程上执行脚本，`extract_topology.tcl` 要遍历所有 flat net、其端口和 net
@@ -716,33 +739,40 @@ occurrence，设计越大运行越久，期间界面无响应。`POST /v1/execut
 # collapses hierarchy, so a single N1 here may connect a pin inside one
 # hierarchical block to a pin inside another -- the hierarchical ports on a
 # net are exactly the boundary crossings that made that possible. Every
-# iterator this script *can* safely free (nets, ports) is freed exactly
-# once, even when a later net is never reached because there are no more
-# nets left to enumerate; see the net-occurrence iterator note below for
-# the one exception.
+# iterator this script opens (nets, ports, net occurrences) is freed
+# exactly once, even when a later net is never reached because there are
+# no more nets left to enumerate.
 #
 # docs/capture-dbo-api-notes.md confirms there is no NewPinOccurrencesIter
 # on DboFlatNet (info commands *PinOccurrence* is completely empty on real
 # Capture) and that NewNetOccurrencesIter/NextNetOccurrence are the
 # confirmed replacement -- an earlier draft of this script dropped the
 # net-occurrence walk entirely on a (wrong) report that NextNetOccurrence
-# did not exist; it does. What is still NOT confirmed is (a) the free
-# function for the DboFlatNetNetOccurrencesIter this opens, and (b) what
+# did not exist; it does. What is still NOT confirmed is what
 # fields/methods a net occurrence itself exposes (refdes, pin name/number,
-# owning component -- none of it verified). Guessing either is a crash
-# risk (a wrong type-specific method call on a real object does not raise
-# a Tcl error, it crashes Capture), not a syntax risk, so this script
-# stops at counting how many net occurrences a net has -- it opens the
-# iterator and steps it with the confirmed NextNetOccurrence, but never
-# calls any method on a net occurrence handle and never frees the
-# iterator, because the free function has zero confirmed hits anywhere.
-# UNCONFIRMED -- probe on real Capture, then fold the answers in as a
-# small edit right at the two "UNCONFIRMED" markers below:
-#   info commands delete_DboFlatNetNetOccurrencesIter*
+# owning component -- none of it verified): guessing a type-specific
+# method name is a crash risk (a wrong type-specific method call on a real
+# object does not raise a Tcl error, it crashes Capture), so this script
+# stops at counting how many net occurrences a net has, never calling any
+# method on a net occurrence handle.
+#
+# The free function for the DboFlatNetNetOccurrencesIter this opens is
+# also not confirmed by name, but freeing is a different risk category
+# from calling a type-specific method: passing a wrongly-typed *handle* to
+# a real method crashes Capture, but calling a Tcl *command name* that
+# simply does not exist is an ordinary catchable error. So the
+# conventional delete_<ClassName> name (every other iterator in this API
+# follows it, and DboFlatNetNetOccurrencesIter is confirmed to exist as a
+# class) is probed at runtime with `info commands` rather than called
+# blindly -- free if present, leave open if not, either way no crash.
+# UNCONFIRMED -- probe on real Capture to turn this from "probably right,
+# guarded" into "confirmed, unconditional":
+#   info commands delete_DboFlatNetNetOccurrencesIter
 #   info commands DboFlatNetNetOccurrencesIter_GetKey
 #   catch {$lNetOcc SomeGuessAtAMethod} probeResult
 # and inspect what a SWIG wrong-number-of-args error (or success) reveals
-# about the real free/field-access API before calling either for real.
+# about the real field-access API before reading anything off a net
+# occurrence for real.
 #
 # Two safety rules from docs/capture-dbo-api-notes.md drive the shape below:
 #   1. Every call that takes a DboState can fail, and an unchecked failure
@@ -783,6 +813,16 @@ proc _stringOut {obj method what} {
     return $value
 }
 
+# Frees a DboFlatNetNetOccurrencesIter if (and only if) the conventional
+# delete_<ClassName> name actually exists in this Capture session -- see
+# the file header for why probing a command name is safe where probing a
+# handle's type is not.
+proc _freeNetOccurrencesIterIfPossible {iterHandle} {
+    if {[llength [info commands delete_DboFlatNetNetOccurrencesIter]] > 0} {
+        delete_DboFlatNetNetOccurrencesIter $iterHandle
+    }
+}
+
 set st [DboState]
 try {
     set design [GetActivePMDesign]
@@ -816,23 +856,22 @@ try {
             # is not confirmed here.
             set netOccIter [$net NewNetOccurrencesIter $st $::IterDefs_PRIMITIVES]
             _requireOk $st {NewNetOccurrencesIter}
-            set netOccurrenceCount 0
-            while {1} {
-                set netOcc [$netOccIter NextNetOccurrence $st]
-                _requireOk $st {NextNetOccurrence}
-                if {$netOcc eq {NULL}} { break }
-                incr netOccurrenceCount
-                # UNCONFIRMED: no field of a net occurrence (refdes, pin
-                # name, pin number, owning component) is confirmed, so
-                # nothing is read off $netOcc beyond the fact that it
-                # exists.
+            try {
+                set netOccurrenceCount 0
+                while {1} {
+                    set netOcc [$netOccIter NextNetOccurrence $st]
+                    _requireOk $st {NextNetOccurrence}
+                    if {$netOcc eq {NULL}} { break }
+                    incr netOccurrenceCount
+                    # UNCONFIRMED: no field of a net occurrence (refdes,
+                    # pin name, pin number, owning component) is
+                    # confirmed, so nothing is read off $netOcc beyond the
+                    # fact that it exists.
+                }
+                puts [dict create net $netName netOccurrenceCount $netOccurrenceCount]
+            } finally {
+                _freeNetOccurrencesIterIfPossible $netOccIter
             }
-            puts [dict create net $netName netOccurrenceCount $netOccurrenceCount]
-            # UNCONFIRMED: the free function for $netOccIter has zero
-            # confirmed hits, so it is deliberately left open rather than
-            # guessed at. Once docs/capture-dbo-api-notes.md confirms it,
-            # add a `finally { delete_Dbo... $netOccIter }` around the
-            # while loop above, matching the ports iterator right above it.
         }
     } finally {
         delete_DboDesignFlatNetsIter $netsIter
