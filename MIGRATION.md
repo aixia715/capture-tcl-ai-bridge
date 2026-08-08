@@ -39,8 +39,17 @@ remains compatible with the existing `capture_tcl_bridge.json` contract.
 
 ## Acceptance boundary
 
-`capture-tcl-ai-bridge` 现在是这份代码的唯一维护位置，但**尚未通过真实 OrCAD
-Capture 验收**。当前状态：
+`capture-tcl-ai-bridge` 现在是这份代码的唯一维护位置。
+
+**桥本身已于 2026-08-08 通过真实 OrCAD Capture 16.6 验收**（Tcl 8.4.15）。
+示例部分**部分通过**：五个可用，两个有已记录的限制（见下）。
+
+验收范围：安装、加载、启动/停止、CLI 四种调用、`puts` 双向 tee、并发串行化、
+超时不取消、无效结果恢复、Token 轮换、退出 Capture 后 watchdog 收尾、
+以及全部三个写入示例的真实修改与还原。**未**验收 OrCAD Capture 17.4——
+本机没有该版本。
+
+当前状态：
 
 | 项目 | 状态 |
 | --- | --- |
@@ -64,8 +73,19 @@ Capture 验收**。当前状态：
 | Token 每次启动轮换 | **真实 Capture 已验证**：Stop→Start 前后 token 的 SHA-256 不同，serverPid 也变化，其间描述文件确实被删除（全程未打印 token 明文） |
 | 控制台不刷屏（同一确定性 4xx 只报一次） | **真实 Capture 已验证**：诊断日志中该次失败**恰好一条**记录 |
 
-自动测试不等于真实验收。在真实 Capture 中签收之前，`tcl_bom` 仍是回退来源；
-不要把它的工作树或源文件作为本次迁移的一部分删除。
+自动测试不等于真实验收，上表里凡是标"已验证"的都有真机证据；标"未验证"的
+是真机上无法构造或未观察到的，不要当成已通过。
+
+`tcl_bom` 仍是回退来源；不要把它的工作树或源文件作为本次迁移的一部分删除。
+
+## 自动测试基线（2026-08-08）
+
+```text
+Python：347 passed, 1 skipped        （CAPTURE_TCL_TCLSH 指向真实 tclsh 8.4）
+tests/test_capture_ai_bridge.tcl     8.4 与 8.6 均 0 FAIL
+tests/test_capture_ai_compat.tcl     8.4 与 8.6 均 0 FAIL
+tests/test_examples.tcl              8.4 与 8.6 均 0 FAIL
+```
 
 ## Dbo API 假设：已实测，全部推翻
 
