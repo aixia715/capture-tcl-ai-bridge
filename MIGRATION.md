@@ -48,6 +48,11 @@ Capture 验收**。当前状态：
 | JSON 写出未转义反斜杠（Windows 路径产生非法 JSON） | **真实 Capture 已验证**：`puts "C:\\cadence\\SPB_16.6"` 正常返回 |
 | Tcl 8.4 / OrCAD 16.6 兼容 | **真实 Capture 已验证**：桥在 16.6 加载运行，CLI 全通 |
 | 只读示例对真实设计 | **已验证**：`list_components.tcl` 完整遍历 400+ 器件，位号/值/层次路径全对 |
+| `get_component_value.tcl` 零匹配 | **已验证**：`COMPONENT_NOT_FOUND` |
+| `set_component_value.tcl` 唯一匹配写入 | **已验证**：`68kR → 68kR-BRIDGETEST`，独立回读确认，已还原 |
+| `set_component_value.tcl` 重复位号拒绝 | **未验证**：测试设计 411 个位号全唯一，无法构造（fixture 有覆盖） |
+| 后缀追加 / 幂等 / 移除 | **已验证**：3 个器件 `100nF → 100nF*`；再跑一次 `changed 0 skipped 3`（无 `**`）；移除后回到 `100nF`，每步独立回读 |
+| 写入不自动保存 | **已验证**：全部写入后设计仍为未保存状态 |
 | 安装与卸载脚本 | 自动测试与临时目录 smoke 已通过 |
 | `puts` tee（Capture 控制台 + 客户端双向） | **真实 Capture 已验证** |
 | 并发串行化（`BRIDGE_BUSY`） | **真实 Capture 已验证**（并修复了长脚本期间误报 `CAPTURE_DISCONNECTED`） |
@@ -85,6 +90,15 @@ Capture 16.6 上实测，六条假设**无一成立**：
 
 正确的调用约定见 [docs/capture-dbo-api-notes.md](docs/capture-dbo-api-notes.md)，
 来源是实测加 Cadence 自带脚本。示例与 fixture 需按该文件重写。
+
+## 已知限制：selected_refs.tcl 报不出真实位号
+
+真机验证（层次化、已标注的设计）：选中 C209/C211/C214 三个器件后，脚本只输出
+一行 `C?`。原因是标注把位号赋给 **occurrence**，而 `GetSelectedObjects` 返回的
+页面级实例保留未标注占位符 `C?`；三个都读成 `C?`，去重后剩一个。
+
+`Value` 在页面实例上读写都正确，所以两个后缀脚本不受影响、已验证通过。
+补齐需要"页面实例 → occurrence"的关联，该 API 尚未确认。
 
 ## 已知限制：extract_topology.tcl 尚不可用
 

@@ -214,6 +214,22 @@ $lStatus -delete
 occurrence 上取位号可以用类型专属的 `GetReference`；页面级选择集对象上
 没有 `GetReference`，用 `GetEffectivePropStringValue "Part Reference"`。
 
+## ⚠️ 位号只在 occurrence 上，页面实例是 `C?`
+
+实测（层次化、已标注的设计）：`GetSelectedObjects` 返回的页面级实例上，
+`Part Reference` 和 `Reference` 两个属性**都返回未标注占位符 `C?`**，
+而不是标注后的 `C209` / `C211` / `C214`。
+
+标注是把位号赋给 **occurrence** 的；页面实例保留占位符。所以：
+
+| 想要的信息 | 该走哪一侧 |
+| --- | --- |
+| 真实位号、层次路径 | **occurrence**（`GetRootOccurrence` → 遍历 → `GetReference`） |
+| 选中了什么、改选中项的 Value | **页面实例**（`GetSelectedObjects`） |
+
+`Value` 在两侧都读得对，所以"改选中器件的值"是可行的；不可行的是
+"报告选中器件的位号"。两侧之间的关联（页面实例 → occurrence）尚未确认。
+
 ## 遍历 occurrence 层次（权威范例：capRecurseParts.tcl）
 
 ```tcl

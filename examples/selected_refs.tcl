@@ -25,6 +25,22 @@
 # raw result as a string makes the error-reporting path itself throw a Tcl
 # arity error, replacing the real diagnostic with a confusing one, and only
 # on the failure path that nothing else exercises.
+# KNOWN LIMITATION -- the refdes this reports may not be the annotated one.
+#
+# Tested on a hierarchical, occurrence-annotated design: all three selected
+# components reported "Part Reference" (and "Reference") as the placeholder
+# "C?", not their annotated C209/C211/C214. Annotation assigns reference
+# designators to occurrences, and the page-level instance that
+# GetSelectedObjects returns keeps the unannotated placeholder. Deduplicating
+# then collapses every selected part into a single "C?" line.
+#
+# Values read correctly per instance, so the suffix scripts beside this one
+# work; it is identity that is wrong here. Fixing it needs the page-instance
+# to occurrence link, which is not confirmed - probe before writing any of
+# it, and remember a wrong type-specific call crashes Capture:
+#   catch {DboPlacedInstance_GetObjectOccurrence} m ; puts $m
+#   catch {DboBaseObject_GetObjectOccurrence} m ; puts $m
+#
 proc _statusMessage {st} {
     set msgC [DboTclHelper_sMakeCString]
     $st Message $msgC
