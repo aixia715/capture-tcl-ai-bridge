@@ -67,7 +67,13 @@
 
 - [ ] **1.4** 【复验】 再执行一次 `CaptureAiBridgeStart`，确认不会起第二个服务。
 
-## 阶段 2：Dbo API 形状确认（务必先做）
+## 阶段 2：Dbo API 形状确认
+
+> **本阶段已于 2026-08-08 完成。** 六条原假设全部推翻，实测得到的真实调用约定
+> 见 [capture-dbo-api-notes.md](capture-dbo-api-notes.md)，`examples/*.tcl` 和
+> fixture 已按它重写。下面 2.1–2.4 保留作记录，**不需要重跑**。
+>
+> 仍未确认、需要一次补充探测的只剩三项，见本阶段末尾的 **2.5**。
 
 `examples/*.tcl` 是对着模拟接口写的。先确认真实 API 形状，否则后面的失败会
 被误判成示例逻辑错误。MIGRATION.md 列了全部假设，这里逐条实测：
@@ -109,6 +115,22 @@
       $netsIter delete
 
       **任何一条与假设不符，先记录差异并停下**，不要边猜边改示例。
+
+- [ ] **2.5** 【真机】补充探测：剩余三项未确认的 API。**只用零参数调用逼签名，
+      不要用真实句柄试调**——类型不符会崩溃：
+
+      foreach c {DboFlatNet_GetName DboFlatNetNetOccurrencesIter_Next
+                 DboState_Message DboState_Code} {
+          catch {$c} m
+          puts "$c => $m"
+      }
+      puts "NETOCCITER => [lsort [info commands DboFlatNetNetOccurrences*]]"
+      puts "PINISH     => [lsort [info commands *PinOccurrence*]]"
+
+      要确认的是：`GetName` 是否同样用 CString 出参；`DboState` 的
+      `Message`/`Code` 是直接返回值还是出参；以及 flat net 上从引脚回到所属器件
+      的正确方法名（`extract_topology.tcl` 目前**刻意不实现**这一段，
+      文件里留了 `UNCONFIRMED` 注释和探测配方）。
 
 ## 阶段 3：只读链路
 
