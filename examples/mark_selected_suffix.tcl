@@ -22,12 +22,23 @@ set suffix *
 # risk, on this path at all: the type check below exists to correctly
 # select components, not to guard against a type-specific call.
 
+# Message is itself a CString out-parameter, not a plain return value like
+# OK/Succeeded/Failed/Code/Severity -- calling it directly and using its
+# raw result as a string makes the error-reporting path itself throw a Tcl
+# arity error, replacing the real diagnostic with a confusing one, and only
+# on the failure path that nothing else exercises.
+proc _statusMessage {st} {
+    set msgC [DboTclHelper_sMakeCString]
+    $st Message $msgC
+    return [DboTclHelper_sGetConstCharPtr $msgC]
+}
+
 proc _getEffectiveProp {obj propName what} {
     set nameC [DboTclHelper_sMakeCString $propName]
     set valueC [DboTclHelper_sMakeCString]
     set st [$obj GetEffectivePropStringValue $nameC $valueC]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -41,7 +52,7 @@ proc _setProp {obj propName propValue what} {
     set valueC [DboTclHelper_sMakeCString $propValue]
     set st [$obj SetEffectivePropStringValue $nameC $valueC]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }

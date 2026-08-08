@@ -24,9 +24,20 @@
 #
 # Output: one line per leaf component, `dict create refdes ... value ... path ...`.
 
+# Message is itself a CString out-parameter, not a plain return value like
+# OK/Succeeded/Failed/Code/Severity -- calling it directly and using its
+# raw result as a string makes the error-reporting path itself throw a Tcl
+# arity error, replacing the real diagnostic with a confusing one, and only
+# on the failure path that nothing else exercises.
+proc _statusMessage {st} {
+    set msgC [DboTclHelper_sMakeCString]
+    $st Message $msgC
+    return [DboTclHelper_sGetConstCharPtr $msgC]
+}
+
 proc _requireOk {st what} {
     if {[$st OK] != 1} {
-        error "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        error "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
     }
 }
 
@@ -37,7 +48,7 @@ proc _stringOut {obj method what} {
     set cstr [DboTclHelper_sMakeCString]
     set st [$obj $method $cstr]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -51,7 +62,7 @@ proc _getEffectiveProp {obj propName what} {
     set valueC [DboTclHelper_sMakeCString]
     set st [$obj GetEffectivePropStringValue $nameC $valueC]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }

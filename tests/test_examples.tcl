@@ -82,7 +82,7 @@ proc fx::resetAll {} {
             selObjType selProps selRejectWrite selForceFail \
             iterKind iterItems iterIndex iterAlive \
             stOK stCode stMessage \
-            netName netPorts \
+            netName netPorts netNetOccs \
             portName \
             designRoot designFlatNets \
             selectionObjects} {
@@ -136,8 +136,24 @@ proc fx::stateDispatch {handle method argsList} {
         Succeeded { return $::fx::stOK($handle) }
         Failed    { return [expr {!$::fx::stOK($handle)}] }
         Code      { return $::fx::stCode($handle) }
-        Message   { return $::fx::stMessage($handle) }
         Severity  { return [expr {$::fx::stOK($handle) ? 0 : 3}] }
+        Message {
+            # Confirmed real signature: DboState_Message self msg -- a
+            # CString out-parameter, unlike OK/Succeeded/Failed/Code/
+            # Severity, which are plain returns. An example that wrote
+            # [$st Message] directly (an earlier draft of every example in
+            # this repo did) would fail here with a wrong-number-of-args
+            # error the instant a real Dbo call failed, masking the actual
+            # diagnostic -- exactly the live bug this fixture must catch,
+            # so the required out-param is enforced by arity, same as SWIG
+            # would enforce it for real.
+            if {[llength $argsList] != 1} {
+                error "wrong # args: should be \"DboState_Message self msg\""
+            }
+            set cstr [lindex $argsList 0]
+            fx::setCString $cstr $::fx::stMessage($handle)
+            return {}
+        }
         -delete {
             unset -nocomplain ::fx::stOK($handle) ::fx::stCode($handle) \
                 ::fx::stMessage($handle)
@@ -430,10 +446,10 @@ proc ::GetSelectedObjects {} { return $::fx::selectionObjectsList }
 
 # -- generic list-backed iterator ------------------------------------------
 #
-# Used for children/flat-nets/ports alike. Each concrete iterator "kind"
-# (occChildren, flatNets, ports) gets its own Next<Type> dispatch and its
-# own delete_Dbo...Iter free function -- real Capture does not share one
-# Next/delete pair across iterator classes.
+# Used for children/flat-nets/ports/net-occurrences alike. Each concrete
+# iterator "kind" (occChildren, flatNets, ports, netOccs) gets its own
+# Next<Type> dispatch and its own delete_Dbo...Iter free function -- real
+# Capture does not share one Next/delete pair across iterator classes.
 
 proc fx::makeListIter {kind items} {
     set handle [fx::makeHandle iter fx::iterDispatch]
@@ -473,6 +489,10 @@ proc fx::iterDispatch {handle method argsList} {
             set st [lindex $argsList 0]
             return [fx::iterAdvance $handle $st]
         }
+        NextNetOccurrence {
+            set st [lindex $argsList 0]
+            return [fx::iterAdvance $handle $st]
+        }
         default { error "fake iterator: unsupported method \"$method\"" }
     }
 }
@@ -491,25 +511,32 @@ proc fx::deleteIter {handle expectedKind} {
     return {}
 }
 
-# -- flat net / port occurrence ---------------------------------------------
+# -- flat net / port occurrence / net occurrence -----------------------------
 #
 # NewFlatNetsIter/NextFlatNet/delete_DboDesignFlatNetsIter and
 # NewPortOccurrencesIter/NextPortOccurrence/delete_DboFlatNetPortOccurrencesIter
 # are all confirmed (capDesignPhysicalViewReader.tcl). The pin-level walk
-# from a flat net to the component pins it connects is NOT confirmed --
-# NewNetOccurrencesIter is named in docs/capture-dbo-api-notes.md as
-# "available", but the step (NextNetOccurrence) and free
-# (delete_DboFlatNetNetOccurrencesIter) functions an earlier draft of this
-# fixture invented for it have zero hits in Cadence's own scripts, and
-# GetPartOccurrence (to get from a pin back to its owning component) has
-# zero hits too. None of the three are modelled here; extract_topology.tcl
-# does not call them, matching "ship less but correct" over guessing at a
-# method name that could crash Capture if wrong.
+# now IS confirmed too, in part: `info commands DboFlatNetNetOccurrences*`
+# on real Capture returns DboFlatNetNetOccurrencesIter,
+# DboFlatNetNetOccurrencesIter_GetKey, DboFlatNetNetOccurrencesIter_Next
+# and DboFlatNetNetOccurrencesIter_NextNetOccurrence -- so NextNetOccurrence
+# is real (an earlier draft of this project was told otherwise and dropped
+# the walk entirely; that was wrong). What remains unconfirmed is the free
+# function for this iterator class and what fields a net occurrence itself
+# exposes, so extract_topology.tcl opens the iterator and steps it with
+# NextNetOccurrence, but never calls delete_Dbo... on it and never calls
+# any method on a net occurrence handle. The fixture enforces the second
+# half of that: fx::netOccDispatch errors loudly on *any* method call, so
+# if a future edit accidentally reaches into a net occurrence before the
+# real field API is confirmed, the test suite catches it immediately
+# instead of silently "working" against a fixture that over-modelled the
+# real, still-unconfirmed surface.
 
-proc fx::makeFlatNet {name ports} {
+proc fx::makeFlatNet {name ports netOccs} {
     set handle [fx::makeHandle net fx::netDispatch]
     set ::fx::netName($handle) $name
     set ::fx::netPorts($handle) $ports
+    set ::fx::netNetOccs($handle) $netOccs
     return $handle
 }
 
@@ -525,6 +552,10 @@ proc fx::netDispatch {handle method argsList} {
             set st [lindex $argsList 0]
             return [fx::makeListIter ports $::fx::netPorts($handle)]
         }
+        NewNetOccurrencesIter {
+            set st [lindex $argsList 0]
+            return [fx::makeListIter netOccs $::fx::netNetOccs($handle)]
+        }
         default { error "fake flat net: unsupported method \"$method\"" }
     }
 }
@@ -532,6 +563,13 @@ proc fx::netDispatch {handle method argsList} {
 proc ::delete_DboFlatNetPortOccurrencesIter {iterHandle} {
     fx::deleteIter $iterHandle ports
 }
+
+# Deliberately NOT modelled: the free function for a
+# DboFlatNetNetOccurrencesIter. extract_topology.tcl does not call one
+# (the real name is unconfirmed), so the fixture provides none either --
+# if a future edit to the example invents a name and calls it, this fixture
+# has no such command and the test run fails with a plain "invalid command
+# name", which is exactly the signal that edit needs to be reverted.
 
 proc fx::makePortOccurrence {name} {
     set handle [fx::makeHandle port fx::portDispatch]
@@ -549,6 +587,18 @@ proc fx::portDispatch {handle method argsList} {
         }
         default { error "fake port occurrence: unsupported method \"$method\"" }
     }
+}
+
+# A net occurrence's real field/method surface is not confirmed at all, so
+# this fake exposes none: any method call on one is a test failure, proving
+# extract_topology.tcl only ever counts net occurrences via NextNetOccurrence
+# and never inspects one.
+proc fx::makeNetOccurrence {} {
+    return [fx::makeHandle netocc fx::netOccDispatch]
+}
+
+proc fx::netOccDispatch {handle method argsList} {
+    error "fake net occurrence: method \"$method\" called on $handle -- extract_topology.tcl must not call any method on a net occurrence until docs/capture-dbo-api-notes.md confirms what one exposes"
 }
 
 # -- design -----------------------------------------------------------------
@@ -631,6 +681,16 @@ proc suite_fixture {} {
     set st [DboState]
     check {fixture: fresh DboState is OK} [$st OK] 1
 
+    # Message is a CString out-parameter, not a plain return value -- the
+    # method call itself returns nothing meaningful, and it must not be
+    # called with too few arguments the way OK/Code/Severity can be.
+    set msgC [DboTclHelper_sMakeCString]
+    $st Message $msgC
+    check {fixture: DboState Message via CString out-param} \
+        [DboTclHelper_sGetConstCharPtr $msgC] OK
+    checkTrue {fixture: DboState Message rejects the old no-out-param call} \
+        [catch {$st Message}]
+
     set refC [DboTclHelper_sMakeCString]
     set refSt [$leafInstOcc GetReference $refC]
     check {fixture: GetReference status is OK} [$refSt OK] 1
@@ -685,7 +745,8 @@ proc suite_fixture {} {
     $port GetName $portNameC
     check {fixture: port occurrence name} [DboTclHelper_sGetConstCharPtr $portNameC] IN
 
-    set net [fx::makeFlatNet N1 [list $port]]
+    set netOcc [fx::makeNetOccurrence]
+    set net [fx::makeFlatNet N1 [list $port] [list $netOcc]]
     set netNameC [DboTclHelper_sMakeCString]
     $net GetName $netNameC
     check {fixture: flat net name} [DboTclHelper_sGetConstCharPtr $netNameC] N1
@@ -693,6 +754,14 @@ proc suite_fixture {} {
     check {fixture: net port iterator yields the port} \
         [$portsIter NextPortOccurrence $st] $port
     delete_DboFlatNetPortOccurrencesIter $portsIter
+    set netOccIter [$net NewNetOccurrencesIter $st]
+    check {fixture: net-occurrence iterator yields the net occurrence} \
+        [$netOccIter NextNetOccurrence $st] $netOcc
+    checkTrue {fixture: a net occurrence rejects any method call} \
+        [catch {$netOcc GetName {}}]
+    # This iterator's own delete_Dbo...Iter is deliberately left uncalled
+    # here too, matching extract_topology.tcl; there is no free function
+    # to demonstrate yet.
 
     # Selection-family object: DRAWN_INSTANCE/PLACED_INSTANCE, not
     # PART_INSTANCE, and no downcast at all -- refdes comes from the
@@ -834,25 +903,40 @@ proc suite_topology {} {
     fx::resetAll
 
     # A minimal standalone net fixture -- independent of the occurrence
-    # suite's hierarchy tree. extract_topology.tcl only reports net names
-    # and their hierarchical ports (both confirmed APIs); the pin-level walk
-    # is deliberately not implemented (see the comment above
-    # fx::makeFlatNet), so this fixture carries no pin/net-occurrence data
-    # at all.
+    # suite's hierarchy tree. extract_topology.tcl reports net names, their
+    # hierarchical ports, and a net-occurrence count: NewPortOccurrencesIter
+    # and NewNetOccurrencesIter/NextNetOccurrence are all confirmed APIs,
+    # but the script never inspects a net occurrence's fields and never
+    # frees the net-occurrence iterator (see the comment above
+    # fx::makeFlatNet) -- two net occurrences are enough to prove counting
+    # works without ever touching one.
     set portIn [fx::makePortOccurrence IN]
-    set n1 [fx::makeFlatNet N1 [list $portIn]]
+    set netOccA [fx::makeNetOccurrence]
+    set netOccB [fx::makeNetOccurrence]
+    set n1 [fx::makeFlatNet N1 [list $portIn] [list $netOccA $netOccB]]
     set root [fx::makeOccurrence {} {} / {} 0]
     set ::fx::activeDesign [fx::makeDesign $root [list $n1]]
 
     lassign [fx::runExample extract_topology.tcl] code message output
     check {extract_topology.tcl runs without error} $code 0
-    check {extract_topology.tcl prints the net and its port} $output [list \
-        [dict create net N1] \
-        [dict create net N1 port IN]]
-    # nets iterator (1) + ports iterator (1) for the single net N1, each
-    # opened and freed exactly once.
-    check {extract_topology.tcl frees every iterator exactly once} \
+    check {extract_topology.tcl prints the net, its port and its net-occurrence count} \
+        $output [list \
+            [dict create net N1] \
+            [dict create net N1 port IN] \
+            [dict create net N1 netOccurrenceCount 2]]
+    # nets iterator (1) + ports iterator (1) for the single net N1 are
+    # freed; the net-occurrences iterator is deliberately left open (its
+    # free function is unconfirmed), so the count stays at 2, not 3.
+    check {extract_topology.tcl frees the nets and ports iterators exactly once} \
         $::fx::iterDeleteCalls 2
+    set openNetOccIters {}
+    foreach iterHandle [array names ::fx::iterKind] {
+        if {$::fx::iterKind($iterHandle) eq {netOccs} && $::fx::iterAlive($iterHandle)} {
+            lappend openNetOccIters $iterHandle
+        }
+    }
+    check {extract_topology.tcl leaves exactly one net-occurrence iterator open, pending a confirmed free function} \
+        [llength $openNetOccIters] 1
     check {extract_topology.tcl never mutates the design} $::fx::setPropCalls 0
 
     if {!$::fail} {
@@ -946,6 +1030,19 @@ proc suite_write {} {
         [expr {$code != 0}]
     checkTrue {set_component_value.tcl reports a DBO_CALL_FAILED-style message} \
         [expr {[string first DBO_CALL_FAILED $message] >= 0}]
+    # The regression this guards: Message is a CString out-parameter, not a
+    # plain return value. Writing [$st Message] directly would make this
+    # very error path throw its own Tcl arity error instead, so the
+    # forced-failure's actual message text ("forced failure:
+    # SetEffectivePropStringValue") would never reach here at all -- it
+    # would be replaced by a confusing "wrong # args" complaint about
+    # Message itself. Asserting the real text is present is the only way
+    # to catch that class of bug, since it only ever fires on the failure
+    # path.
+    checkTrue {set_component_value.tcl's error carries the real status message text, not a masked arity error} \
+        [expr {[string first {forced failure: SetEffectivePropStringValue} $message] >= 0}]
+    checkTrue {set_component_value.tcl's error is not a masked Message arity error} \
+        [expr {[string first {wrong # args} $message] < 0}]
 
     # -- mark_selected_suffix.tcl -------------------------------------------
 
@@ -1046,6 +1143,17 @@ proc suite_safety {} {
     }
 
     # -- occurrence-walk examples: a DboState that comes back not-OK -------
+    #
+    # Also the end-to-end regression test for the Message-out-param bug:
+    # Message is a CString out-parameter, not a plain return value, so
+    # writing [$st Message] directly (an earlier draft of every example did)
+    # makes the error-reporting path itself throw a Tcl arity error the
+    # instant a real Dbo call fails -- the actual diagnostic ("forced
+    # failure: GetReference") never reaches the caller, replaced by a
+    # confusing "wrong # args" complaint about Message. Only a failing-status
+    # run exercises this at all, which is exactly why no happy-path test
+    # caught it. Asserting the real message text is present, and that no
+    # "wrong # args" text leaked through instead, is the regression test.
 
     foreach exampleName {list_components.tcl get_component_value.tcl} {
         fx::resetAll
@@ -1058,6 +1166,10 @@ proc suite_safety {} {
             [expr {$code != 0}]
         checkTrue "$exampleName reports a DBO_CALL_FAILED-style message" \
             [expr {[string first DBO_CALL_FAILED $message] >= 0}]
+        checkTrue "$exampleName's error carries the real status message text, not a masked arity error" \
+            [expr {[string first {forced failure: GetReference} $message] >= 0}]
+        checkTrue "$exampleName's error is not a masked Message arity error" \
+            [expr {[string first {wrong # args} $message] < 0}]
     }
 
     # -- occurrence-walk examples: NewChildrenIter itself comes back not-OK
@@ -1069,6 +1181,8 @@ proc suite_safety {} {
     lassign [fx::runExample list_components.tcl] code message output
     checkTrue {list_components.tcl errors when NewChildrenIter status is not OK} \
         [expr {$code != 0}]
+    checkTrue {list_components.tcl's error carries the real status message text, not a masked arity error} \
+        [expr {[string first {forced failure: NewChildrenIter} $message] >= 0}]
     checkTrue {list_components.tcl does not press on with a bogus iterator handle} \
         [expr {[string first DBO_CALL_FAILED $message] >= 0}]
 

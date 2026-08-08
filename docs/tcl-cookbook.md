@@ -23,7 +23,25 @@
 1. **状态检查**：几乎每个 Dbo 调用都要一个 `DboState`，调用失败时不会抛出
    Tcl 错误，而是悄悄给出一个空/无效句柄，继续用它会出更难查的错。七个脚本
    都在每次这样的调用之后立即检查 `[$lStatus OK] == 1`，失败就用 `error`
-   带着 `DBO_CALL_FAILED:` 前缀清楚地报出来。
+   带着 `DBO_CALL_FAILED:` 前缀清楚地报出来。**`Message` 本身也是一个 CString
+   出参**，不是像 `OK`/`Succeeded`/`Failed`/`Code`/`Severity` 那样的普通返回值
+   ——本项目更早一版全部七个脚本都直接写 `[$st Message]`，这是一个实打实的
+   bug：一旦某次 Dbo 调用真的失败，取诊断信息这一步自己先抛出 Tcl 参数个数
+   错误，把真正的失败原因整个盖掉，而且只在失败路径才会触发，正常路径的
+   测试完全测不出来。现在七个脚本都用统一的 `_statusMessage` 辅助过程通过
+   出参读：
+
+   ```tcl
+   proc _statusMessage {st} {
+       set msgC [DboTclHelper_sMakeCString]
+       $st Message $msgC
+       return [DboTclHelper_sGetConstCharPtr $msgC]
+   }
+   ```
+
+   `tests/test_examples.tcl` 里专门有端到端的回归测试：故意让某次调用失败，
+   断言最终报出来的 Tcl 错误文本里**真的包含**那次失败的 `Message` 内容，
+   而不是一段 `wrong # args` 的参数个数错误。
 2. **只有类型专属方法才需要转型前先查类型**。真正决定要不要转型的是
    `DboBaseObject`（基类）方法和类型专属方法的区分：
    - **基类方法，任何句柄都能直接调，不需要转型**：`GetObjectType`、
@@ -74,15 +92,23 @@
 
 ### 已知未确认、本手册的脚本刻意不实现的部分
 
-`extract_topology.tcl` 只输出网络名和它连接的层级端口，**不**输出网络连接
-到的器件引脚。`docs/capture-dbo-api-notes.md` 确认了 `DboFlatNet` 上没有
-`NewPinOccurrencesIter`、可用的是 `NewNetOccurrencesIter`，但没有确认这个
-迭代器该怎么取下一个、怎么释放，也没有确认怎么从一个引脚连接点找回它所属
-的器件——本项目更早一版凭类比猜的 `NextNetOccurrence`、
-`delete_DboFlatNetNetOccurrencesIter`、`GetPartOccurrence` 在 Cadence 脚本里
-全部零命中。猜类型专属方法的名字不是语法风险，是崩溃风险，所以脚本停在了
-已确认的网络/端口层级，用一段注释标出这是需要在真实 Capture 上探测确认的
-部分。
+`extract_topology.tcl` 输出网络名、它连接的层级端口，以及它有多少个 net
+occurrence（flat net 上引脚级连接的等价物——`info commands *PinOccurrence*`
+在真机上完全为空，flat net 上没有任何引脚级 API）。`NewNetOccurrencesIter`
+和 `NextNetOccurrence` 都已确认存在（`info commands DboFlatNetNetOccurrences*`
+返回 `DboFlatNetNetOccurrencesIter`、`..._GetKey`、`..._Next`、
+`..._NextNetOccurrence`）——本项目更早一版曾经因为在 Cadence 自带脚本里搜不到
+用例而误判 `NextNetOccurrence` 不存在、整段砍掉，那个判断是错的：
+Cadence 自带脚本没用到不等于真实 API 里没有。
+
+但两件事仍然没有确认：**(a)** 这个迭代器的释放函数叫什么；**(b)** 一个
+net occurrence 本身能读到什么字段（位号、引脚名、引脚号、所属器件——一概
+未验证）。猜类型专属方法或转型函数的名字不是语法风险，是崩溃风险，所以
+脚本只用已确认的 `NextNetOccurrence` 把每个网络的 net occurrence **数一遍**，
+从不在返回的句柄上调用任何方法，也从不释放这个迭代器（宁可暂时不回收，也
+不猜一个可能是错的释放函数名）。脚本文件顶部和对应位置都用 `UNCONFIRMED`
+标出这两处，并给出下一步在真机上探测的具体命令，等确认后只需要在标记处
+补一行代码。
 
 ## 三种调用方式
 
@@ -208,9 +234,20 @@ Capture 界面会无响应。`POST /v1/execute` 的 30 秒等待**超时不会�
 #
 # Output: one line per leaf component, `dict create refdes ... value ... path ...`.
 
+# Message is itself a CString out-parameter, not a plain return value like
+# OK/Succeeded/Failed/Code/Severity -- calling it directly and using its
+# raw result as a string makes the error-reporting path itself throw a Tcl
+# arity error, replacing the real diagnostic with a confusing one, and only
+# on the failure path that nothing else exercises.
+proc _statusMessage {st} {
+    set msgC [DboTclHelper_sMakeCString]
+    $st Message $msgC
+    return [DboTclHelper_sGetConstCharPtr $msgC]
+}
+
 proc _requireOk {st what} {
     if {[$st OK] != 1} {
-        error "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        error "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
     }
 }
 
@@ -221,7 +258,7 @@ proc _stringOut {obj method what} {
     set cstr [DboTclHelper_sMakeCString]
     set st [$obj $method $cstr]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -235,7 +272,7 @@ proc _getEffectiveProp {obj propName what} {
     set valueC [DboTclHelper_sMakeCString]
     set st [$obj GetEffectivePropStringValue $nameC $valueC]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -371,12 +408,23 @@ Invoke-RestMethod -Method Post -Uri "$($runtime.baseUrl)/v1/execute" `
 # below exists to correctly select components, not to guard against a
 # type-specific call.
 
+# Message is itself a CString out-parameter, not a plain return value like
+# OK/Succeeded/Failed/Code/Severity -- calling it directly and using its
+# raw result as a string makes the error-reporting path itself throw a Tcl
+# arity error, replacing the real diagnostic with a confusing one, and only
+# on the failure path that nothing else exercises.
+proc _statusMessage {st} {
+    set msgC [DboTclHelper_sMakeCString]
+    $st Message $msgC
+    return [DboTclHelper_sGetConstCharPtr $msgC]
+}
+
 proc _getEffectiveProp {obj propName what} {
     set nameC [DboTclHelper_sMakeCString $propName]
     set valueC [DboTclHelper_sMakeCString]
     set st [$obj GetEffectivePropStringValue $nameC $valueC]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -488,9 +536,20 @@ set targetRefdes C3
 #      safe on any handle, no downcast needed -- which is why the property
 #      read below runs with no extra guarding.
 
+# Message is itself a CString out-parameter, not a plain return value like
+# OK/Succeeded/Failed/Code/Severity -- calling it directly and using its
+# raw result as a string makes the error-reporting path itself throw a Tcl
+# arity error, replacing the real diagnostic with a confusing one, and only
+# on the failure path that nothing else exercises.
+proc _statusMessage {st} {
+    set msgC [DboTclHelper_sMakeCString]
+    $st Message $msgC
+    return [DboTclHelper_sGetConstCharPtr $msgC]
+}
+
 proc _requireOk {st what} {
     if {[$st OK] != 1} {
-        error "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        error "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
     }
 }
 
@@ -498,7 +557,7 @@ proc _stringOut {obj method what} {
     set cstr [DboTclHelper_sMakeCString]
     set st [$obj $method $cstr]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -512,7 +571,7 @@ proc _getEffectiveProp {obj propName what} {
     set valueC [DboTclHelper_sMakeCString]
     set st [$obj GetEffectivePropStringValue $nameC $valueC]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -589,12 +648,13 @@ puts [dict create refdes $refdes value $value path $hierarchyPath]
 
 ## `extract_topology.tcl`
 
-**用途**：按 flat net（拍平后的网络）输出设计的网络名，以及每个网络连接
-到的层级端口。**不**输出网络连接到的器件引脚——见下方"预期输出"和脚本内
-注释里对这部分未确认 API 的说明。
+**用途**：按 flat net（拍平后的网络）输出设计的网络名、每个网络连接到的
+层级端口，以及每个网络有多少个 net occurrence（引脚级连接的等价物）。
+**不**输出每个 net occurrence 具体是哪个器件的哪个引脚——见下方"预期输出"
+和脚本内注释里对这部分未确认 API 的说明。
 
 **风险级别**：只读，但同样是整设计级的遍历（所有 flat net，以及每个
-net 上的所有端口），在大设计上可能长时间运行。
+net 上的所有端口和 net occurrence），在大设计上可能长时间运行。
 
 **输入参数**：无需编辑任何变量。
 
@@ -621,18 +681,20 @@ Invoke-RestMethod -Method Post -Uri "$($runtime.baseUrl)/v1/execute" `
 ```
 
 **预期输出**：每个网络先输出一行 `net N1`；随后每个连接到该网络的
-层级端口输出一行 `net N1 port IN`。两种行都用 `dict create` 格式，
-`net` 字段把同一个网络的所有行关联起来。**没有** `net N1 refdes ... pin
-... name ...` 这一行——`docs/capture-dbo-api-notes.md` 没有确认从一个
-flat net 走到它连接的器件引脚该怎么做（`NewNetOccurrencesIter` 这个入口
-函数的名字是确认的，但取下一个、释放迭代器、从引脚连接点找回所属器件的
-方法名都没有确认；本项目更早一版凭类比猜的 `NextNetOccurrence`、
-`delete_DboFlatNetNetOccurrencesIter`、`GetPartOccurrence` 在 Cadence 脚本
-里零命中），脚本因此不实现这一段，只停在已确认的网络/端口层级。
+层级端口输出一行 `net N1 port IN`；最后输出一行
+`net N1 netOccurrenceCount 3`，即这个网络的 net occurrence 总数。三种行
+都用 `dict create` 格式，`net` 字段把同一个网络的所有行关联起来。
+**没有** `net N1 refdes ... pin ... name ...` 这一行——`NewNetOccurrencesIter`
+和 `NextNetOccurrence` 都已确认存在，脚本也确实打开了这个迭代器、用
+`NextNetOccurrence` 数出了总数，但一个 net occurrence 本身能读到什么字段
+（位号、引脚名、引脚号、所属器件）还没确认，脚本因此只数数，不读取任何
+字段，也不释放这个迭代器——它的释放函数名同样没有确认，宁可暂时不回收，
+也不猜一个可能是错的名字去调用一个真实存在的对象，那样猜错了是崩溃
+Capture 的风险，不是语法风险。
 
 **UI 阻塞风险**：和 `list_components.tcl` 一样，Capture 在 Tcl/UI
-线程上执行脚本，`extract_topology.tcl` 要遍历所有 flat net 及其端口，
-设计越大运行越久，期间界面无响应。`POST /v1/execute` 的 30 秒
+线程上执行脚本，`extract_topology.tcl` 要遍历所有 flat net、其端口和 net
+occurrence，设计越大运行越久，期间界面无响应。`POST /v1/execute` 的 30 秒
 等待**超时不会取消**已经在 Capture 里跑的遍历，脚本会继续跑到结束，
 之后可以按命令 ID 查询最终结果。
 
@@ -644,33 +706,43 @@ flat net 走到它连接的器件引脚该怎么做（`NewNetOccurrencesIter` �
 
 <!-- BEGIN EXAMPLE SOURCE: extract_topology.tcl -->
 ```tcl
-# Flat-net topology of the active design: for every net, its name and the
-# hierarchical ports connected to it.
+# Flat-net topology of the active design: for every net, its name, the
+# hierarchical ports connected to it, and how many net occurrences (the
+# flat net's equivalent of pin-level connections -- there is no pin API on
+# a flat net at all) it has.
 #
 # Self-contained and read-only: walks the design's flat-net view directly
 # (NewFlatNetsIter) rather than any TCLBOM net-walking helper. A flat net
 # collapses hierarchy, so a single N1 here may connect a pin inside one
 # hierarchical block to a pin inside another -- the hierarchical ports on a
 # net are exactly the boundary crossings that made that possible. Every
-# iterator this script opens (nets, ports) is freed exactly once, even when
-# a later net is never reached because there are no more nets left to
-# enumerate.
+# iterator this script *can* safely free (nets, ports) is freed exactly
+# once, even when a later net is never reached because there are no more
+# nets left to enumerate; see the net-occurrence iterator note below for
+# the one exception.
 #
-# Deliberately does NOT walk from a net down to the component pins it
-# connects. docs/capture-dbo-api-notes.md confirms there is no
-# NewPinOccurrencesIter and names NewNetOccurrencesIter as the available
-# alternative, but does not confirm how to step or free the iterator it
-# returns, or how to get from one of its results back to the owning
-# component -- an earlier draft of this script guessed NextNetOccurrence,
-# delete_DboFlatNetNetOccurrencesIter and GetPartOccurrence for that, and
-# all three turned out to have zero hits in Cadence's own scripts. Guessing
-# a type-specific Dbo method name is not a syntax risk here, it is a crash
-# risk, so this script stops at the confirmed net/port level.
-# UNCONFIRMED -- probe on real Capture before extending this script:
-#   set lNetOccIter [$net NewNetOccurrencesIter $st $::IterDefs_PRIMITIVES]
-#   catch {$lNetOccIter SomeGuessAtANextMethod $st} probeResult
-# and inspect what the SWIG wrong-number-of-args error (or success) reveals
-# about the real step/free/parent-lookup API before calling it for real.
+# docs/capture-dbo-api-notes.md confirms there is no NewPinOccurrencesIter
+# on DboFlatNet (info commands *PinOccurrence* is completely empty on real
+# Capture) and that NewNetOccurrencesIter/NextNetOccurrence are the
+# confirmed replacement -- an earlier draft of this script dropped the
+# net-occurrence walk entirely on a (wrong) report that NextNetOccurrence
+# did not exist; it does. What is still NOT confirmed is (a) the free
+# function for the DboFlatNetNetOccurrencesIter this opens, and (b) what
+# fields/methods a net occurrence itself exposes (refdes, pin name/number,
+# owning component -- none of it verified). Guessing either is a crash
+# risk (a wrong type-specific method call on a real object does not raise
+# a Tcl error, it crashes Capture), not a syntax risk, so this script
+# stops at counting how many net occurrences a net has -- it opens the
+# iterator and steps it with the confirmed NextNetOccurrence, but never
+# calls any method on a net occurrence handle and never frees the
+# iterator, because the free function has zero confirmed hits anywhere.
+# UNCONFIRMED -- probe on real Capture, then fold the answers in as a
+# small edit right at the two "UNCONFIRMED" markers below:
+#   info commands delete_DboFlatNetNetOccurrencesIter*
+#   info commands DboFlatNetNetOccurrencesIter_GetKey
+#   catch {$lNetOcc SomeGuessAtAMethod} probeResult
+# and inspect what a SWIG wrong-number-of-args error (or success) reveals
+# about the real free/field-access API before calling either for real.
 #
 # Two safety rules from docs/capture-dbo-api-notes.md drive the shape below:
 #   1. Every call that takes a DboState can fail, and an unchecked failure
@@ -681,9 +753,20 @@ flat net 走到它连接的器件引脚该怎么做（`NewNetOccurrencesIter` �
 #      this script performs no downcast at all; nothing here reaches a
 #      type-specific method.
 
+# Message is itself a CString out-parameter, not a plain return value like
+# OK/Succeeded/Failed/Code/Severity -- calling it directly and using its
+# raw result as a string makes the error-reporting path itself throw a Tcl
+# arity error, replacing the real diagnostic with a confusing one, and only
+# on the failure path that nothing else exercises.
+proc _statusMessage {st} {
+    set msgC [DboTclHelper_sMakeCString]
+    $st Message $msgC
+    return [DboTclHelper_sGetConstCharPtr $msgC]
+}
+
 proc _requireOk {st what} {
     if {[$st OK] != 1} {
-        error "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        error "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
     }
 }
 
@@ -691,7 +774,7 @@ proc _stringOut {obj method what} {
     set cstr [DboTclHelper_sMakeCString]
     set st [$obj $method $cstr]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -727,6 +810,29 @@ try {
             } finally {
                 delete_DboFlatNetPortOccurrencesIter $portsIter
             }
+
+            # Net occurrences: the confirmed pin-level equivalent. Counted,
+            # not inspected -- see the file header for exactly what is and
+            # is not confirmed here.
+            set netOccIter [$net NewNetOccurrencesIter $st $::IterDefs_PRIMITIVES]
+            _requireOk $st {NewNetOccurrencesIter}
+            set netOccurrenceCount 0
+            while {1} {
+                set netOcc [$netOccIter NextNetOccurrence $st]
+                _requireOk $st {NextNetOccurrence}
+                if {$netOcc eq {NULL}} { break }
+                incr netOccurrenceCount
+                # UNCONFIRMED: no field of a net occurrence (refdes, pin
+                # name, pin number, owning component) is confirmed, so
+                # nothing is read off $netOcc beyond the fact that it
+                # exists.
+            }
+            puts [dict create net $netName netOccurrenceCount $netOccurrenceCount]
+            # UNCONFIRMED: the free function for $netOccIter has zero
+            # confirmed hits, so it is deliberately left open rather than
+            # guessed at. Once docs/capture-dbo-api-notes.md confirms it,
+            # add a `finally { delete_Dbo... $netOccIter }` around the
+            # while loop above, matching the ports iterator right above it.
         }
     } finally {
         delete_DboDesignFlatNetsIter $netsIter
@@ -833,9 +939,20 @@ set newValue 100nF
 #      needed. The real write call is SetEffectivePropStringValue; there is
 #      no SetPropStringValue.
 
+# Message is itself a CString out-parameter, not a plain return value like
+# OK/Succeeded/Failed/Code/Severity -- calling it directly and using its
+# raw result as a string makes the error-reporting path itself throw a Tcl
+# arity error, replacing the real diagnostic with a confusing one, and only
+# on the failure path that nothing else exercises.
+proc _statusMessage {st} {
+    set msgC [DboTclHelper_sMakeCString]
+    $st Message $msgC
+    return [DboTclHelper_sGetConstCharPtr $msgC]
+}
+
 proc _requireOk {st what} {
     if {[$st OK] != 1} {
-        error "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        error "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
     }
 }
 
@@ -843,7 +960,7 @@ proc _stringOut {obj method what} {
     set cstr [DboTclHelper_sMakeCString]
     set st [$obj $method $cstr]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -857,7 +974,7 @@ proc _getEffectiveProp {obj propName what} {
     set valueC [DboTclHelper_sMakeCString]
     set st [$obj GetEffectivePropStringValue $nameC $valueC]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -871,7 +988,7 @@ proc _setProp {obj propName propValue what} {
     set valueC [DboTclHelper_sMakeCString $propValue]
     set st [$obj SetEffectivePropStringValue $nameC $valueC]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -1031,12 +1148,23 @@ set suffix *
 # risk, on this path at all: the type check below exists to correctly
 # select components, not to guard against a type-specific call.
 
+# Message is itself a CString out-parameter, not a plain return value like
+# OK/Succeeded/Failed/Code/Severity -- calling it directly and using its
+# raw result as a string makes the error-reporting path itself throw a Tcl
+# arity error, replacing the real diagnostic with a confusing one, and only
+# on the failure path that nothing else exercises.
+proc _statusMessage {st} {
+    set msgC [DboTclHelper_sMakeCString]
+    $st Message $msgC
+    return [DboTclHelper_sGetConstCharPtr $msgC]
+}
+
 proc _getEffectiveProp {obj propName what} {
     set nameC [DboTclHelper_sMakeCString $propName]
     set valueC [DboTclHelper_sMakeCString]
     set st [$obj GetEffectivePropStringValue $nameC $valueC]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -1050,7 +1178,7 @@ proc _setProp {obj propName propValue what} {
     set valueC [DboTclHelper_sMakeCString $propValue]
     set st [$obj SetEffectivePropStringValue $nameC $valueC]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -1188,12 +1316,23 @@ set suffix *
 # risk, on this path at all: the type check below exists to correctly
 # select components, not to guard against a type-specific call.
 
+# Message is itself a CString out-parameter, not a plain return value like
+# OK/Succeeded/Failed/Code/Severity -- calling it directly and using its
+# raw result as a string makes the error-reporting path itself throw a Tcl
+# arity error, replacing the real diagnostic with a confusing one, and only
+# on the failure path that nothing else exercises.
+proc _statusMessage {st} {
+    set msgC [DboTclHelper_sMakeCString]
+    $st Message $msgC
+    return [DboTclHelper_sGetConstCharPtr $msgC]
+}
+
 proc _getEffectiveProp {obj propName what} {
     set nameC [DboTclHelper_sMakeCString $propName]
     set valueC [DboTclHelper_sMakeCString]
     set st [$obj GetEffectivePropStringValue $nameC $valueC]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
@@ -1207,7 +1346,7 @@ proc _setProp {obj propName propValue what} {
     set valueC [DboTclHelper_sMakeCString $propValue]
     set st [$obj SetEffectivePropStringValue $nameC $valueC]
     if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: $what: [$st Message] (code [$st Code])"
+        set msg "DBO_CALL_FAILED: $what: [_statusMessage $st] (code [$st Code])"
         $st -delete
         error $msg
     }
