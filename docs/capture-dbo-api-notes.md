@@ -40,8 +40,26 @@ set lStatus [DboState]
 $lStatus -delete
 ```
 
-判断成功用 `[$lStatus OK] == 1`。其他可用方法：`Succeeded`、`Failed`、
-`Code`、`Message`、`Severity`。
+判断成功用 `[$lStatus OK] == 1`。
+
+**注意 `Message` 也是 CString 出参**，不能当返回值用：
+
+| 方法 | 签名 | 用法 |
+| --- | --- | --- |
+| `OK` / `Succeeded` / `Failed` | `self` | 直接返回 0/1 |
+| `Code` / `Severity` | `self` | 直接返回整数 |
+| `Message` | `self msg` | **CString 出参** |
+
+```tcl
+proc _statusMessage {st} {
+    set msgC [DboTclHelper_sMakeCString]
+    $st Message $msgC
+    return [DboTclHelper_sGetConstCharPtr $msgC]
+}
+```
+
+写成 `[$st Message]` 会让**错误处理路径自己报错**，把真正的诊断信息盖掉——
+而且只在出错时才暴露，正常路径测不出来。
 
 ## 字符串出参
 
@@ -202,7 +220,14 @@ delete_DboDesignFlatNetsIter $lFlatNetsIter
 ```
 
 注意 `DboFlatNet` 上**没有** `NewPinOccurrencesIter`，可用的是
-`NewNetOccurrencesIter` 和 `NewPortOccurrencesIter`。
+`NewNetOccurrencesIter` 和 `NewPortOccurrencesIter`。实测
+`info commands *PinOccurrence*` **完全为空**——flat net 上不存在引脚级 API，
+net occurrence 就是等价物。
+
+`DboFlatNetNetOccurrencesIter` 同时提供 `Next self status` 和
+`NextNetOccurrence self status`（实测存在，尽管 Cadence 自带脚本里没有用例）。
+
+`DboFlatNet_GetName self Name` 同样是 CString 出参。
 
 ## 选择集
 
