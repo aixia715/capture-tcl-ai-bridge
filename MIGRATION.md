@@ -49,6 +49,10 @@ Capture 验收**。当前状态：
 | Tcl 8.4 / OrCAD 16.6 兼容 | **真实 Capture 已验证**：桥在 16.6 加载运行，CLI 全通 |
 | 只读示例对真实设计 | **已验证**：`list_components.tcl` 完整遍历 400+ 器件，位号/值/层次路径全对 |
 | 安装与卸载脚本 | 自动测试与临时目录 smoke 已通过 |
+| `puts` tee（Capture 控制台 + 客户端双向） | **真实 Capture 已验证** |
+| 并发串行化（`BRIDGE_BUSY`） | **真实 Capture 已验证**（并修复了长脚本期间误报 `CAPTURE_DISCONNECTED`） |
+| 30 秒超时不取消脚本，结果可按 ID 取回 | **真实 Capture 已验证**：504 后 45 秒脚本仍跑完，`state=completed` |
+| Tcl 8.4 上 `errorLine` 为 null | **真实 Capture 已验证**，与文档记载一致 |
 
 自动测试不等于真实验收。在真实 Capture 中签收之前，`tcl_bom` 仍是回退来源；
 不要把它的工作树或源文件作为本次迁移的一部分删除。
