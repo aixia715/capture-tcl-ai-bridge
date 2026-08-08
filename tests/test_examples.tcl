@@ -601,13 +601,23 @@ proc fx::netDispatch {handle method argsList} {
             return $st
         }
         NewPortOccurrencesIter {
+            # Confirmed: "self status mode" -- takes a status and an
+            # IterDefs mode.
+            if {[llength $argsList] != 2} {
+                error "Wrong # args.:DboFlatNet_NewPortOccurrencesIter self status mode"
+            }
             set st [lindex $argsList 0]
             fx::okState $st
             return [fx::makeListIter ports $::fx::netPorts($handle)]
         }
         NewNetOccurrencesIter {
-            set st [lindex $argsList 0]
-            fx::okState $st
+            # Confirmed: "DboFlatNet_NewNetOccurrencesIter self" -- NO
+            # arguments, unlike its sibling right above. Enforcing the arity
+            # here is what stops the two from being written alike again;
+            # passing a status and a mode is what real Capture rejected.
+            if {[llength $argsList] != 0} {
+                error "Wrong # args.:DboFlatNet_NewNetOccurrencesIter self  argument 2"
+            }
             return [fx::makeListIter netOccs $::fx::netNetOccs($handle)]
         }
         default { error "fake flat net: unsupported method \"$method\"" }
@@ -803,11 +813,11 @@ proc suite_fixture {} {
     set netNameC [DboTclHelper_sMakeCString]
     $net GetName $netNameC
     check {fixture: flat net name} [DboTclHelper_sGetConstCharPtr $netNameC] N1
-    set portsIter [$net NewPortOccurrencesIter $st]
+    set portsIter [$net NewPortOccurrencesIter $st $::IterDefs_PRIMITIVES]
     check {fixture: net port iterator yields the port} \
         [$portsIter NextPortOccurrence $st] $port
     delete_DboFlatNetPortOccurrencesIter $portsIter
-    set netOccIter [$net NewNetOccurrencesIter $st]
+    set netOccIter [$net NewNetOccurrencesIter]
     check {fixture: net-occurrence iterator yields the net occurrence} \
         [$netOccIter NextNetOccurrence $st] $netOcc
     checkTrue {fixture: a net occurrence rejects any method call} \
@@ -1011,35 +1021,6 @@ proc suite_topology {} {
         [fx::countOpenNetOccIters] 0
     check {extract_topology.tcl never mutates the design} $::fx::setPropCalls 0
 
-    # The other branch of the guard: if delete_DboFlatNetNetOccurrencesIter
-    # did not exist (the conventional name turned out wrong), the script
-    # must still run cleanly rather than erroring out or crashing -- it
-    # just leaks that one iterator, exactly as it did before the free
-    # function was confirmed to exist as a command.
-    fx::resetAll
-    set portIn2 [fx::makePortOccurrence IN]
-    set netOccC [fx::makeNetOccurrence]
-    set n1b [fx::makeFlatNet N1 [list $portIn2] [list $netOccC]]
-    set root2 [fx::makeOccurrence {} {} / {} 0]
-    set ::fx::activeDesign [fx::makeDesign $root2 [list $n1b]]
-
-    rename ::delete_DboFlatNetNetOccurrencesIter ::fx::realDeleteDboFlatNetNetOccurrencesIter
-    lassign [fx::runExample extract_topology.tcl] codeNoFree messageNoFree outputNoFree
-    rename ::fx::realDeleteDboFlatNetNetOccurrencesIter ::delete_DboFlatNetNetOccurrencesIter
-
-    check {extract_topology.tcl still runs cleanly when the free function name does not exist} \
-        $codeNoFree 0
-    check {extract_topology.tcl still reports the right net-occurrence count without the free function} \
-        $outputNoFree [list \
-            [dict create net N1] \
-            [dict create net N1 port IN] \
-            [dict create net N1 netOccurrenceCount 1]]
-    # nets + ports freed as before; the net-occurrences iterator this time
-    # is left open because the guard correctly found no free command to call.
-    check {extract_topology.tcl frees only the nets and ports iterators when the free function is absent} \
-        $::fx::iterDeleteCalls 2
-    check {extract_topology.tcl leaves exactly one net-occurrence iterator open when the free function is absent} \
-        [fx::countOpenNetOccIters] 1
 
     if {!$::fail} {
         puts {PASS: topology}

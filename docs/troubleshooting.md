@@ -85,6 +85,18 @@ source C:/cadence/SPB_17.4/tools/capture/tclscripts/capAutoLoad/captureAiBridge.
 3. `CaptureAiBridgeStop` 然后 `CaptureAiBridgeStart`。Stop→Start 会重置
    polling-halted、协议错误、退避延时和上次轮询错误，不会把故障状态带到下一个实例。
 
+## `puts` 的输出出现在 Capture 的输入提示符处
+
+现象：通过桥提交 `puts something` 后，`something` 出现在 Capture 控制台，
+但落在 `Capture>` 提示符那一行，看起来像是被输入进去了。
+
+这是 Capture 控制台自身的渲染方式，不是缺陷。桥按设计把捕获到的 `puts`
+转发给**原始** `puts` 命令（规格要求保留 Capture 控制台输出），至于 Capture
+把这些文字画在哪里，由它自己决定。
+
+内容不会被真正执行——它只是显示在那个位置。如果觉得碍事，按一下回车或
+Esc 清掉当前输入行即可。
+
 ## 桥卡在 busy
 
 现象：每次提交都返回 `BRIDGE_BUSY`。

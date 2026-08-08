@@ -272,10 +272,24 @@ delete_DboDesignFlatNetsIter $lFlatNetsIter
 `info commands *PinOccurrence*` **完全为空**——flat net 上不存在引脚级 API，
 net occurrence 就是等价物。
 
-`DboFlatNetNetOccurrencesIter` 同时提供 `Next self status` 和
-`NextNetOccurrence self status`（实测存在，尽管 Cadence 自带脚本里没有用例）。
+### ⚠️ 两个迭代器构造函数签名不同
 
-`DboFlatNet_GetName self Name` 同样是 CString 出参。
+看着像一对，其实参数完全不一样，实测确认：
+
+| 方法 | 签名 |
+| --- | --- |
+| `NewPortOccurrencesIter` | `self status mode`（要 status 和 `$::IterDefs_*`） |
+| `NewNetOccurrencesIter` | `self` —— **不接受任何参数** |
+
+按 `NewPortOccurrencesIter` 的样子去写 `NewNetOccurrencesIter` 会被拒：
+`Wrong # args.:DboFlatNet_NewNetOccurrencesIter self  argument 2`。
+**同一个类上的同族方法不能假定签名一致。**
+
+`DboFlatNetNetOccurrencesIter` 提供 `Next self status` 和
+`NextNetOccurrence self status`；`delete_DboFlatNetNetOccurrencesIter` 实测存在。
+
+`DboFlatNet_GetName self Name` 是 CString 出参；port occurrence 的 `GetName`
+实测同样如此。
 
 ## 选择集
 

@@ -13,35 +13,25 @@
 # no more nets left to enumerate.
 #
 # docs/capture-dbo-api-notes.md confirms there is no NewPinOccurrencesIter
-# on DboFlatNet (info commands *PinOccurrence* is completely empty on real
-# Capture) and that NewNetOccurrencesIter/NextNetOccurrence are the
-# confirmed replacement -- an earlier draft of this script dropped the
-# net-occurrence walk entirely on a (wrong) report that NextNetOccurrence
-# did not exist; it does. What is still NOT confirmed is what
-# fields/methods a net occurrence itself exposes (refdes, pin name/number,
-# owning component -- none of it verified): guessing a type-specific
-# method name is a crash risk (a wrong type-specific method call on a real
-# object does not raise a Tcl error, it crashes Capture), so this script
-# stops at counting how many net occurrences a net has, never calling any
-# method on a net occurrence handle.
+# on DboFlatNet -- info commands *PinOccurrence* is completely empty on
+# real Capture -- and that NewNetOccurrencesIter/NextNetOccurrence are the
+# replacement, with delete_DboFlatNetNetOccurrencesIter to free the
+# iterator. All three are confirmed to exist on real Capture.
 #
-# The free function for the DboFlatNetNetOccurrencesIter this opens is
-# also not confirmed by name, but freeing is a different risk category
-# from calling a type-specific method: passing a wrongly-typed *handle* to
-# a real method crashes Capture, but calling a Tcl *command name* that
-# simply does not exist is an ordinary catchable error. So the
-# conventional delete_<ClassName> name (every other iterator in this API
-# follows it, and DboFlatNetNetOccurrencesIter is confirmed to exist as a
-# class) is probed at runtime with `info commands` rather than called
-# blindly -- free if present, leave open if not, either way no crash.
-# UNCONFIRMED -- probe on real Capture to turn this from "probably right,
-# guarded" into "confirmed, unconditional":
-#   info commands delete_DboFlatNetNetOccurrencesIter
-#   info commands DboFlatNetNetOccurrencesIter_GetKey
-#   catch {$lNetOcc SomeGuessAtAMethod} probeResult
-# and inspect what a SWIG wrong-number-of-args error (or success) reveals
-# about the real field-access API before reading anything off a net
-# occurrence for real.
+# Note the two iterator constructors do NOT take the same arguments:
+# NewPortOccurrencesIter is "self status mode", NewNetOccurrencesIter is
+# "self" and rejects any argument at all. Sibling methods on one class are
+# not safe to write alike.
+#
+# What is still NOT confirmed is what fields a net occurrence itself
+# exposes -- refdes, pin name, pin number, owning component: none of it
+# verified. Guessing a type-specific method name is a crash risk, because
+# a wrong call on a real object does not raise a Tcl error, it takes
+# Capture down. So this script stops at counting how many net occurrences
+# a net has and never calls a method on a net-occurrence handle. To go
+# further, probe first:
+#   catch {DboNetOccurrence_GetName} probeResult   ;# zero args: safe
+# and read the signature out of the SWIG error before calling anything.
 #
 # Two safety rules from docs/capture-dbo-api-notes.md drive the shape below:
 #   1. Every call that takes a DboState can fail, and an unchecked failure
@@ -86,11 +76,6 @@ proc _stringOut {obj method what} {
 # delete_<ClassName> name actually exists in this Capture session -- see
 # the file header for why probing a command name is safe where probing a
 # handle's type is not.
-proc _freeNetOccurrencesIterIfPossible {iterHandle} {
-    if {[llength [info commands delete_DboFlatNetNetOccurrencesIter]] > 0} {
-        delete_DboFlatNetNetOccurrencesIter $iterHandle
-    }
-}
 
 set st [DboState]
 try {
@@ -131,8 +116,11 @@ try {
             # Net occurrences: the confirmed pin-level equivalent. Counted,
             # not inspected -- see the file header for exactly what is and
             # is not confirmed here.
-            set netOccIter [$net NewNetOccurrencesIter $st $::IterDefs_PRIMITIVES]
-            _requireOk $st {NewNetOccurrencesIter}
+            # NewNetOccurrencesIter takes NO arguments -- confirmed
+            # signature "DboFlatNet_NewNetOccurrencesIter self". Its sibling
+            # NewPortOccurrencesIter above does take a status and an
+            # IterDefs mode, so the two cannot be written alike.
+            set netOccIter [$net NewNetOccurrencesIter]
             try {
                 set netOccurrenceCount 0
                 while {1} {
@@ -151,7 +139,7 @@ try {
                 }
                 puts [dict create net $netName netOccurrenceCount $netOccurrenceCount]
             } finally {
-                _freeNetOccurrencesIterIfPossible $netOccIter
+                delete_DboFlatNetNetOccurrencesIter $netOccIter
             }
         }
     } finally {
