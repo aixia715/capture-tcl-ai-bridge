@@ -56,20 +56,40 @@ $lStatus -delete
 
 ## 类型常量
 
-类型是**整数**，但有具名全局变量，形如 `$::DboBaseObject_PART_CELL`。
-不要写魔数。用以下方式列出全部可用常量：
+类型是**整数**，但有具名全局变量。**永远写常量名，不要写魔数。**
+完整列表可用 `info globals DboBaseObject_*` / `IterDefs_*` 打印。本项目用到的：
+
+| 常量 | 值 | 用途 |
+| --- | --- | --- |
+| `$::DboBaseObject_INST_OCCURRENCE` | 66 | occurrence（器件**和**层次块都是它） |
+| `$::DboBaseObject_PART_INSTANCE` | 11 | 页面级器件实例 |
+| `$::DboBaseObject_DRAWN_INSTANCE` | 12 | 页面级已绘制实例 |
+| `$::DboBaseObject_PLACED_INSTANCE` | 13 | 页面级已放置实例 |
+| `$::IterDefs_INSTS` | 19 | 子 occurrence 迭代模式 |
+| `$::IterDefs_PRIMITIVES` | 21 | 只要叶子 |
+| `$::IterDefs_ALL` | 0 | 全部 |
+
+### 两个容易踩的坑
+
+**坑一：类型区分不了器件和层次块。** 子 occurrence 迭代器返回的每一个都是
+`INST_OCCURRENCE`。要判断是不是叶子器件，必须用 `IsPrimitive`：
 
 ```tcl
-foreach v [lsort [info globals DboBaseObject_*]] { puts "$v = [set ::$v]" }
-foreach v [lsort [info globals IterDefs_*]]      { puts "$v = [set ::$v]" }
+set lIsPrimitive [$pInstOcc IsPrimitive $lStatus]
+if { $lIsPrimitive == 1 } { ... 是器件 ... }
 ```
 
-`capRotate.tcl` 的判断方式可作范例：
+**坑二：选择集和 occurrence 是两套对象族。** `GetSelectedObjects` 返回的是
+**页面级**对象（`PART_INSTANCE` / `DRAWN_INSTANCE` / `PLACED_INSTANCE`），
+不是 occurrence。`capRotate.tcl` 的判断方式：
 
 ```tcl
 set lObjType [DboBaseObject_GetObjectType $lObj]
-if { $lObjType == 12 || $lObjType == 13 } { ... }
+if { $lObjType == $::DboBaseObject_DRAWN_INSTANCE ||
+     $lObjType == $::DboBaseObject_PLACED_INSTANCE } { ... }
 ```
+
+因此"对选中器件做修改"和"遍历设计里的 occurrence"不能共用同一套访问代码。
 
 ## 遍历 occurrence 层次（权威范例：capRecurseParts.tcl）
 
@@ -160,8 +180,17 @@ foreach lObj $lSelObjs {
 `GetPath`、`GetActivePMSelection`、`DboFlatNet_NewPinOccurrencesIter`、
 迭代器的 `delete` 方法、迭代器的 `Next` 方法。
 
-层次路径应改用 `DboInstOccurrence` 的 `GetPathName` / `GetHierPathName` /
-`GetRefPathName`（均需按出参约定调用，具体签名用零参数调用逼出）。
+层次路径改用 `GetPathName`，出参约定同 `GetReference`（见 `capUtils\capPdfUtil.tcl`）：
+
+```tcl
+set lPath   [DboTclHelper_sMakeCString]
+set lStatus [$lObj GetPathName $lPath]
+set path    [DboTclHelper_sGetConstCharPtr $lPath]
+$lStatus -delete
+```
+
+`DboTclHelper_sMakeCString` 是重载的：无参分配空串，带参用给定内容初始化
+（`DboTclHelper_sMakeCString "Value"`）。
 
 ## 探测技巧
 
