@@ -1,15 +1,33 @@
 # Headless tests for the standalone examples/*.tcl scripts.
 #
 # Run with: tclsh tests/test_examples.tcl ?suite?
-# where suite is one of: fixture, occurrence, selection, topology, write.
-# With no argument, every suite runs.
+# where suite is one of: fixture, occurrence, selection, topology, write,
+# safety. With no argument, every suite runs.
 #
-# Capture 17.4's Dbo Tcl API hands out object handles that are themselves
-# Tcl commands ("$occurrence GetReference" dispatches on the value of
-# $occurrence). The fixture below reproduces exactly that surface with
-# plain Tcl: fx::makeHandle mints a unique command name and installs a
-# forwarding proc for it, and each object's real behaviour lives in a
-# per-type dispatcher proc keyed off state stored in global fx:: arrays.
+# This fixture simulates the *real* OrCAD Capture Dbo Tcl API, as recorded
+# in docs/capture-dbo-api-notes.md from live probing on Capture 16.6 plus
+# Cadence's own capUtils/capCustomSamples/capGUIUtils/capISCFExport tclscripts.
+# The shape is nothing like a simple "$handle Method args" RPC: there is a
+# DboState status object threaded through most calls, C-string out-parameters
+# allocated and read back through DboTclHelper_s* helpers, "NULL" (the
+# string, not empty string) as the iterator-exhausted sentinel, and
+# per-iterator-class Next<Type>/delete_Dbo... pairs rather than a uniform
+# Next/delete. Every fake object handle forwards "$handle Method ?arg ...?"
+# to [$dispatcher $handle Method {arg ...}]; fx::makeHandle mints a unique
+# command name and installs a forwarding proc for it, and each object's real
+# behaviour lives in a per-kind dispatcher proc keyed off state stored in
+# global fx:: arrays.
+#
+# The one distinction that decides whether a call needs a checked downcast
+# is base-class vs type-specific (see docs/capture-dbo-api-notes.md's "基类
+# 方法 vs 类型专属方法"): GetObjectType, GetName, GetEffectivePropStringValue
+# and SetEffectivePropStringValue live on DboBaseObject and are safe on any
+# handle; GetReference, GetPathName, IsPrimitive and NewChildrenIter are
+# type-specific and need DboOccurrenceToDboInstOccurrence first, checked with
+# DboBaseObject_GetObjectType. Selection objects (GetSelectedObjects) never
+# need a downcast at all -- there is no DboObjectToDboPartInstance (invented
+# in an earlier draft, zero hits in Cadence's scripts, removed) -- they are
+# read and written purely through the base-class property calls.
 #
 # This file must source the repo's captureAiBridge.tcl first so the Tcl 8.4
 # shims for dict/lassign/try exist exactly as they do in production --
@@ -59,121 +77,460 @@ proc fx::makeHandle {prefix dispatcher} {
 proc fx::resetAll {} {
     variable counter
     set counter 0
-    foreach arrayName {occRef occValue occPath occType occChildren occRejectWrite \
-            iterItems iterIndex iterAlive \
-            netName netPins netPorts \
-            pinName pinNumber pinParent \
-            portName designRoot designFlatNets \
+    foreach arrayName {occRef occValue occPath occObjType occIsPrimitive \
+            occChildren occRejectWrite occForceFail \
+            selObjType selProps selRejectWrite selForceFail \
+            iterKind iterItems iterIndex iterAlive \
+            stOK stCode stMessage \
+            netName netPorts \
+            portName \
+            designRoot designFlatNets \
             selectionObjects} {
         if {[array exists ::fx::$arrayName]} {
             array unset ::fx::$arrayName
         }
     }
-    set ::fx::setPartValueCalls 0
+    set ::fx::setPropCalls 0
     set ::fx::iterDeleteCalls 0
     set ::fx::iterDeletedHandles {}
     set ::fx::activeDesign {}
-    set ::fx::activeSelection {}
-    # Write-suite safety counters: the read-only Task 7 examples never
-    # touch these commands and the Task 8 write examples must not either.
+    set ::fx::selectionObjectsList {}
+    # Write-suite safety counters: the read-only examples never touch these
+    # commands and the write examples must not either.
     set ::fx::refreshPartsCalls 0
     set ::fx::designSaveCalls 0
+    # Crash-simulation counter: DboOccurrenceToDboInstOccurrence invoked on a
+    # handle of the wrong concrete type does not raise a catchable Tcl error
+    # in real Capture -- it dereferences a foreign vtable and takes the
+    # whole process down. The fixture can't reproduce a segfault, so it
+    # counts every time an example would have hit that path; a passing
+    # example run must always leave this at 0, and the safety suite proves
+    # a deliberately wrong-typed handle trips the *example's own* type
+    # check instead of ever reaching here. There is no equivalent counter
+    # for selection objects: per docs/capture-dbo-api-notes.md, property
+    # reads/writes on a selection object are base-class calls and carry no
+    # downcast, hence no crash risk, regardless of the object's concrete type.
+    set ::fx::unsafeInstOccurrenceDowncasts 0
 }
 fx::resetAll
 
-# -- generic list-backed iterator, used for children/nets/pins/ports -----
+# -- DboState -------------------------------------------------------------
 
-proc fx::makeListIter {items} {
+proc fx::makeState {} {
+    set handle [fx::makeHandle st fx::stateDispatch]
+    set ::fx::stOK($handle) 1
+    set ::fx::stCode($handle) 0
+    set ::fx::stMessage($handle) OK
+    return $handle
+}
+
+proc fx::failState {handle code message} {
+    set ::fx::stOK($handle) 0
+    set ::fx::stCode($handle) $code
+    set ::fx::stMessage($handle) $message
+}
+
+proc fx::stateDispatch {handle method argsList} {
+    switch -exact -- $method {
+        OK        { return $::fx::stOK($handle) }
+        Succeeded { return $::fx::stOK($handle) }
+        Failed    { return [expr {!$::fx::stOK($handle)}] }
+        Code      { return $::fx::stCode($handle) }
+        Message   { return $::fx::stMessage($handle) }
+        Severity  { return [expr {$::fx::stOK($handle) ? 0 : 3}] }
+        -delete {
+            unset -nocomplain ::fx::stOK($handle) ::fx::stCode($handle) \
+                ::fx::stMessage($handle)
+            rename $handle {}
+            return {}
+        }
+        default { error "fake DboState: unsupported method \"$method\"" }
+    }
+}
+
+# ::DboState is a bare constructor (SWIG-wrapped C++ constructor exposed as
+# a global command), not a method on anything.
+proc ::DboState {} { return [fx::makeState] }
+
+# -- DboTclHelper C-string out-parameters ----------------------------------
+#
+# DboTclHelper_sMakeCString is overloaded: no argument allocates an empty
+# string, one argument initialises it. DboTclHelper_sGetConstCharPtr reads
+# the current value back. Neither is a method on an object handle -- both
+# are bare global commands, same as DboState.
+
+namespace eval fx { variable cstringCounter 0 }
+
+proc ::DboTclHelper_sMakeCString {args} {
+    if {[llength $args] > 1} {
+        error {wrong # args: DboTclHelper_sMakeCString ?initialValue?}
+    }
+    set handle [format {::fxcstr_%d} [incr ::fx::cstringCounter]]
+    set ::fx::cstringValue($handle) [expr {[llength $args] == 1 ? [lindex $args 0] : {}}]
+    return $handle
+}
+
+proc ::DboTclHelper_sGetConstCharPtr {cstringHandle} {
+    return $::fx::cstringValue($cstringHandle)
+}
+
+# Internal helper the fixture's own dispatchers use to fill an out-parameter
+# CString, mirroring what the real SWIG binding does on a successful call.
+proc fx::setCString {cstringHandle value} {
+    set ::fx::cstringValue($cstringHandle) $value
+}
+
+# -- object-type constants and DboBaseObject_GetObjectType ----------------
+#
+# Real, confirmed values from docs/capture-dbo-api-notes.md. GetObjectType
+# is itself a base-class accessor safe on *any* handle, so the fixture must
+# answer it correctly for every kind of object it hands out.
+
+set ::DboBaseObject_INST_OCCURRENCE 66
+set ::DboBaseObject_PART_INSTANCE 11
+set ::DboBaseObject_DRAWN_INSTANCE 12
+set ::DboBaseObject_PLACED_INSTANCE 13
+set ::IterDefs_INSTS 19
+set ::IterDefs_PRIMITIVES 21
+set ::IterDefs_ALL 0
+
+proc ::DboBaseObject_GetObjectType {handle} {
+    if {[info exists ::fx::occObjType($handle)]} {
+        return $::fx::occObjType($handle)
+    }
+    if {[info exists ::fx::selObjType($handle)]} {
+        return $::fx::selObjType($handle)
+    }
+    error "fake DboBaseObject_GetObjectType: handle $handle has no recorded object type"
+}
+
+# -- occurrence family: DboOccurrence / DboInstOccurrence -----------------
+#
+# GetRootOccurrence and NewChildrenIter/NextOccurrence hand back a generic
+# "occurrence" handle that must be downcast with
+# DboOccurrenceToDboInstOccurrence before any type-specific InstOccurrence
+# method -- GetReference, GetPathName, IsPrimitive, NewChildrenIter -- can be
+# called on it. GetEffectivePropStringValue/SetEffectivePropStringValue are
+# NOT in that list: they are DboBaseObject methods and work on the handle
+# either way, downcast or not. The fixture models "type-specific method
+# reached with a wrongly-typed handle" as a loud, distinguishable error and
+# a bump of ::fx::unsafeInstOccurrenceDowncasts -- standing in for the real
+# consequence, which is a Capture crash, not a Tcl error at all.
+
+proc fx::makeOccurrence {reference value path children {isPrimitive 1}} {
+    set handle [fx::makeHandle occ fx::occDispatch]
+    set ::fx::occRef($handle) $reference
+    set ::fx::occValue($handle) $value
+    set ::fx::occPath($handle) $path
+    set ::fx::occObjType($handle) $::DboBaseObject_INST_OCCURRENCE
+    set ::fx::occIsPrimitive($handle) $isPrimitive
+    set ::fx::occChildren($handle) $children
+    return $handle
+}
+
+# A write that Capture accepts (SetEffectivePropStringValue's status comes
+# back OK) but that does not actually stick -- the value stays the old one.
+# This exists so the write-suite examples' "read back and error if it did
+# not take" behaviour has something to trip over.
+proc fx::makeStubbornOccurrence {reference value path children} {
+    set handle [fx::makeOccurrence $reference $value $path $children]
+    set ::fx::occRejectWrite($handle) 1
+    return $handle
+}
+
+# Marks a method on this occurrence to fail (return a not-OK status) the
+# next time it is called, so a test can prove an example checks status and
+# fails loudly instead of pressing on with a null/garbage result.
+proc fx::forceOccFail {handle method} {
+    set ::fx::occForceFail($handle,$method) 1
+}
+
+proc fx::occDispatch {handle method argsList} {
+    switch -exact -- $method {
+        GetReference {
+            set cstr [lindex $argsList 0]
+            set st [fx::makeState]
+            if {[fx::consumeForceFail occForceFail $handle GetReference]} {
+                fx::failState $st 1 {forced failure: GetReference}
+                return $st
+            }
+            fx::setCString $cstr $::fx::occRef($handle)
+            return $st
+        }
+        GetPathName {
+            set cstr [lindex $argsList 0]
+            set st [fx::makeState]
+            if {[fx::consumeForceFail occForceFail $handle GetPathName]} {
+                fx::failState $st 1 {forced failure: GetPathName}
+                return $st
+            }
+            fx::setCString $cstr $::fx::occPath($handle)
+            return $st
+        }
+        GetEffectivePropStringValue {
+            set nameCstr [lindex $argsList 0]
+            set valueCstr [lindex $argsList 1]
+            set st [fx::makeState]
+            if {[fx::consumeForceFail occForceFail $handle GetEffectivePropStringValue]} {
+                fx::failState $st 1 {forced failure: GetEffectivePropStringValue}
+                return $st
+            }
+            set propName [DboTclHelper_sGetConstCharPtr $nameCstr]
+            if {$propName ne {Value}} {
+                error "fake occurrence: unsupported property \"$propName\""
+            }
+            fx::setCString $valueCstr $::fx::occValue($handle)
+            return $st
+        }
+        SetEffectivePropStringValue {
+            set nameCstr [lindex $argsList 0]
+            set valueCstr [lindex $argsList 1]
+            set st [fx::makeState]
+            if {[fx::consumeForceFail occForceFail $handle SetEffectivePropStringValue]} {
+                fx::failState $st 1 {forced failure: SetEffectivePropStringValue}
+                return $st
+            }
+            set propName [DboTclHelper_sGetConstCharPtr $nameCstr]
+            if {$propName ne {Value}} {
+                error "fake occurrence: unsupported property \"$propName\""
+            }
+            incr ::fx::setPropCalls
+            if {![info exists ::fx::occRejectWrite($handle)] || !$::fx::occRejectWrite($handle)} {
+                set ::fx::occValue($handle) [DboTclHelper_sGetConstCharPtr $valueCstr]
+            }
+            return $st
+        }
+        IsPrimitive {
+            set st [lindex $argsList 0]
+            if {[fx::consumeForceFail occForceFail $handle IsPrimitive]} {
+                fx::failState $st 1 {forced failure: IsPrimitive}
+                return 0
+            }
+            return $::fx::occIsPrimitive($handle)
+        }
+        NewChildrenIter {
+            set st [lindex $argsList 0]
+            if {[fx::consumeForceFail occForceFail $handle NewChildrenIter]} {
+                fx::failState $st 1 {forced failure: NewChildrenIter}
+                return {}
+            }
+            return [fx::makeListIter occChildren $::fx::occChildren($handle)]
+        }
+        default { error "fake occurrence: unsupported method \"$method\"" }
+    }
+}
+
+# Consumes (clears) a one-shot forced-failure flag if it was set, returning
+# whether it fired. One-shot so a test can fail exactly one call in a walk
+# without breaking every subsequent call on the same handle.
+proc fx::consumeForceFail {arrayName handle method} {
+    upvar #0 ::fx::$arrayName arr
+    if {[info exists arr($handle,$method)] && $arr($handle,$method)} {
+        set arr($handle,$method) 0
+        return 1
+    }
+    return 0
+}
+
+proc ::DboOccurrenceToDboInstOccurrence {occHandle} {
+    if {![info exists ::fx::occObjType($occHandle)] || \
+            $::fx::occObjType($occHandle) != $::DboBaseObject_INST_OCCURRENCE} {
+        incr ::fx::unsafeInstOccurrenceDowncasts
+        error "fake DboOccurrenceToDboInstOccurrence: handle $occHandle is not a DboOccurrence -- this would crash real Capture, not raise a Tcl error"
+    }
+    return $occHandle
+}
+
+proc ::delete_DboOccurrenceChildrenIter {iterHandle} {
+    fx::deleteIter $iterHandle occChildren
+}
+
+# -- selection family: page-level instances --------------------------------
+#
+# GetSelectedObjects hands back page-level instances -- a different object
+# family from occurrences, per docs/capture-dbo-api-notes.md's "坑二". A
+# selected component reports DRAWN_INSTANCE (12) or PLACED_INSTANCE (13),
+# *not* PART_INSTANCE (11) -- capRotate.tcl and capPSpiceSourceApp.tcl both
+# check 12 || 13. There is no DboObjectToDboPartInstance and no
+# type-specific GetReference on these objects: refdes and value are both
+# read/written purely through the base-class property calls
+# (GetEffectivePropStringValue/SetEffectivePropStringValue with property
+# names "Part Reference" and "Value"), so no downcast, and no crash risk,
+# is involved on this path at all.
+
+proc fx::makeSelObject {objType reference value} {
+    set handle [fx::makeHandle sel fx::selDispatch]
+    set ::fx::selObjType($handle) $objType
+    # The property name "Part Reference" contains a space, which cannot be
+    # embedded directly inside an array-index word: Tcl only brace-quotes a
+    # word that starts with an open brace, and an open brace appearing
+    # after a literal comma mid-word is not a quoted word, so its embedded
+    # space would split the enclosing command into extra arguments.
+    # Routing it through a variable first sidesteps that: substitution
+    # results are never re-split on whitespace.
+    set refPropName {Part Reference}
+    set ::fx::selProps($handle,$refPropName) $reference
+    set ::fx::selProps($handle,Value) $value
+    return $handle
+}
+
+proc fx::makeStubbornSelObject {objType reference value} {
+    set handle [fx::makeSelObject $objType $reference $value]
+    set ::fx::selRejectWrite($handle) 1
+    return $handle
+}
+
+proc fx::forceSelFail {handle method} {
+    set ::fx::selForceFail($handle,$method) 1
+}
+
+proc fx::selDispatch {handle method argsList} {
+    switch -exact -- $method {
+        GetEffectivePropStringValue {
+            set nameCstr [lindex $argsList 0]
+            set valueCstr [lindex $argsList 1]
+            set st [fx::makeState]
+            if {[fx::consumeForceFail selForceFail $handle GetEffectivePropStringValue]} {
+                fx::failState $st 1 {forced failure: GetEffectivePropStringValue}
+                return $st
+            }
+            set propName [DboTclHelper_sGetConstCharPtr $nameCstr]
+            if {![info exists ::fx::selProps($handle,$propName)]} {
+                error "fake selection object: unsupported property \"$propName\""
+            }
+            fx::setCString $valueCstr $::fx::selProps($handle,$propName)
+            return $st
+        }
+        SetEffectivePropStringValue {
+            set nameCstr [lindex $argsList 0]
+            set valueCstr [lindex $argsList 1]
+            set st [fx::makeState]
+            if {[fx::consumeForceFail selForceFail $handle SetEffectivePropStringValue]} {
+                fx::failState $st 1 {forced failure: SetEffectivePropStringValue}
+                return $st
+            }
+            set propName [DboTclHelper_sGetConstCharPtr $nameCstr]
+            if {![info exists ::fx::selProps($handle,$propName)]} {
+                error "fake selection object: unsupported property \"$propName\""
+            }
+            incr ::fx::setPropCalls
+            if {![info exists ::fx::selRejectWrite($handle)] || !$::fx::selRejectWrite($handle)} {
+                set ::fx::selProps($handle,$propName) [DboTclHelper_sGetConstCharPtr $valueCstr]
+            }
+            return $st
+        }
+        default { error "fake selection object: unsupported method \"$method\"" }
+    }
+}
+
+# ::GetSelectedObjects is a bare global command (no args, no DboState) that
+# returns a plain Tcl list of handles -- confirmed in
+# docs/capture-dbo-api-notes.md; there is no GetActivePMSelection.
+proc ::GetSelectedObjects {} { return $::fx::selectionObjectsList }
+
+# -- generic list-backed iterator ------------------------------------------
+#
+# Used for children/flat-nets/ports alike. Each concrete iterator "kind"
+# (occChildren, flatNets, ports) gets its own Next<Type> dispatch and its
+# own delete_Dbo...Iter free function -- real Capture does not share one
+# Next/delete pair across iterator classes.
+
+proc fx::makeListIter {kind items} {
     set handle [fx::makeHandle iter fx::iterDispatch]
+    set ::fx::iterKind($handle) $kind
     set ::fx::iterItems($handle) $items
     set ::fx::iterIndex($handle) 0
     set ::fx::iterAlive($handle) 1
     return $handle
 }
 
+proc fx::iterAdvance {handle st} {
+    if {![info exists ::fx::iterAlive($handle)] || !$::fx::iterAlive($handle)} {
+        error "fake iterator $handle: Next called after delete"
+    }
+    set items $::fx::iterItems($handle)
+    set idx $::fx::iterIndex($handle)
+    if {$idx >= [llength $items]} { return NULL }
+    set ::fx::iterIndex($handle) [expr {$idx + 1}]
+    return [lindex $items $idx]
+}
+
 proc fx::iterDispatch {handle method argsList} {
     switch -exact -- $method {
-        Next {
-            if {![info exists ::fx::iterAlive($handle)] || !$::fx::iterAlive($handle)} {
-                error "fake iterator $handle: Next called after delete"
-            }
-            set items $::fx::iterItems($handle)
-            set idx $::fx::iterIndex($handle)
-            if {$idx >= [llength $items]} { return {} }
-            set ::fx::iterIndex($handle) [expr {$idx + 1}]
-            return [lindex $items $idx]
-        }
-        delete {
-            if {![info exists ::fx::iterAlive($handle)] || !$::fx::iterAlive($handle)} {
-                error "fake iterator $handle: delete called twice"
-            }
-            set ::fx::iterAlive($handle) 0
-            incr ::fx::iterDeleteCalls
-            lappend ::fx::iterDeletedHandles $handle
-            rename $handle {}
+        Sort {
+            set st [lindex $argsList 0]
             return {}
+        }
+        NextOccurrence {
+            set st [lindex $argsList 0]
+            return [fx::iterAdvance $handle $st]
+        }
+        NextFlatNet {
+            set st [lindex $argsList 0]
+            return [fx::iterAdvance $handle $st]
+        }
+        NextPortOccurrence {
+            set st [lindex $argsList 0]
+            return [fx::iterAdvance $handle $st]
         }
         default { error "fake iterator: unsupported method \"$method\"" }
     }
 }
 
-# -- occurrence: design hierarchy nodes (pages/blocks and components) ----
+proc fx::deleteIter {handle expectedKind} {
+    if {![info exists ::fx::iterAlive($handle)] || !$::fx::iterAlive($handle)} {
+        error "fake iterator $handle: delete called twice"
+    }
+    if {$::fx::iterKind($handle) ne $expectedKind} {
+        error "fake iterator $handle: freed with the wrong delete_Dbo...Iter function (kind $::fx::iterKind($handle), expected $expectedKind)"
+    }
+    set ::fx::iterAlive($handle) 0
+    incr ::fx::iterDeleteCalls
+    lappend ::fx::iterDeletedHandles $handle
+    rename $handle {}
+    return {}
+}
 
-proc fx::makeOccurrence {reference value path type children} {
-    set handle [fx::makeHandle occ fx::occDispatch]
-    set ::fx::occRef($handle) $reference
-    set ::fx::occValue($handle) $value
-    set ::fx::occPath($handle) $path
-    set ::fx::occType($handle) $type
-    set ::fx::occChildren($handle) $children
+# -- flat net / port occurrence ---------------------------------------------
+#
+# NewFlatNetsIter/NextFlatNet/delete_DboDesignFlatNetsIter and
+# NewPortOccurrencesIter/NextPortOccurrence/delete_DboFlatNetPortOccurrencesIter
+# are all confirmed (capDesignPhysicalViewReader.tcl). The pin-level walk
+# from a flat net to the component pins it connects is NOT confirmed --
+# NewNetOccurrencesIter is named in docs/capture-dbo-api-notes.md as
+# "available", but the step (NextNetOccurrence) and free
+# (delete_DboFlatNetNetOccurrencesIter) functions an earlier draft of this
+# fixture invented for it have zero hits in Cadence's own scripts, and
+# GetPartOccurrence (to get from a pin back to its owning component) has
+# zero hits too. None of the three are modelled here; extract_topology.tcl
+# does not call them, matching "ship less but correct" over guessing at a
+# method name that could crash Capture if wrong.
+
+proc fx::makeFlatNet {name ports} {
+    set handle [fx::makeHandle net fx::netDispatch]
+    set ::fx::netName($handle) $name
+    set ::fx::netPorts($handle) $ports
     return $handle
 }
 
-# A write that Capture accepts (SetPartValue returns normally) but that
-# does not actually stick -- the value stays the old one. This exists so
-# the write-suite examples' "read back and error if it did not take"
-# behaviour has something to trip over.
-proc fx::makeStubbornOccurrence {reference value path type children} {
-    set handle [fx::makeOccurrence $reference $value $path $type $children]
-    set ::fx::occRejectWrite($handle) 1
-    return $handle
-}
-
-proc fx::occDispatch {handle method argsList} {
+proc fx::netDispatch {handle method argsList} {
     switch -exact -- $method {
-        GetReference    { return $::fx::occRef($handle) }
-        GetPartValue    { return $::fx::occValue($handle) }
-        GetPath         { return $::fx::occPath($handle) }
-        GetObjectType   { return $::fx::occType($handle) }
-        NewChildrenIter { return [fx::makeListIter $::fx::occChildren($handle)] }
-        SetPartValue {
-            incr ::fx::setPartValueCalls
-            if {![info exists ::fx::occRejectWrite($handle)] || !$::fx::occRejectWrite($handle)} {
-                set ::fx::occValue($handle) [lindex $argsList 0]
-            }
-            return {}
+        GetName {
+            set cstr [lindex $argsList 0]
+            set st [fx::makeState]
+            fx::setCString $cstr $::fx::netName($handle)
+            return $st
         }
-        default { error "fake occurrence: unsupported method \"$method\"" }
+        NewPortOccurrencesIter {
+            set st [lindex $argsList 0]
+            return [fx::makeListIter ports $::fx::netPorts($handle)]
+        }
+        default { error "fake flat net: unsupported method \"$method\"" }
     }
 }
 
-# -- pin/port occurrences on a flat net -----------------------------------
-
-proc fx::makePinOccurrence {name number parent} {
-    set handle [fx::makeHandle pin fx::pinDispatch]
-    set ::fx::pinName($handle) $name
-    set ::fx::pinNumber($handle) $number
-    set ::fx::pinParent($handle) $parent
-    return $handle
-}
-
-proc fx::pinDispatch {handle method argsList} {
-    switch -exact -- $method {
-        GetName           { return $::fx::pinName($handle) }
-        GetNumber         { return $::fx::pinNumber($handle) }
-        GetPartOccurrence { return $::fx::pinParent($handle) }
-        default { error "fake pin occurrence: unsupported method \"$method\"" }
-    }
+proc ::delete_DboFlatNetPortOccurrencesIter {iterHandle} {
+    fx::deleteIter $iterHandle ports
 }
 
 proc fx::makePortOccurrence {name} {
@@ -184,33 +541,17 @@ proc fx::makePortOccurrence {name} {
 
 proc fx::portDispatch {handle method argsList} {
     switch -exact -- $method {
-        GetName           { return $::fx::portName($handle) }
-        GetNumber         { return {} }
-        GetPartOccurrence { return {} }
+        GetName {
+            set cstr [lindex $argsList 0]
+            set st [fx::makeState]
+            fx::setCString $cstr $::fx::portName($handle)
+            return $st
+        }
         default { error "fake port occurrence: unsupported method \"$method\"" }
     }
 }
 
-# -- flat net --------------------------------------------------------------
-
-proc fx::makeFlatNet {name pins ports} {
-    set handle [fx::makeHandle net fx::netDispatch]
-    set ::fx::netName($handle) $name
-    set ::fx::netPins($handle) $pins
-    set ::fx::netPorts($handle) $ports
-    return $handle
-}
-
-proc fx::netDispatch {handle method argsList} {
-    switch -exact -- $method {
-        GetName                 { return $::fx::netName($handle) }
-        NewPinOccurrencesIter   { return [fx::makeListIter $::fx::netPins($handle)] }
-        NewPortOccurrencesIter  { return [fx::makeListIter $::fx::netPorts($handle)] }
-        default { error "fake flat net: unsupported method \"$method\"" }
-    }
-}
-
-# -- design and selection ---------------------------------------------------
+# -- design -----------------------------------------------------------------
 
 proc fx::makeDesign {root flatNets} {
     set handle [fx::makeHandle design fx::designDispatch]
@@ -221,8 +562,14 @@ proc fx::makeDesign {root flatNets} {
 
 proc fx::designDispatch {handle method argsList} {
     switch -exact -- $method {
-        GetRootOccurrence { return $::fx::designRoot($handle) }
-        NewFlatNetsIter   { return [fx::makeListIter $::fx::designFlatNets($handle)] }
+        GetRootOccurrence {
+            set st [lindex $argsList 0]
+            return $::fx::designRoot($handle)
+        }
+        NewFlatNetsIter {
+            set st [lindex $argsList 0]
+            return [fx::makeListIter flatNets $::fx::designFlatNets($handle)]
+        }
         Save {
             incr ::fx::designSaveCalls
             return {}
@@ -231,24 +578,12 @@ proc fx::designDispatch {handle method argsList} {
     }
 }
 
-proc fx::makeSelection {objects} {
-    set handle [fx::makeHandle sel fx::selectionDispatch]
-    set ::fx::selectionObjects($handle) $objects
-    return $handle
+proc ::delete_DboDesignFlatNetsIter {iterHandle} {
+    fx::deleteIter $iterHandle flatNets
 }
 
-proc fx::selectionDispatch {handle method argsList} {
-    switch -exact -- $method {
-        GetSelectedObjects { return $::fx::selectionObjects($handle) }
-        default { error "fake selection: unsupported method \"$method\"" }
-    }
-}
-
-# GetActivePMDesign/GetActivePMSelection are bare global commands in the
-# real API (an example calls them unqualified, not through another
-# object), so the fixture installs them at global scope too.
+# GetActivePMDesign is a bare global command, same as GetSelectedObjects.
 proc ::GetActivePMDesign {} { return $::fx::activeDesign }
-proc ::GetActivePMSelection {} { return $::fx::activeSelection }
 
 # RefreshParts and a bare Save are the two commands the write examples must
 # never call (RefreshParts is a TCLBOM helper this project deliberately
@@ -287,60 +622,103 @@ proc fx::runExample {name} {
 proc suite_fixture {} {
     fx::resetAll
 
-    set leaf [fx::makeOccurrence R9 10k /R9 occDbComponent {}]
-    check {fixture: occurrence dispatch answers GetReference} [$leaf GetReference] R9
-    check {fixture: occurrence dispatch answers GetPartValue} [$leaf GetPartValue] 10k
-    check {fixture: occurrence dispatch answers GetPath} [$leaf GetPath] /R9
-    check {fixture: occurrence dispatch answers GetObjectType} [$leaf GetObjectType] occDbComponent
+    set leaf [fx::makeOccurrence R9 10k /R9 {}]
+    check {fixture: DboBaseObject_GetObjectType on an occurrence} \
+        [DboBaseObject_GetObjectType $leaf] $::DboBaseObject_INST_OCCURRENCE
+    set leafInstOcc [DboOccurrenceToDboInstOccurrence $leaf]
+    check {fixture: downcast returns the same handle} $leafInstOcc $leaf
 
-    check {fixture: SetPartValue mutates and is counted} \
-        [list [$leaf SetPartValue 22k] [$leaf GetPartValue] $::fx::setPartValueCalls] \
-        [list {} 22k 1]
+    set st [DboState]
+    check {fixture: fresh DboState is OK} [$st OK] 1
 
-    set root [fx::makeOccurrence {} {} / occDbPage [list $leaf]]
-    set childrenIter [$root NewChildrenIter]
-    set first [$childrenIter Next]
+    set refC [DboTclHelper_sMakeCString]
+    set refSt [$leafInstOcc GetReference $refC]
+    check {fixture: GetReference status is OK} [$refSt OK] 1
+    check {fixture: GetReference fills the out-param} \
+        [DboTclHelper_sGetConstCharPtr $refC] R9
+    $refSt -delete
+
+    set nameC [DboTclHelper_sMakeCString Value]
+    set valueC [DboTclHelper_sMakeCString]
+    set propSt [$leafInstOcc GetEffectivePropStringValue $nameC $valueC]
+    check {fixture: GetEffectivePropStringValue reads Value} \
+        [DboTclHelper_sGetConstCharPtr $valueC] 10k
+    $propSt -delete
+
+    # Base-class property calls need no downcast: the raw occurrence handle
+    # (not the instOcc alias -- they are the same handle here, but the call
+    # below is exactly what a script would do on a handle it never downcast)
+    # answers GetEffectivePropStringValue/SetEffectivePropStringValue fine.
+    set newValueC [DboTclHelper_sMakeCString 22k]
+    set setSt [$leaf SetEffectivePropStringValue $nameC $newValueC]
+    check {fixture: SetEffectivePropStringValue mutates and is counted} \
+        [list [$setSt OK] $::fx::occValue($leaf) $::fx::setPropCalls] \
+        [list 1 22k 1]
+    $setSt -delete
+
+    check {fixture: IsPrimitive on a leaf} [$leafInstOcc IsPrimitive $st] 1
+
+    set root [fx::makeOccurrence {} {} / [list $leaf] 0]
+    check {fixture: IsPrimitive on a block} \
+        [$root IsPrimitive $st] 0
+    set childrenIter [$root NewChildrenIter $st]
+    set first [$childrenIter NextOccurrence $st]
     check {fixture: children iterator returns the child} $first $leaf
-    check {fixture: children iterator exhausts to empty string} [$childrenIter Next] {}
-    $childrenIter delete
+    check {fixture: children iterator exhausts to the NULL sentinel} \
+        [$childrenIter NextOccurrence $st] NULL
+    delete_DboOccurrenceChildrenIter $childrenIter
     check {fixture: iterator delete is counted} $::fx::iterDeleteCalls 1
     checkTrue {fixture: deleted iterator command is gone} \
         [expr {[llength [info commands $childrenIter]] == 0}]
-    set doubleDeleteFailed [catch {$childrenIter delete}]
+    set doubleDeleteFailed [catch {delete_DboOccurrenceChildrenIter $childrenIter}]
     checkTrue {fixture: deleting an iterator twice errors} $doubleDeleteFailed
 
     set design [fx::makeDesign $root {}]
-    check {fixture: design GetRootOccurrence} [$design GetRootOccurrence] $root
-    set netsIter [$design NewFlatNetsIter]
-    check {fixture: empty flat-nets iterator exhausts immediately} [$netsIter Next] {}
-    $netsIter delete
-
-    set pin [fx::makePinOccurrence A1 1 $leaf]
-    check {fixture: pin occurrence name} [$pin GetName] A1
-    check {fixture: pin occurrence number} [$pin GetNumber] 1
-    check {fixture: pin occurrence parent} [$pin GetPartOccurrence] $leaf
+    check {fixture: design GetRootOccurrence} [$design GetRootOccurrence $st] $root
+    set netsIter [$design NewFlatNetsIter $st]
+    check {fixture: empty flat-nets iterator exhausts immediately} \
+        [$netsIter NextFlatNet $st] NULL
+    delete_DboDesignFlatNetsIter $netsIter
 
     set port [fx::makePortOccurrence IN]
-    check {fixture: port occurrence name} [$port GetName] IN
+    set portNameC [DboTclHelper_sMakeCString]
+    $port GetName $portNameC
+    check {fixture: port occurrence name} [DboTclHelper_sGetConstCharPtr $portNameC] IN
 
-    set net [fx::makeFlatNet N1 [list $pin] [list $port]]
-    check {fixture: flat net name} [$net GetName] N1
-    set pinsIter [$net NewPinOccurrencesIter]
-    check {fixture: net pin iterator yields the pin} [$pinsIter Next] $pin
-    $pinsIter delete
-    set portsIter [$net NewPortOccurrencesIter]
-    check {fixture: net port iterator yields the port} [$portsIter Next] $port
-    $portsIter delete
+    set net [fx::makeFlatNet N1 [list $port]]
+    set netNameC [DboTclHelper_sMakeCString]
+    $net GetName $netNameC
+    check {fixture: flat net name} [DboTclHelper_sGetConstCharPtr $netNameC] N1
+    set portsIter [$net NewPortOccurrencesIter $st]
+    check {fixture: net port iterator yields the port} \
+        [$portsIter NextPortOccurrence $st] $port
+    delete_DboFlatNetPortOccurrencesIter $portsIter
 
-    set selection [fx::makeSelection [list $leaf $pin]]
-    check {fixture: selection returns the objects it was given} \
-        [$selection GetSelectedObjects] [list $leaf $pin]
+    # Selection-family object: DRAWN_INSTANCE/PLACED_INSTANCE, not
+    # PART_INSTANCE, and no downcast at all -- refdes comes from the
+    # base-class property "Part Reference", not a type-specific GetReference.
+    set part [fx::makeSelObject $::DboBaseObject_DRAWN_INSTANCE C5 100nF]
+    check {fixture: DboBaseObject_GetObjectType on a selection object} \
+        [DboBaseObject_GetObjectType $part] $::DboBaseObject_DRAWN_INSTANCE
+    set selRefNameC [DboTclHelper_sMakeCString {Part Reference}]
+    set selRefC [DboTclHelper_sMakeCString]
+    $part GetEffectivePropStringValue $selRefNameC $selRefC
+    check {fixture: selection Part Reference read} \
+        [DboTclHelper_sGetConstCharPtr $selRefC] C5
+
+    set ::fx::selectionObjectsList [list $part]
+    check {fixture: GetSelectedObjects returns what was given} \
+        [GetSelectedObjects] [list $part]
 
     set ::fx::activeDesign $design
     check {fixture: GetActivePMDesign returns the active design} [GetActivePMDesign] $design
-    set ::fx::activeSelection $selection
-    check {fixture: GetActivePMSelection returns the active selection} \
-        [GetActivePMSelection] $selection
+
+    checkTrue {fixture: wrong-typed downcast is caught, not silently accepted} \
+        [catch {DboOccurrenceToDboInstOccurrence $part}]
+    check {fixture: wrong-typed occurrence downcast is counted} \
+        $::fx::unsafeInstOccurrenceDowncasts 1
+
+    $st -delete
 
     if {!$::fail} {
         puts {PASS: fixture}
@@ -349,15 +727,16 @@ proc suite_fixture {} {
 
 proc fx::buildDuplicateC3Tree {} {
     # root -> U1 -> {R1, C3} and root -> U2 -> {C3}: two components share
-    # the refdes C3 under different hierarchical blocks. U1/U2 are blocks,
-    # not components, so list_components.tcl must not print them, and
-    # get_component_value.tcl must report C3 as COMPONENT_NOT_UNIQUE.
-    set r1 [fx::makeOccurrence R1 10k /U1/R1 occDbComponent {}]
-    set c3u1 [fx::makeOccurrence C3 100nF /U1/C3 occDbComponent {}]
-    set u1 [fx::makeOccurrence {} {} /U1 occDbPage [list $r1 $c3u1]]
-    set c3u2 [fx::makeOccurrence C3 1uF /U2/C3 occDbComponent {}]
-    set u2 [fx::makeOccurrence {} {} /U2 occDbPage [list $c3u2]]
-    set root [fx::makeOccurrence {} {} / occDbPage [list $u1 $u2]]
+    # the refdes C3 under different hierarchical blocks. U1/U2 are blocks
+    # (IsPrimitive == 0), not components, so list_components.tcl must not
+    # print them, and get_component_value.tcl must report C3 as
+    # COMPONENT_NOT_UNIQUE.
+    set r1 [fx::makeOccurrence R1 10k /U1/R1 {}]
+    set c3u1 [fx::makeOccurrence C3 100nF /U1/C3 {}]
+    set u1 [fx::makeOccurrence {} {} /U1 [list $r1 $c3u1] 0]
+    set c3u2 [fx::makeOccurrence C3 1uF /U2/C3 {}]
+    set u2 [fx::makeOccurrence {} {} /U2 [list $c3u2] 0]
+    set root [fx::makeOccurrence {} {} / [list $u1 $u2] 0]
     return [list $root $r1 $c3u1 $c3u2]
 }
 
@@ -376,7 +755,9 @@ proc suite_occurrence {} {
     # opens exactly one children iterator, whether or not it has children.
     check {list_components.tcl frees every children iterator exactly once} \
         $::fx::iterDeleteCalls 6
-    check {list_components.tcl never mutates the design} $::fx::setPartValueCalls 0
+    check {list_components.tcl never mutates the design} $::fx::setPropCalls 0
+    check {list_components.tcl never attempts an unsafe downcast} \
+        $::fx::unsafeInstOccurrenceDowncasts 0
 
     # get_component_value.tcl hardcodes `set targetRefdes C3` at the top of
     # the script, so the three cases below vary the fixture instead of the
@@ -389,14 +770,14 @@ proc suite_occurrence {} {
     checkTrue {get_component_value.tcl duplicate error says COMPONENT_NOT_UNIQUE} \
         [expr {[string first COMPONENT_NOT_UNIQUE $message] >= 0}]
     check {get_component_value.tcl does not mutate on a duplicate match} \
-        $::fx::setPartValueCalls 0
+        $::fx::setPropCalls 0
 
     fx::resetAll
-    set r1only [fx::makeOccurrence R1 10k /U1/R1 occDbComponent {}]
-    set u1only [fx::makeOccurrence {} {} /U1 occDbPage [list $r1only]]
-    set c3only [fx::makeOccurrence C3 1uF /U2/C3 occDbComponent {}]
-    set u2only [fx::makeOccurrence {} {} /U2 occDbPage [list $c3only]]
-    set rootUnique [fx::makeOccurrence {} {} / occDbPage [list $u1only $u2only]]
+    set r1only [fx::makeOccurrence R1 10k /U1/R1 {}]
+    set u1only [fx::makeOccurrence {} {} /U1 [list $r1only] 0]
+    set c3only [fx::makeOccurrence C3 1uF /U2/C3 {}]
+    set u2only [fx::makeOccurrence {} {} /U2 [list $c3only] 0]
+    set rootUnique [fx::makeOccurrence {} {} / [list $u1only $u2only] 0]
     set ::fx::activeDesign [fx::makeDesign $rootUnique {}]
     lassign [fx::runExample get_component_value.tcl] code message output
     check {get_component_value.tcl succeeds on a unique refdes} $code 0
@@ -404,18 +785,18 @@ proc suite_occurrence {} {
         $output [list [dict create refdes C3 value 1uF path /U2/C3]]
 
     fx::resetAll
-    set r1none [fx::makeOccurrence R1 10k /U1/R1 occDbComponent {}]
-    set u1none [fx::makeOccurrence {} {} /U1 occDbPage [list $r1none]]
-    set r2none [fx::makeOccurrence R2 4k7 /U2/R2 occDbComponent {}]
-    set u2none [fx::makeOccurrence {} {} /U2 occDbPage [list $r2none]]
-    set rootNone [fx::makeOccurrence {} {} / occDbPage [list $u1none $u2none]]
+    set r1none [fx::makeOccurrence R1 10k /U1/R1 {}]
+    set u1none [fx::makeOccurrence {} {} /U1 [list $r1none] 0]
+    set r2none [fx::makeOccurrence R2 4k7 /U2/R2 {}]
+    set u2none [fx::makeOccurrence {} {} /U2 [list $r2none] 0]
+    set rootNone [fx::makeOccurrence {} {} / [list $u1none $u2none] 0]
     set ::fx::activeDesign [fx::makeDesign $rootNone {}]
     lassign [fx::runExample get_component_value.tcl] code message output
     checkTrue {get_component_value.tcl errors when nothing matches} [expr {$code != 0}]
     checkTrue {get_component_value.tcl no-match error says COMPONENT_NOT_FOUND} \
         [expr {[string first COMPONENT_NOT_FOUND $message] >= 0}]
     check {get_component_value.tcl does not mutate when nothing matches} \
-        $::fx::setPartValueCalls 0
+        $::fx::setPropCalls 0
 
     if {!$::fail} {
         puts {PASS: occurrence}
@@ -425,19 +806,24 @@ proc suite_occurrence {} {
 proc suite_selection {} {
     fx::resetAll
 
-    # Two components (one selected twice as the same occurrence, proving
-    # dedup does not depend on refdes string equality alone), one
-    # non-component graphic that must be dropped, and refdes values chosen
-    # out of sorted order so the test also exercises the final sort.
-    set r2 [fx::makeOccurrence R2 4k7 /R2 occDbComponent {}]
-    set c5 [fx::makeOccurrence C5 100nF /C5 occDbComponent {}]
-    set wire [fx::makeOccurrence {} {} /wire1 occDbGraphic {}]
-    set ::fx::activeSelection [fx::makeSelection [list $c5 $r2 $r2 $wire]]
+    # Two components (one selected twice as the same object, proving dedup
+    # does not depend on refdes string equality alone) -- one reporting
+    # DRAWN_INSTANCE, the other PLACED_INSTANCE, to prove the filter accepts
+    # both, per capRotate.tcl's "12 || 13" check. A PART_INSTANCE (11)
+    # object is included too: it must now be *excluded*, the opposite of an
+    # earlier draft's (wrong) assumption that PART_INSTANCE was the
+    # component type. Refdes values are chosen out of sorted order so the
+    # test also exercises the final sort.
+    set r2 [fx::makeSelObject $::DboBaseObject_DRAWN_INSTANCE R2 4k7]
+    set c5 [fx::makeSelObject $::DboBaseObject_PLACED_INSTANCE C5 100nF]
+    set notComponent [fx::makeSelObject $::DboBaseObject_PART_INSTANCE X1 {}]
+    set ::fx::selectionObjectsList [list $c5 $r2 $r2 $notComponent]
 
     lassign [fx::runExample selected_refs.tcl] code message output
     check {selected_refs.tcl runs without error} $code 0
-    check {selected_refs.tcl drops graphics, dedupes and sorts} $output {C5 R2}
-    check {selected_refs.tcl never mutates the design} $::fx::setPartValueCalls 0
+    check {selected_refs.tcl accepts DRAWN_INSTANCE/PLACED_INSTANCE, excludes PART_INSTANCE, dedupes and sorts} \
+        $output {C5 R2}
+    check {selected_refs.tcl never mutates the design} $::fx::setPropCalls 0
 
     if {!$::fail} {
         puts {PASS: selection}
@@ -448,29 +834,26 @@ proc suite_topology {} {
     fx::resetAll
 
     # A minimal standalone net fixture -- independent of the occurrence
-    # suite's hierarchy tree, since a flat net's pin occurrences only need
-    # to answer GetPartOccurrence with something that answers GetReference.
-    set r1 [fx::makeOccurrence R1 10k /U1/R1 occDbComponent {}]
-    set u1 [fx::makeOccurrence U1 74LS04 /U1 occDbComponent {}]
-    set pinR1_1 [fx::makePinOccurrence A1 1 $r1]
-    set pinU1_3 [fx::makePinOccurrence D3 3 $u1]
+    # suite's hierarchy tree. extract_topology.tcl only reports net names
+    # and their hierarchical ports (both confirmed APIs); the pin-level walk
+    # is deliberately not implemented (see the comment above
+    # fx::makeFlatNet), so this fixture carries no pin/net-occurrence data
+    # at all.
     set portIn [fx::makePortOccurrence IN]
-    set n1 [fx::makeFlatNet N1 [list $pinR1_1 $pinU1_3] [list $portIn]]
-    set root [fx::makeOccurrence {} {} / occDbPage {}]
+    set n1 [fx::makeFlatNet N1 [list $portIn]]
+    set root [fx::makeOccurrence {} {} / {} 0]
     set ::fx::activeDesign [fx::makeDesign $root [list $n1]]
 
     lassign [fx::runExample extract_topology.tcl] code message output
     check {extract_topology.tcl runs without error} $code 0
-    check {extract_topology.tcl prints the net, its port and its pins} $output [list \
+    check {extract_topology.tcl prints the net and its port} $output [list \
         [dict create net N1] \
-        [dict create net N1 port IN] \
-        [dict create net N1 refdes R1 pin 1 name A1] \
-        [dict create net N1 refdes U1 pin 3 name D3]]
-    # nets iterator (1) + ports iterator (1) + pins iterator (1) for the
-    # single net N1, each opened and freed exactly once.
+        [dict create net N1 port IN]]
+    # nets iterator (1) + ports iterator (1) for the single net N1, each
+    # opened and freed exactly once.
     check {extract_topology.tcl frees every iterator exactly once} \
-        $::fx::iterDeleteCalls 3
-    check {extract_topology.tcl never mutates the design} $::fx::setPartValueCalls 0
+        $::fx::iterDeleteCalls 2
+    check {extract_topology.tcl never mutates the design} $::fx::setPropCalls 0
 
     if {!$::fail} {
         puts {PASS: topology}
@@ -481,21 +864,21 @@ proc fx::buildUniqueValueCollisionTree {} {
     # R1 and C3 share a Value ("10k") but have different refdes. Only C3 is
     # the write target, so a naive "find by value" implementation would
     # wrongly touch R1 too; this tree exists to catch that mistake.
-    set r1 [fx::makeOccurrence R1 10k /U1/R1 occDbComponent {}]
-    set u1 [fx::makeOccurrence {} {} /U1 occDbPage [list $r1]]
-    set c3 [fx::makeOccurrence C3 10k /U2/C3 occDbComponent {}]
-    set u2 [fx::makeOccurrence {} {} /U2 occDbPage [list $c3]]
-    set root [fx::makeOccurrence {} {} / occDbPage [list $u1 $u2]]
+    set r1 [fx::makeOccurrence R1 10k /U1/R1 {}]
+    set u1 [fx::makeOccurrence {} {} /U1 [list $r1] 0]
+    set c3 [fx::makeOccurrence C3 10k /U2/C3 {}]
+    set u2 [fx::makeOccurrence {} {} /U2 [list $c3] 0]
+    set root [fx::makeOccurrence {} {} / [list $u1 $u2] 0]
     return [list $root $r1 $c3]
 }
 
 proc fx::buildStubbornTargetTree {} {
-    # C3's SetPartValue is accepted but silently does not stick --
-    # set_component_value.tcl must notice the mismatched read-back and
-    # error instead of reporting success.
-    set c3 [fx::makeStubbornOccurrence C3 10k /U1/C3 occDbComponent {}]
-    set u1 [fx::makeOccurrence {} {} /U1 occDbPage [list $c3]]
-    set root [fx::makeOccurrence {} {} / occDbPage [list $u1]]
+    # C3's SetEffectivePropStringValue status comes back OK but the write
+    # does not stick -- set_component_value.tcl must notice the mismatched
+    # read-back and error instead of reporting success.
+    set c3 [fx::makeStubbornOccurrence C3 10k /U1/C3 {}]
+    set u1 [fx::makeOccurrence {} {} /U1 [list $c3] 0]
+    set root [fx::makeOccurrence {} {} / [list $u1] 0]
     return [list $root $c3]
 }
 
@@ -512,10 +895,10 @@ proc suite_write {} {
     check {set_component_value.tcl prints refdes/before/after} \
         $output [list [dict create refdes C3 before 10k after 100nF]]
     check {set_component_value.tcl mutates exactly one occurrence} \
-        $::fx::setPartValueCalls 1
-    check {set_component_value.tcl leaves the target changed} [$c3 GetPartValue] 100nF
+        $::fx::setPropCalls 1
+    check {set_component_value.tcl leaves the target changed} $::fx::occValue($c3) 100nF
     check {set_component_value.tcl leaves the same-value sibling untouched} \
-        [$r1 GetPartValue] 10k
+        $::fx::occValue($r1) 10k
 
     # Duplicate matches: zero writes, error names COMPONENT_NOT_UNIQUE.
     fx::resetAll
@@ -526,20 +909,20 @@ proc suite_write {} {
     checkTrue {set_component_value.tcl duplicate error says COMPONENT_NOT_UNIQUE} \
         [expr {[string first COMPONENT_NOT_UNIQUE $message] >= 0}]
     check {set_component_value.tcl does not write on a duplicate match} \
-        $::fx::setPartValueCalls 0
+        $::fx::setPropCalls 0
 
     # Zero matches: zero writes, error names COMPONENT_NOT_FOUND.
     fx::resetAll
-    set r1None [fx::makeOccurrence R1 10k /U1/R1 occDbComponent {}]
-    set u1None [fx::makeOccurrence {} {} /U1 occDbPage [list $r1None]]
-    set rootNone [fx::makeOccurrence {} {} / occDbPage [list $u1None]]
+    set r1None [fx::makeOccurrence R1 10k /U1/R1 {}]
+    set u1None [fx::makeOccurrence {} {} /U1 [list $r1None] 0]
+    set rootNone [fx::makeOccurrence {} {} / [list $u1None] 0]
     set ::fx::activeDesign [fx::makeDesign $rootNone {}]
     lassign [fx::runExample set_component_value.tcl] code message output
     checkTrue {set_component_value.tcl errors when nothing matches} [expr {$code != 0}]
     checkTrue {set_component_value.tcl no-match error says COMPONENT_NOT_FOUND} \
         [expr {[string first COMPONENT_NOT_FOUND $message] >= 0}]
     check {set_component_value.tcl does not write when nothing matches} \
-        $::fx::setPartValueCalls 0
+        $::fx::setPropCalls 0
 
     # A write Capture accepts but that does not take must be caught by the
     # read-back check, not reported as success.
@@ -550,15 +933,27 @@ proc suite_write {} {
     checkTrue {set_component_value.tcl errors when the read-back does not match} \
         [expr {$code != 0}]
     check {set_component_value.tcl still attempted the write once} \
-        $::fx::setPartValueCalls 1
+        $::fx::setPropCalls 1
+
+    # A DboState that comes back not-OK must stop the script with a clear
+    # error, not press on with a null/garbage handle.
+    fx::resetAll
+    lassign [fx::buildUniqueValueCollisionTree] rootFail r1Fail c3Fail
+    set ::fx::activeDesign [fx::makeDesign $rootFail {}]
+    fx::forceOccFail $c3Fail SetEffectivePropStringValue
+    lassign [fx::runExample set_component_value.tcl] code message output
+    checkTrue {set_component_value.tcl errors when SetEffectivePropStringValue status is not OK} \
+        [expr {$code != 0}]
+    checkTrue {set_component_value.tcl reports a DBO_CALL_FAILED-style message} \
+        [expr {[string first DBO_CALL_FAILED $message] >= 0}]
 
     # -- mark_selected_suffix.tcl -------------------------------------------
 
     fx::resetAll
-    set markA [fx::makeOccurrence R1 10k /R1 occDbComponent {}]
-    set markB [fx::makeOccurrence R2 22k* /R2 occDbComponent {}]
-    set markGraphic [fx::makeOccurrence {} {} /wire1 occDbGraphic {}]
-    set ::fx::activeSelection [fx::makeSelection [list $markA $markA $markB $markGraphic]]
+    set markA [fx::makeSelObject $::DboBaseObject_DRAWN_INSTANCE R1 10k]
+    set markB [fx::makeSelObject $::DboBaseObject_PLACED_INSTANCE R2 22k*]
+    set markNotComponent [fx::makeSelObject $::DboBaseObject_PART_INSTANCE X1 {}]
+    set ::fx::selectionObjectsList [list $markA $markA $markB $markNotComponent]
 
     lassign [fx::runExample mark_selected_suffix.tcl] code message output
     check {mark_selected_suffix.tcl runs without error} $code 0
@@ -566,30 +961,30 @@ proc suite_write {} {
         [lindex $output 0] [dict create refdes R1 before 10k after 10k*]
     check {mark_selected_suffix.tcl reports changed/skipped} \
         [lindex $output 1] [dict create changed 1 skipped 1]
-    check {mark_selected_suffix.tcl dedupes a doubly-selected occurrence} \
-        $::fx::setPartValueCalls 1
+    check {mark_selected_suffix.tcl dedupes a doubly-selected object} \
+        $::fx::setPropCalls 1
     check {mark_selected_suffix.tcl leaves an already-marked value alone} \
-        [$markB GetPartValue] 22k*
+        $::fx::selProps($markB,Value) 22k*
 
     # Idempotency: a second run over the same (now-marked) selection must
     # not stack a second suffix on top of the first.
     lassign [fx::runExample mark_selected_suffix.tcl] code2 message2 output2
     check {mark_selected_suffix.tcl re-run makes no further writes} \
-        $::fx::setPartValueCalls 1
+        $::fx::setPropCalls 1
     check {mark_selected_suffix.tcl re-run reports nothing changed} \
         [lindex $output2 0] [dict create changed 0 skipped 2]
     check {mark_selected_suffix.tcl re-run does not produce a double suffix} \
-        [$markA GetPartValue] 10k*
+        $::fx::selProps($markA,Value) 10k*
 
     # -- remove_selected_suffix.tcl -----------------------------------------
 
     fx::resetAll
-    set rmMarked [fx::makeOccurrence R3 10k* /R3 occDbComponent {}]
-    set rmMid [fx::makeOccurrence R4 1*0k /R4 occDbComponent {}]
-    set rmPlain [fx::makeOccurrence R5 4k7 /R5 occDbComponent {}]
-    set rmGraphic [fx::makeOccurrence {} {} /wire2 occDbGraphic {}]
-    set ::fx::activeSelection [fx::makeSelection \
-        [list $rmMarked $rmMarked $rmMid $rmPlain $rmGraphic]]
+    set rmMarked [fx::makeSelObject $::DboBaseObject_DRAWN_INSTANCE R3 10k*]
+    set rmMid [fx::makeSelObject $::DboBaseObject_DRAWN_INSTANCE R4 1*0k]
+    set rmPlain [fx::makeSelObject $::DboBaseObject_PLACED_INSTANCE R5 4k7]
+    set rmNotComponent [fx::makeSelObject $::DboBaseObject_PART_INSTANCE X1 {}]
+    set ::fx::selectionObjectsList \
+        [list $rmMarked $rmMarked $rmMid $rmPlain $rmNotComponent]
 
     lassign [fx::runExample remove_selected_suffix.tcl] code3 message3 output3
     check {remove_selected_suffix.tcl runs without error} $code3 0
@@ -597,12 +992,12 @@ proc suite_write {} {
         [lindex $output3 0] [dict create refdes R3 before 10k* after 10k]
     check {remove_selected_suffix.tcl reports changed/skipped} \
         [lindex $output3 1] [dict create changed 1 skipped 2]
-    check {remove_selected_suffix.tcl dedupes a doubly-selected occurrence} \
-        $::fx::setPartValueCalls 1
+    check {remove_selected_suffix.tcl dedupes a doubly-selected object} \
+        $::fx::setPropCalls 1
     check {remove_selected_suffix.tcl leaves a mid-string suffix alone} \
-        [$rmMid GetPartValue] 1*0k
+        $::fx::selProps($rmMid,Value) 1*0k
     check {remove_selected_suffix.tcl leaves an unsuffixed value alone} \
-        [$rmPlain GetPartValue] 4k7
+        $::fx::selProps($rmPlain,Value) 4k7
 
     # -- shared write-suite safety net --------------------------------------
 
@@ -614,9 +1009,99 @@ proc suite_write {} {
     }
 }
 
+# Suite dedicated to the two safety rules every example must honour:
+#   1. a not-OK DboState fails the script loudly instead of dereferencing a
+#      null/garbage handle;
+#   2. a handle of the wrong concrete type is rejected by the example's own
+#      DboBaseObject_GetObjectType check before it ever reaches the one
+#      checked downcast this project still performs
+#      (DboOccurrenceToDboInstOccurrence, for the occurrence family) --
+#      reaching it with a bad handle is exactly the crash this project is
+#      trying to prevent, so every occurrence-walk case below asserts
+#      ::fx::unsafeInstOccurrenceDowncasts stays at 0. Selection scripts
+#      have no downcast to guard (see the comment above fx::makeSelObject),
+#      so their safety case below instead proves a wrong-family object is
+#      filtered out by DboBaseObject_GetObjectType before any base-class
+#      property call is even attempted on it.
+proc suite_safety {} {
+    # -- occurrence-walk examples: a wrongly-typed child in the hierarchy --
+
+    foreach exampleName {list_components.tcl get_component_value.tcl set_component_value.tcl} {
+        fx::resetAll
+        set r1 [fx::makeOccurrence R1 10k /U1/R1 {}]
+        # A selection-family handle masquerading as a child occurrence:
+        # DboBaseObject_GetObjectType reports DRAWN_INSTANCE, not
+        # INST_OCCURRENCE, so a correct walker must refuse it before ever
+        # calling DboOccurrenceToDboInstOccurrence.
+        set badChild [fx::makeSelObject $::DboBaseObject_DRAWN_INSTANCE BAD bad]
+        set root [fx::makeOccurrence {} {} / [list $r1 $badChild] 0]
+        set ::fx::activeDesign [fx::makeDesign $root {}]
+        lassign [fx::runExample $exampleName] code message output
+        checkTrue "$exampleName refuses a wrong-typed occurrence child" \
+            [expr {$code != 0}]
+        check "$exampleName never reaches the unsafe occurrence downcast" \
+            $::fx::unsafeInstOccurrenceDowncasts 0
+        checkTrue "$exampleName reports the type mismatch, not a raw crash message" \
+            [expr {[string first UNEXPECTED_OBJECT_TYPE $message] >= 0}]
+    }
+
+    # -- occurrence-walk examples: a DboState that comes back not-OK -------
+
+    foreach exampleName {list_components.tcl get_component_value.tcl} {
+        fx::resetAll
+        set r1 [fx::makeOccurrence R1 10k /U1/R1 {}]
+        set root [fx::makeOccurrence {} {} / [list $r1] 0]
+        fx::forceOccFail $r1 GetReference
+        set ::fx::activeDesign [fx::makeDesign $root {}]
+        lassign [fx::runExample $exampleName] code message output
+        checkTrue "$exampleName errors when GetReference status is not OK" \
+            [expr {$code != 0}]
+        checkTrue "$exampleName reports a DBO_CALL_FAILED-style message" \
+            [expr {[string first DBO_CALL_FAILED $message] >= 0}]
+    }
+
+    # -- occurrence-walk examples: NewChildrenIter itself comes back not-OK
+
+    fx::resetAll
+    set root [fx::makeOccurrence {} {} / {} 0]
+    fx::forceOccFail $root NewChildrenIter
+    set ::fx::activeDesign [fx::makeDesign $root {}]
+    lassign [fx::runExample list_components.tcl] code message output
+    checkTrue {list_components.tcl errors when NewChildrenIter status is not OK} \
+        [expr {$code != 0}]
+    checkTrue {list_components.tcl does not press on with a bogus iterator handle} \
+        [expr {[string first DBO_CALL_FAILED $message] >= 0}]
+
+    # -- selection examples: a handle from the wrong object family ---------
+    #
+    # An occurrence-family handle sneaking into a selection list: real
+    # Capture never hands one back from GetSelectedObjects, but a correct
+    # example must still check DboBaseObject_GetObjectType (INST_OCCURRENCE
+    # is neither DRAWN_INSTANCE nor PLACED_INSTANCE) and skip it, rather
+    # than assuming every selected object is a component. If the filter did
+    # not run, the next line would call GetEffectivePropStringValue("Part
+    # Reference") on an occurrence handle, which the fixture's occDispatch
+    # only recognises "Value" for -- so an unfiltered object surfaces here
+    # as an uncontrolled "unsupported property" error, not a clean run.
+
+    foreach exampleName {selected_refs.tcl mark_selected_suffix.tcl remove_selected_suffix.tcl} {
+        fx::resetAll
+        set r1 [fx::makeSelObject $::DboBaseObject_DRAWN_INSTANCE R1 10k]
+        set badSelObj [fx::makeOccurrence BAD bad /BAD {}]
+        set ::fx::selectionObjectsList [list $r1 $badSelObj]
+        lassign [fx::runExample $exampleName] code message output
+        checkTrue "$exampleName filters out a wrong-family selection handle instead of erroring on it" \
+            [expr {$code == 0}]
+    }
+
+    if {!$::fail} {
+        puts {PASS: safety}
+    }
+}
+
 # --- driver ----------------------------------------------------------------
 
-set allSuites {fixture occurrence selection topology write}
+set allSuites {fixture occurrence selection topology write safety}
 set requestedSuite {}
 if {[llength $argv] >= 1} {
     set requestedSuite [lindex $argv 0]
@@ -638,6 +1123,7 @@ foreach suiteName $suitesToRun {
         selection  { suite_selection }
         topology   { suite_topology }
         write      { suite_write }
+        safety     { suite_safety }
     }
 }
 

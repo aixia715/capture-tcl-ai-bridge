@@ -5,16 +5,18 @@ as-is through the bridge, so each file must be fully self-contained -- no
 `source` of a shared TCLBOM helper file, no dependency on TCLBOM procs.
 Four of the seven (the Task 7 examples) are read-only and must never call
 a mutating Dbo API; the other three (the Task 8 examples) exist only to
-mutate a single field after a whole-design uniqueness check, so
-SetPartValue is confined to exactly those three. None of the seven -- read
-or write -- may call RefreshParts or save the design; a write example
-mutating one field is a deliberate, reviewable act, and auto-saving or
-refreshing would turn it into something bigger than the caller asked for.
+mutate a single field after a whole-design uniqueness check, so the real
+Dbo write call, SetEffectivePropStringValue, is confined to exactly those three.
+None of the seven -- read or write -- may call RefreshParts or save the
+design; a write example mutating one field is a deliberate, reviewable
+act, and auto-saving or refreshing would turn it into something bigger
+than the caller asked for.
 
 These are not style checks: an example that quietly depends on _dniWalk
 would work in the TCLBOM tree it was copied from and then fail the moment
 it is sent through the bridge on its own, and a read-only example that
-gains a stray SetPartValue would silently start writing to the design.
+gains a stray SetEffectivePropStringValue would silently start writing to the
+design.
 """
 
 from __future__ import annotations
@@ -82,23 +84,26 @@ def test_example_does_not_source_shared_files(name: str) -> None:
 
 @pytest.mark.parametrize("name", ALL_EXAMPLES)
 def test_example_never_saves_the_design(name: str) -> None:
-    # Even the write examples only ever touch SetPartValue: saving is
-    # always left to the caller, in every one of the seven scripts.
+    # Even the write examples only ever touch SetEffectivePropStringValue:
+    # saving is always left to the caller, in every one of the seven
+    # scripts.
     text = _read(name)
     assert not re.search(r"\bSave\b", text), f"{name} calls Save"
 
 
 @pytest.mark.parametrize("name", ALL_EXAMPLES)
-def test_set_part_value_is_confined_to_write_examples(name: str) -> None:
+def test_set_effective_prop_string_value_is_confined_to_write_examples(name: str) -> None:
     text = _read(name)
-    calls_set_part_value = re.search(r"\bSetPartValue\b", text) is not None
+    calls_set_effective_prop_string_value = (
+        re.search(r"\bSetEffectivePropStringValue\b", text) is not None
+    )
     if name in WRITE_EXAMPLES:
-        assert calls_set_part_value, (
-            f"{name} is a write example but never calls SetPartValue"
+        assert calls_set_effective_prop_string_value, (
+            f"{name} is a write example but never calls SetEffectivePropStringValue"
         )
     else:
-        assert not calls_set_part_value, (
-            f"{name} is read-only but calls SetPartValue"
+        assert not calls_set_effective_prop_string_value, (
+            f"{name} is read-only but calls SetEffectivePropStringValue"
         )
 
 
