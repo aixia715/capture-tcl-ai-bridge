@@ -4,8 +4,9 @@
 全局 Tcl 解释器执行，并把 `puts` 输出、返回值和 Tcl 错误详情原样带回来。
 `puts` 的内容同时保留在 Capture 控制台里，不会被"吞掉"。
 
-桥只监听 `127.0.0.1:8767`，每次启动生成新的随机 Bearer 令牌，且**只能显式启动**
-——加载脚本本身没有任何副作用，也没有空闲自动退出。
+桥只监听 `127.0.0.1:8767`，每次启动生成新的随机 Bearer 令牌。默认**只在你显式
+启动时才开启**——加载脚本本身没有任何副作用，也没有空闲自动退出；需要的话可以
+装一个自启文件让它随 Capture 启动（见[安装](#1-安装)）。
 
 > 这个桥**不是沙箱**。持有令牌就等于拥有 Capture Tcl 控制台的全部权限。
 > 使用前请先读 [docs/security.md](docs/security.md)。
@@ -45,8 +46,20 @@ Capture 16.6 或自定义位置用参数指定：
 ```
 
 安装器不会覆盖任何它无法证明属于自己的文件；被本机改过的文件也默认拒绝覆盖，
-需要显式加 `-ForceOverwriteModified`。它在复制第一个字节之前会检查全部三个目标，
+需要显式加 `-ForceOverwriteModified`。它在复制第一个字节之前会检查全部目标，
 所以被拒绝时机器保持原样。
+
+**可选：Capture 启动时自动开桥**
+
+```powershell
+.\install.ps1 -EnableAutoStart -LogFile C:\temp\capture_ai_bridge.log
+```
+
+这会多装一个 `captureAiBridgeAutoStart.tcl`，省掉每次手动 Start。代价是桥的存在
+时间从"你主动开启时"变成"Capture 开着时"——先读 [docs/security.md](docs/security.md)
+里的取舍说明。`-LogFile` 可选，用来同时打开诊断日志。
+
+`uninstall.ps1` 会一并删除它；只想关掉自启就删这一个文件。
 
 ### 2. 在 Capture 中加载并显式启动
 
@@ -89,7 +102,18 @@ POST /v1/execute
 
 完整协议见 [docs/protocol.md](docs/protocol.md)。
 
-### 5. 停止与卸载
+### 5. 诊断日志（可选）
+
+桥报告给 Capture 控制台的消息不会进入任何脚本的输出。需要留证时：
+
+```tcl
+set ::CaptureAiBridgeLogFile C:/temp/capture_ai_bridge.log
+```
+
+默认关闭；上限 20 MiB（`::CaptureAiBridgeLogLimitBytes`），超限截断并保留最新内容；
+每行带时间戳；不含 Bearer 令牌。装了自启的话用 `-LogFile` 更省事。
+
+### 6. 停止与卸载
 
 ```tcl
 CaptureAiBridgeStop

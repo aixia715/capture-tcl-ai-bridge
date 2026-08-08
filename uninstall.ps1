@@ -5,8 +5,8 @@
 .DESCRIPTION
     Reads %LOCALAPPDATA%\capture-tcl-ai-bridge\install.json and deletes only the
     files it proves this project installed. The manifest is not trusted blindly:
-    the three deletable paths are reconstructed from the recorded target
-    directories, and every recorded entry must match one of them exactly. Any
+    the deletable paths are reconstructed from the recorded target directories,
+    and every recorded entry must match one of them exactly. Any
     surprise - a foreign project, an unsupported schema, a relative path, a
     duplicate, or a path outside the targets - aborts before a single deletion.
 
@@ -27,6 +27,7 @@ $SchemaVersion = 1
 $ServerName = 'capture_tcl_bridge_server.py'
 $CliName = 'capture_tcl_cli.py'
 $TclName = 'captureAiBridge.tcl'
+$AutoStartName = 'captureAiBridgeAutoStart.tcl'
 
 function Stop-Uninstall {
     param([string]$Message)
@@ -87,12 +88,15 @@ $pythonTarget = [IO.Path]::GetFullPath($pythonTarget)
 $captureTclTarget = [IO.Path]::GetFullPath($captureTclTarget)
 
 # The only paths this script may ever delete, rebuilt from the target
-# directories rather than taken from the recorded entries.
+# directories rather than taken from the recorded entries. The auto-start
+# file is optional, so a manifest may record three entries or four; what
+# matters is that nothing outside this set is ever deletable.
 $allowed = @{}
 foreach ($candidate in @(
         (Join-Path $pythonTarget $ServerName),
         (Join-Path $pythonTarget $CliName),
-        (Join-Path $captureTclTarget $TclName))) {
+        (Join-Path $captureTclTarget $TclName),
+        (Join-Path $captureTclTarget $AutoStartName))) {
     $allowed[$candidate.ToLowerInvariant()] = $candidate
 }
 
@@ -117,7 +121,7 @@ foreach ($entry in $files) {
     $key = $canonical.ToLowerInvariant()
     if (-not $allowed.ContainsKey($key)) {
         Stop-Uninstall (
-            "install manifest records '$canonical', which is not one of the three " +
+            "install manifest records '$canonical', which is not one of the " +
             "files this project installs; nothing was removed.")
     }
     if ($seen.ContainsKey($key)) {

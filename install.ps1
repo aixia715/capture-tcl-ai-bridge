@@ -3,10 +3,11 @@
     Installs the Capture Tcl AI bridge runtime files.
 
 .DESCRIPTION
-    Copies exactly three runtime files - the broker, the CLI and the Capture Tcl
-    module - and records them in %LOCALAPPDATA%\capture-tcl-ai-bridge\install.json
-    so captureAiBridge.tcl can find the broker and so uninstall.ps1 can prove
-    which files this project owns.
+    Copies the three runtime files - the broker, the CLI and the Capture Tcl
+    module - plus, with -EnableAutoStart, a fourth that starts the bridge when
+    Capture launches. All of them are recorded in
+    %LOCALAPPDATA%\capture-tcl-ai-bridge\install.json so captureAiBridge.tcl can
+    find the broker and so uninstall.ps1 can prove which files this project owns.
 
     The installer never touches a file it cannot prove it owns. Every target is
     inspected before the first byte is copied, so a blocked target leaves the
@@ -23,11 +24,27 @@
 .PARAMETER ForceOverwriteModified
     Overwrite an owned file whose content no longer matches the manifest, i.e.
     one that was edited in place after installation.
+
+.PARAMETER EnableAutoStart
+    Also install captureAiBridgeAutoStart.tcl, which starts the bridge when
+    Capture launches instead of waiting for an explicit CaptureAiBridgeStart.
+
+    This trades away a security property: without it the bridge exists only
+    while an operator has deliberately opened it, and with it every Capture
+    session opens the localhost port and writes a token file. The localhost
+    binding and per-start token still stand, but they never protected against
+    a process already running as the same Windows user - see docs/security.md.
+
+.PARAMETER LogFile
+    With -EnableAutoStart, the diagnostic log path the auto-start snippet
+    configures. Without it the log stays off.
 #>
 param(
     [string]$PythonTarget = 'C:\tclpython',
     [string]$CaptureTclTarget = 'C:\cadence\SPB_17.4\tools\capture\tclscripts\capAutoLoad',
-    [switch]$ForceOverwriteModified
+    [switch]$ForceOverwriteModified,
+    [switch]$EnableAutoStart,
+    [string]$LogFile = ''
 )
 
 Set-StrictMode -Version 2.0
@@ -163,6 +180,41 @@ if ($null -ne $existing) {
     }
 }
 
+$autoStartName = 'captureAiBridgeAutoStart.tcl'
+$autoStartTarget = Join-Path $canonicalCaptureTclTarget $autoStartName
+$autoStartSource = $null
+if ($EnableAutoStart) {
+    # Built by concatenation rather than a here-string: the body is Tcl full
+    # of $ and {}, and PowerShell would try to expand most of it.
+    $nl = "`r`n"
+    $autoStartBody = (@(
+        '# Starts the Capture Tcl AI bridge when Capture launches.',
+        '#',
+        '# Installed by install.ps1 -EnableAutoStart. Delete this file, or re-run',
+        '# uninstall.ps1, to go back to starting the bridge explicitly.',
+        '#',
+        '# capAutoLoad already sources captureAiBridge.tcl, which only defines',
+        '# commands. This file is what turns that into a start, so the module',
+        '# itself stays free of side effects and re-sourcing it never restarts a',
+        '# bridge that is already running.',
+        '',
+        'if {[llength [info commands CaptureAiBridgeStart]] > 0} {'
+    ) -join $nl) + $nl
+    if (-not [string]::IsNullOrWhiteSpace($LogFile)) {
+        $logPath = (Get-CanonicalPath $LogFile) -replace '\\', '/'
+        $autoStartBody += "    set ::CaptureAiBridgeLogFile {$logPath}" + $nl
+    }
+    $autoStartBody += (@(
+        '    if {!$::CaptureAiBridgeActive && !$::CaptureAiBridgeConnecting} {',
+        '        CaptureAiBridgeStart',
+        '    }',
+        '}'
+    ) -join $nl) + $nl
+    $autoStartSource = Join-Path ([IO.Path]::GetTempPath()) "capture-ai-autostart-$PID.tcl"
+    [IO.File]::WriteAllText($autoStartSource, $autoStartBody,
+        (New-Object System.Text.UTF8Encoding($false)))
+}
+
 $plan = @(
     [pscustomobject]@{
         Source = Join-Path $SourceRoot 'capture_tcl_bridge_server.py'
@@ -177,6 +229,9 @@ $plan = @(
         Target = Join-Path $canonicalCaptureTclTarget 'captureAiBridge.tcl'
     }
 )
+if ($EnableAutoStart) {
+    $plan += [pscustomobject]@{ Source = $autoStartSource; Target = $autoStartTarget }
+}
 
 $actions = @()
 $blocked = @()
@@ -259,5 +314,14 @@ Write-Output "  manifest: $manifestPath"
 Write-Output ''
 Write-Output 'In the Capture Tcl console, load and start the bridge explicitly:'
 Write-Output "  source $sourceArgument"
-Write-Output '  CaptureAiBridgeStart'
-Write-Output '  CaptureAiBridgeStatus'
+if ($EnableAutoStart) {
+    Write-Output ''
+    Write-Output 'Auto-start is enabled: the bridge opens whenever Capture launches.'
+    Write-Output 'Run uninstall.ps1, or delete the auto-start file, to require an'
+    Write-Output 'explicit start again:'
+    Write-Output "  $autoStartTarget"
+} else {
+    Write-Output '  CaptureAiBridgeStart'
+    Write-Output '  CaptureAiBridgeStatus'
+}
+if ($null -ne $autoStartSource) { Remove-Item -LiteralPath $autoStartSource -Force }

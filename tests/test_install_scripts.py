@@ -26,6 +26,7 @@ UNINSTALL = ROOT / "uninstall.ps1"
 SERVER_NAME = "capture_tcl_bridge_server.py"
 CLI_NAME = "capture_tcl_cli.py"
 TCL_NAME = "captureAiBridge.tcl"
+AUTOSTART_NAME = "captureAiBridgeAutoStart.tcl"
 
 pytestmark = pytest.mark.skipif(
     os.name != "nt", reason="the installer targets Windows PowerShell"
@@ -90,6 +91,7 @@ def sandbox(tmp_path: Path) -> SimpleNamespace:
     box.server = box.python_target / SERVER_NAME
     box.cli = box.python_target / CLI_NAME
     box.tcl = box.capture_target / TCL_NAME
+    box.autostart = box.capture_target / AUTOSTART_NAME
     return box
 
 
@@ -150,6 +152,61 @@ def test_install_copies_exactly_the_three_runtime_files(sandbox):
         [SERVER_NAME, CLI_NAME]
     )
     assert [p.name for p in sandbox.capture_target.iterdir()] == [TCL_NAME]
+
+
+def test_install_does_not_auto_start_unless_asked(sandbox):
+    """Auto-start widens the exposure window, so it is never the default."""
+    _install(sandbox)
+
+    assert not sandbox.autostart.exists()
+    manifest = _manifest(sandbox)
+    assert AUTOSTART_NAME not in json.dumps(manifest)
+
+
+def test_enable_auto_start_installs_a_fourth_owned_file(sandbox):
+    result = _install(sandbox, "-EnableAutoStart")
+
+    assert result.returncode == 0, result.stderr
+    body = sandbox.autostart.read_text(encoding="utf-8")
+    assert "CaptureAiBridgeStart" in body
+    recorded = {entry["path"] for entry in _manifest(sandbox)["files"]}
+    assert str(sandbox.autostart.resolve()) in recorded
+
+
+def test_enable_auto_start_can_configure_the_diagnostic_log(sandbox, tmp_path):
+    log = tmp_path / "bridge.log"
+
+    _install(sandbox, "-EnableAutoStart", "-LogFile", str(log))
+
+    body = sandbox.autostart.read_text(encoding="utf-8")
+    assert "::CaptureAiBridgeLogFile" in body
+    assert log.as_posix() in body.replace("\\", "/")
+
+
+def test_uninstall_removes_the_auto_start_file_too(sandbox):
+    _install(sandbox, "-EnableAutoStart")
+
+    result = _uninstall(sandbox)
+
+    assert result.returncode == 0, result.stderr
+    assert not sandbox.autostart.exists()
+    assert not sandbox.manifest_path.exists()
+
+
+def test_uninstall_still_refuses_a_path_outside_the_four_targets(sandbox, tmp_path):
+    _install(sandbox, "-EnableAutoStart")
+    outsider = tmp_path / "elsewhere" / AUTOSTART_NAME
+    outsider.parent.mkdir(parents=True)
+    shutil.copyfile(sandbox.autostart, outsider)
+    manifest = _manifest(sandbox)
+    manifest["files"].append({"path": str(outsider), "sha256": _sha256(outsider)})
+    sandbox.manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    result = _uninstall(sandbox)
+
+    assert result.returncode != 0
+    assert outsider.exists()
+    assert sandbox.autostart.exists(), "a rejected manifest must delete nothing"
 
 
 def test_install_reports_the_source_and_start_commands(sandbox):
