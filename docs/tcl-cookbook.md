@@ -325,8 +325,12 @@ proc _listComponentsWalk {st occHandle} {
     try {
         while {1} {
             set child [$childrenIter NextOccurrence $st]
-            _requireOk $st {NextOccurrence}
+            # A finished iterator returns NULL and at the same time sets the
+            # status to error 1022 ("At normal end of iteration"), so the
+            # sentinel has to be tested before the status -- checking status
+            # first turns every completed walk into a reported failure.
             if {$child eq {NULL}} { break }
+            _requireOk $st {NextOccurrence}
             _listComponentsWalk $st $child
         }
     } finally {
@@ -620,8 +624,12 @@ proc _findComponentByRefdes {st occHandle targetRefdes matchesVar} {
     try {
         while {1} {
             set child [$childrenIter NextOccurrence $st]
-            _requireOk $st {NextOccurrence}
+            # A finished iterator returns NULL and at the same time sets the
+            # status to error 1022 ("At normal end of iteration"), so the
+            # sentinel has to be tested before the status -- checking status
+            # first turns every completed walk into a reported failure.
             if {$child eq {NULL}} { break }
+            _requireOk $st {NextOccurrence}
             _findComponentByRefdes $st $child $targetRefdes matches
         }
     } finally {
@@ -831,8 +839,12 @@ try {
     try {
         while {1} {
             set net [$netsIter NextFlatNet $st]
-            _requireOk $st {NextFlatNet}
+            # A finished iterator returns NULL and at the same time sets the
+            # status to error 1022 ("At normal end of iteration"), so the
+            # sentinel has to be tested before the status -- checking status
+            # first turns every completed walk into a reported failure.
             if {$net eq {NULL}} { break }
+            _requireOk $st {NextFlatNet}
 
             set netName [_stringOut $net GetName {GetName(net)}]
             puts [dict create net $netName]
@@ -842,8 +854,12 @@ try {
             try {
                 while {1} {
                     set port [$portsIter NextPortOccurrence $st]
-                    _requireOk $st {NextPortOccurrence}
+                    # A finished iterator returns NULL and at the same time sets the
+                    # status to error 1022 ("At normal end of iteration"), so the
+                    # sentinel has to be tested before the status -- checking status
+                    # first turns every completed walk into a reported failure.
                     if {$port eq {NULL}} { break }
+                    _requireOk $st {NextPortOccurrence}
                     set portName [_stringOut $port GetName {GetName(port)}]
                     puts [dict create net $netName port $portName]
                 }
@@ -860,8 +876,12 @@ try {
                 set netOccurrenceCount 0
                 while {1} {
                     set netOcc [$netOccIter NextNetOccurrence $st]
-                    _requireOk $st {NextNetOccurrence}
+                    # A finished iterator returns NULL and at the same time sets the
+                    # status to error 1022 ("At normal end of iteration"), so the
+                    # sentinel has to be tested before the status -- checking status
+                    # first turns every completed walk into a reported failure.
                     if {$netOcc eq {NULL}} { break }
+                    _requireOk $st {NextNetOccurrence}
                     incr netOccurrenceCount
                     # UNCONFIRMED: no field of a net occurrence (refdes,
                     # pin name, pin number, owning component) is
@@ -1063,8 +1083,12 @@ proc _findComponentByRefdes {st occHandle targetRefdes matchesVar} {
     try {
         while {1} {
             set child [$childrenIter NextOccurrence $st]
-            _requireOk $st {NextOccurrence}
+            # A finished iterator returns NULL and at the same time sets the
+            # status to error 1022 ("At normal end of iteration"), so the
+            # sentinel has to be tested before the status -- checking status
+            # first turns every completed walk into a reported failure.
             if {$child eq {NULL}} { break }
+            _requireOk $st {NextOccurrence}
             _findComponentByRefdes $st $child $targetRefdes matches
         }
     } finally {

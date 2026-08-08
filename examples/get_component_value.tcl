@@ -100,8 +100,12 @@ proc _findComponentByRefdes {st occHandle targetRefdes matchesVar} {
     try {
         while {1} {
             set child [$childrenIter NextOccurrence $st]
-            _requireOk $st {NextOccurrence}
+            # A finished iterator returns NULL and at the same time sets the
+            # status to error 1022 ("At normal end of iteration"), so the
+            # sentinel has to be tested before the status -- checking status
+            # first turns every completed walk into a reported failure.
             if {$child eq {NULL}} { break }
+            _requireOk $st {NextOccurrence}
             _findComponentByRefdes $st $child $targetRefdes matches
         }
     } finally {

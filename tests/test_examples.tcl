@@ -111,6 +111,8 @@ proc fx::resetAll {} {
     # reads/writes on a selection object are base-class calls and carry no
     # downcast, hence no crash risk, regardless of the object's concrete type.
     set ::fx::unsafeInstOccurrenceDowncasts 0
+    array unset ::fx::iterForceFail
+    unset -nocomplain ::fx::iterFailAllWith
 }
 fx::resetAll
 
@@ -122,6 +124,15 @@ proc fx::makeState {} {
     set ::fx::stCode($handle) 0
     set ::fx::stMessage($handle) OK
     return $handle
+}
+
+proc fx::okState {handle} {
+    # Every successful Dbo call resets its status object. Modelling this is
+    # what keeps the error-1022 a finished iterator leaves behind from
+    # poisoning every later call that shares the same DboState.
+    set ::fx::stOK($handle) 1
+    set ::fx::stCode($handle) 0
+    set ::fx::stMessage($handle) OK
 }
 
 proc fx::failState {handle code message} {
@@ -318,6 +329,7 @@ proc fx::occDispatch {handle method argsList} {
         }
         IsPrimitive {
             set st [lindex $argsList 0]
+            fx::okState $st
             if {[fx::consumeForceFail occForceFail $handle IsPrimitive]} {
                 fx::failState $st 1 {forced failure: IsPrimitive}
                 return 0
@@ -326,6 +338,7 @@ proc fx::occDispatch {handle method argsList} {
         }
         NewChildrenIter {
             set st [lindex $argsList 0]
+            fx::okState $st
             if {[fx::consumeForceFail occForceFail $handle NewChildrenIter]} {
                 fx::failState $st 1 {forced failure: NewChildrenIter}
                 return {}
@@ -466,31 +479,61 @@ proc fx::iterAdvance {handle st} {
     }
     set items $::fx::iterItems($handle)
     set idx $::fx::iterIndex($handle)
-    if {$idx >= [llength $items]} { return NULL }
+    if {$idx >= [llength $items]} {
+        # Real Capture reports a *finished* iteration as a failure: the step
+        # returns the NULL sentinel and simultaneously sets the status to
+        # error 1022, "At normal end of iteration". A fixture that returned
+        # NULL with an OK status would happily accept a status-before-
+        # sentinel check and let it blow up only on real hardware -- which
+        # is exactly what happened, on the very first real-Capture run.
+        fx::failState $st 1022 {ERROR(ORDBDLL-1022): At normal end of iteration}
+        return NULL
+    }
+    fx::okState $st
+    if {[info exists ::fx::iterFailAllWith]} {
+        lassign $::fx::iterFailAllWith code message
+        fx::failState $st $code $message
+    }
+    if {[info exists ::fx::iterForceFail($handle)]} {
+        # A genuine iterator error, i.e. one that reports failure while
+        # still handing back a real handle. Testing the sentinel first must
+        # not degenerate into never checking the status at all.
+        lassign $::fx::iterForceFail($handle) code message
+        fx::failState $st $code $message
+    }
     set ::fx::iterIndex($handle) [expr {$idx + 1}]
     return [lindex $items $idx]
+}
+
+proc fx::forceIterFailure {handle code message} {
+    set ::fx::iterForceFail($handle) [list $code $message]
 }
 
 proc fx::iterDispatch {handle method argsList} {
     switch -exact -- $method {
         Sort {
             set st [lindex $argsList 0]
+            fx::okState $st
             return {}
         }
         NextOccurrence {
             set st [lindex $argsList 0]
+            fx::okState $st
             return [fx::iterAdvance $handle $st]
         }
         NextFlatNet {
             set st [lindex $argsList 0]
+            fx::okState $st
             return [fx::iterAdvance $handle $st]
         }
         NextPortOccurrence {
             set st [lindex $argsList 0]
+            fx::okState $st
             return [fx::iterAdvance $handle $st]
         }
         NextNetOccurrence {
             set st [lindex $argsList 0]
+            fx::okState $st
             return [fx::iterAdvance $handle $st]
         }
         default { error "fake iterator: unsupported method \"$method\"" }
@@ -559,10 +602,12 @@ proc fx::netDispatch {handle method argsList} {
         }
         NewPortOccurrencesIter {
             set st [lindex $argsList 0]
+            fx::okState $st
             return [fx::makeListIter ports $::fx::netPorts($handle)]
         }
         NewNetOccurrencesIter {
             set st [lindex $argsList 0]
+            fx::okState $st
             return [fx::makeListIter netOccs $::fx::netNetOccs($handle)]
         }
         default { error "fake flat net: unsupported method \"$method\"" }
@@ -620,10 +665,12 @@ proc fx::designDispatch {handle method argsList} {
     switch -exact -- $method {
         GetRootOccurrence {
             set st [lindex $argsList 0]
+            fx::okState $st
             return $::fx::designRoot($handle)
         }
         NewFlatNetsIter {
             set st [lindex $argsList 0]
+            fx::okState $st
             return [fx::makeListIter flatNets $::fx::designFlatNets($handle)]
         }
         Save {
@@ -831,6 +878,21 @@ proc suite_occurrence {} {
     check {list_components.tcl never mutates the design} $::fx::setPropCalls 0
     check {list_components.tcl never attempts an unsafe downcast} \
         $::fx::unsafeInstOccurrenceDowncasts 0
+
+    # Testing the NULL sentinel before the status is what stops a *finished*
+    # iterator (which reports error 1022) from looking like a failure. It
+    # must not turn into "never check the step's status": a genuine iterator
+    # error, one that reports failure while still handing back a real
+    # handle, still has to surface.
+    fx::resetAll
+    lassign [fx::buildDuplicateC3Tree] root r1 c3u1 c3u2
+    set ::fx::activeDesign [fx::makeDesign $root {}]
+    set ::fx::iterFailAllWith [list 77 {forced iterator failure}]
+    lassign [fx::runExample list_components.tcl] code message output
+    check {a real iterator error still fails the walk} $code 1
+    checkTrue {a real iterator error reports its own message} \
+        [expr {[string first {forced iterator failure} $message] >= 0}]
+    unset ::fx::iterFailAllWith
 
     # get_component_value.tcl hardcodes `set targetRefdes C3` at the top of
     # the script, so the three cases below vary the fixture instead of the
