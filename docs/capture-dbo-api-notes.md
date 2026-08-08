@@ -54,6 +54,45 @@ if {[llength [info commands delete_DboFlatNetNetOccurrencesIter]] > 0} {
 
 名字对就正常释放，名字错就静默跳过，两种情况都不会崩。
 
+## 事故记录：`$design GetName $cstring` 会让 Capture 闪退
+
+2026-08-08，为了确认"当前活动的是哪个设计"，执行了：
+
+```tcl
+set design [GetActivePMDesign]
+set nameC  [DboTclHelper_sMakeCString]
+set st2    [$design GetName $nameC]      ;# <-- Capture 卡死，随后闪退
+```
+
+签名是**从 `GetReference` 类比推来的，没有先探测**。结果先是 Tcl 线程卡死
+（桥状态变成 `disconnected, busy`），随后整个 Capture 进程消失。
+
+**违反的是本文件自己写的规则**：调用任何未确认的方法前，先用零参数调用逼出签名。
+`GetName` 出现在 `DboBaseObject` 的方法表里，但"方法存在"不等于"这样调是对的"。
+
+判定当前活动设计的安全做法尚未确立。下次要做，先探测再调用：
+
+```tcl
+catch {DboDesign_GetName} m ; puts $m
+catch {DboBaseObject_GetName} m ; puts $m
+```
+
+顺带两条：
+
+- **崩溃在诊断日志里不留痕迹。** 进程被硬杀，桥来不及写任何东西。日志能查
+  协议错误和刷屏，查不了崩溃。
+- **崩溃后的清理是可靠的。** 实测 Capture 消失后，服务端自行退出、
+  `%TEMP%` 描述文件被删除、8767 端口无监听——父进程 watchdog 按设计工作。
+
+## GUI 命令：另一类风险
+
+`Open`、`capOpenDesign`、`capOpenProject`、`capFileOpen` 是内建的 **GUI 命令**。
+对它们**不能**用"零参数逼签名"这招——参数不足很可能不是报错，而是**弹出模态
+对话框**，把 Capture 的 Tcl 线程一直阻塞到有人去点它。
+
+Cadence 自己脚本里唯一带路径参数的 `capOpenDesignDialog` 实际也是弹文件选择框。
+**目前没有已确认的、程序化打开设计的命令**；需要打开某个设计，请人工操作。
+
 ## 状态对象
 
 几乎所有会失败的调用都要一个 `DboState`：
