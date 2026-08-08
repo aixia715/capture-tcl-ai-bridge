@@ -312,15 +312,17 @@ Write-Output "Installed ${ProjectName}:"
 foreach ($item in $plan) { Write-Output "  $($item.Target)" }
 Write-Output "  manifest: $manifestPath"
 Write-Output ''
-Write-Output 'In the Capture Tcl console, load and start the bridge explicitly:'
-Write-Output "  source $sourceArgument"
 if ($EnableAutoStart) {
-    Write-Output ''
     Write-Output 'Auto-start is enabled: the bridge opens whenever Capture launches.'
-    Write-Output 'Run uninstall.ps1, or delete the auto-start file, to require an'
-    Write-Output 'explicit start again:'
+    Write-Output 'Restart Capture, or start it once by hand, to pick this up:'
+    Write-Output "  source $sourceArgument"
+    Write-Output '  CaptureAiBridgeStart'
+    Write-Output ''
+    Write-Output 'To require an explicit start again, run uninstall.ps1 or delete:'
     Write-Output "  $autoStartTarget"
 } else {
+    Write-Output 'In the Capture Tcl console, load and start the bridge explicitly:'
+    Write-Output "  source $sourceArgument"
     Write-Output '  CaptureAiBridgeStart'
     Write-Output '  CaptureAiBridgeStatus'
 }
