@@ -65,6 +65,25 @@ source C:/cadence/SPB_17.4/tools/capture/tclscripts/capAutoLoad/captureAiBridge.
 注意 `source` 的是**已安装**的那份文件，不是仓库里的源文件——
 改完仓库要先跑 `.\install.ps1` 才会同步过去。
 
+## 想留下桥自己的诊断记录
+
+桥报告给 Capture 控制台的消息（启动、停止、连接、协议失败）不会进入任何脚本的
+输出，所以从 Capture 外面看不到。需要留证时，`source` 之后设置一个路径即可
+把这些消息同时写一份到文件：
+
+```tcl
+set ::CaptureAiBridgeLogFile C:/temp/capture_ai_bridge.log
+```
+
+- **默认关闭**，不设路径就不写任何文件。
+- 上限默认 20 MiB（`::CaptureAiBridgeLogLimitBytes`）。超过后**截断重来**并写一行
+  说明，保留最新内容而不是拒绝记录或撑爆磁盘。
+- 每行带时间戳，便于判断同一个错误是报了一次还是在刷屏。
+- **不含 Bearer 令牌**：消息本身已脱敏，写文件时还会再无条件替换一次令牌。
+- 日志路径写不进去（目录不存在、无权限）不会影响桥运行，静默跳过。
+
+日志里含有桥的错误消息，可能包含脚本片段，看完请自行决定是否删除。
+
 ## 控制台反复刷 HTTP 400
 
 现象：Capture 控制台不断出现桥的协议错误。

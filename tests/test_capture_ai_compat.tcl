@@ -18,6 +18,13 @@ proc check {description actual expected} {
     }
 }
 
+proc checkTrue {description value} {
+    if {!$value} {
+        puts stderr "FAIL: $description"
+        set ::fail 1
+    }
+}
+
 proc checkError {description script expected} {
     if {[catch {uplevel 1 $script} message] == 0} {
         puts stderr "FAIL: $description -> no error, want '$expected'"
@@ -199,6 +206,73 @@ check {escapes the whitespace controls} \
 set awkward "tab\there \"quoted\" \\ back\nnewline \u4e2d"
 set roundTrip [_captureAiJsonParse "{\"s\":[_captureAiJsonQuote $awkward]}"]
 check {round trips the module's own quoting} [dict get $roundTrip s] $awkward
+
+# --- optional diagnostic log ----------------------------------------------
+#
+# The bridge reports its own lifecycle and protocol failures to the Capture
+# console with `puts stderr`. Those never reach a submitted script, so from
+# outside Capture there is no way to tell whether a repeated failure was
+# reported once or flooded the console. An opt-in file mirror makes that
+# checkable. It is off unless a path is set, it is capped so it cannot fill
+# a disk, and it must never contain a bearer token.
+
+set logRoot [file normalize [file join [pwd] capture-ai-log-[pid]]]
+file mkdir $logRoot
+set logPath [file join $logRoot bridge.log]
+
+set ::CaptureAiBridgeLogFile {}
+_captureAiConsole {silent message}
+check {no log file is written until one is configured} [file exists $logPath] 0
+
+set ::CaptureAiBridgeLogFile $logPath
+_captureAiConsole {first message}
+_captureAiConsole {second message}
+set channel [open $logPath r]
+set logged [read $channel]
+close $channel
+checkTrue {a configured log records the first message} \
+    [expr {[string first {first message} $logged] >= 0}]
+checkTrue {a configured log records the second message} \
+    [expr {[string first {second message} $logged] >= 0}]
+checkTrue {logged lines are timestamped} \
+    [expr {[regexp {^\[[0-9]{4}-[0-9]{2}-[0-9]{2} } $logged]}]
+
+# A token must never reach the log, whatever a caller passes through.
+set ::CaptureAiBridgeToken {super-secret-token-value}
+_captureAiConsole "request used $::CaptureAiBridgeToken here"
+set channel [open $logPath r]
+set logged [read $channel]
+close $channel
+check {the log never records the bearer token} \
+    [string first {super-secret-token-value} $logged] -1
+set ::CaptureAiBridgeToken {}
+
+# The cap keeps the newest output rather than refusing to log or growing
+# without bound; a truncation marker says the earlier content went away.
+set ::CaptureAiBridgeLogLimitBytes 4096
+set channel [open $logPath w]
+puts -nonewline $channel [string repeat x 5000]
+close $channel
+_captureAiConsole {after the cap was exceeded}
+check {an oversized log is truncated} \
+    [expr {[file size $logPath] < 4096}] 1
+set channel [open $logPath r]
+set logged [read $channel]
+close $channel
+checkTrue {the newest message survives truncation} \
+    [expr {[string first {after the cap was exceeded} $logged] >= 0}]
+checkTrue {truncation is announced} \
+    [expr {[string first {truncated} $logged] >= 0}]
+check {the dropped content is really gone} [string first xxxxx $logged] -1
+
+# A broken log destination must never take the bridge down with it.
+set ::CaptureAiBridgeLogFile [file join $logRoot no-such-dir sub bridge.log]
+check {an unwritable log path does not raise} \
+    [catch {_captureAiConsole {still fine}}] 0
+
+set ::CaptureAiBridgeLogFile {}
+set ::CaptureAiBridgeLogLimitBytes 20971520
+file delete -force -- $logRoot
 
 if {$::fail} {
     puts stderr {FAIL: capture AI bridge Tcl compatibility layer}

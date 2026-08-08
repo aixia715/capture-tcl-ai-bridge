@@ -34,6 +34,11 @@ if {![info exists ::CaptureAiBridgePollingHalted]} { set ::CaptureAiBridgePollin
 if {![info exists ::CaptureAiBridgeProtocolError]} { set ::CaptureAiBridgeProtocolError {} }
 if {![info exists ::CaptureAiBridgePythonPath]} { set ::CaptureAiBridgePythonPath {} }
 
+if {![info exists ::CaptureAiBridgeLogFile]} { set ::CaptureAiBridgeLogFile {} }
+if {![info exists ::CaptureAiBridgeLogLimitBytes]} {
+    set ::CaptureAiBridgeLogLimitBytes 20971520
+}
+
 # --- Tcl 8.4 compatibility -------------------------------------------------
 #
 # OrCAD Capture 16.6 embeds Tcl 8.4.15, which has no dict, no lassign and no
@@ -969,9 +974,62 @@ proc _captureAiSchedulePollRetry {generation} {
         [expr {$retryMax < $doubled ? $retryMax : $doubled}]
 }
 
+# --- console reporting ------------------------------------------------------
+#
+# Everything the bridge tells the operator goes through here. It always
+# writes to the Capture console, exactly as before; when
+# ::CaptureAiBridgeLogFile names a path it also appends a timestamped copy,
+# which is the only way to inspect these messages from outside Capture --
+# they never reach a submitted script, so nothing else can observe whether a
+# repeated failure was reported once or flooded the console.
+#
+# Messages reaching here are already sanitized by _captureAiSafeError; the
+# log is a mirror, not a second formatting path, so it cannot leak more than
+# the console already shows.
+
+proc _captureAiConsole {message} {
+    puts stderr $message
+    if {$::CaptureAiBridgeLogFile eq {}} { return }
+    # A broken or unwritable log destination must never take down the bridge
+    # or a running command, so every failure here is swallowed deliberately.
+    catch {
+        set path $::CaptureAiBridgeLogFile
+        set limit $::CaptureAiBridgeLogLimitBytes
+        set truncated 0
+        if {[string is integer -strict $limit] && $limit > 0 &&
+            [file exists $path] && [file size $path] >= $limit} {
+            # Keep the newest output rather than refusing to log or growing
+            # without bound: recent events are what a diagnosis needs.
+            set channel [open $path w]
+            close $channel
+            set truncated 1
+        }
+        set channel [open $path a]
+        try {
+            fconfigure $channel -encoding utf-8
+            # The console is transient; this file is not. Callers already
+            # sanitize through _captureAiSafeError, but a persisted artifact
+            # deserves a second, unconditional scrub of the one secret the
+            # bridge holds.
+            set safe $message
+            if {$::CaptureAiBridgeToken ne {}} {
+                set safe [string map \
+                    [list $::CaptureAiBridgeToken {<token redacted>}] $safe]
+            }
+            set stamp [clock format [clock seconds] -format {%Y-%m-%d %H:%M:%S}]
+            if {$truncated} {
+                puts $channel "\[$stamp\] --- earlier log content truncated at ${limit} bytes ---"
+            }
+            puts $channel "\[$stamp\] $safe"
+        } finally {
+            close $channel
+        }
+    }
+}
+
 proc _captureAiReportPollError {fingerprint message} {
     if {$::CaptureAiBridgeLastPollError ne $fingerprint} {
-        puts stderr "Capture AI bridge poll failed: [_captureAiSafeError $message]"
+        _captureAiConsole "Capture AI bridge poll failed: [_captureAiSafeError $message]"
         set ::CaptureAiBridgeLastPollError $fingerprint
     }
 }
@@ -1448,14 +1506,14 @@ proc _captureAiFinishStop {generation attempt} {
     }
     if {$attempt >= 59 &&
         $::CaptureAiBridgeLaunchRevoked && $::CaptureAiBridgeExtraGrace} {
-        puts stderr {Capture AI bridge received no stopped acknowledgement after managed launch revocation; releasing local lifecycle state}
+        _captureAiConsole {Capture AI bridge received no stopped acknowledgement after managed launch revocation; releasing local lifecycle state}
         _captureAiCompleteStopped $generation 0
         return
     }
     if {$attempt >= 39 && $::CaptureAiBridgeLaunchManaged} {
         set revokeState [_captureAiRevokeManagedLaunch]
         if {$revokeState eq "retry"} {
-            puts stderr "Capture AI bridge managed launch revocation is blocked; retrying: $::CaptureAiBridgeStopError"
+            _captureAiConsole "Capture AI bridge managed launch revocation is blocked; retrying: $::CaptureAiBridgeStopError"
             set ::CaptureAiBridgeAfterId [after 1000 \
                 [list _captureAiFinishStop $generation 39]]
             return
@@ -1466,7 +1524,7 @@ proc _captureAiFinishStop {generation attempt} {
     }
     if {$attempt >= 39 &&
         $::CaptureAiBridgeLaunchRevoked && !$::CaptureAiBridgeExtraGrace} {
-        puts stderr {Capture AI bridge received no stopped acknowledgement after launch revocation; releasing local lifecycle state}
+        _captureAiConsole {Capture AI bridge received no stopped acknowledgement after launch revocation; releasing local lifecycle state}
         _captureAiCompleteStopped $generation 0
         return
     }
@@ -1475,7 +1533,7 @@ proc _captureAiFinishStop {generation attempt} {
         !$::CaptureAiBridgeLaunchManaged} {
         set revokeState [_captureAiRevokeLaunch]
         if {$revokeState eq "retry"} {
-            puts stderr "Capture AI bridge launch revocation is blocked; retrying: $::CaptureAiBridgeStopError"
+            _captureAiConsole "Capture AI bridge launch revocation is blocked; retrying: $::CaptureAiBridgeStopError"
             set ::CaptureAiBridgeAfterId [after 1000 \
                 [list _captureAiFinishStop $generation 19]]
             return
@@ -1487,7 +1545,7 @@ proc _captureAiFinishStop {generation attempt} {
                 set ::CaptureAiBridgeStopError \
                     {server has not yet written its stopped acknowledgement}
             }
-            puts stderr "Capture AI bridge polling stopped; still watching for late server acknowledgement: $::CaptureAiBridgeStopError"
+            _captureAiConsole "Capture AI bridge polling stopped; still watching for late server acknowledgement: $::CaptureAiBridgeStopError"
         }
         set ::CaptureAiBridgeAfterId [after $::CaptureAiBridgePollMs \
             [list _captureAiFinishStop $generation 20]]
@@ -1585,7 +1643,7 @@ proc _captureAiConnect {generation {attempt {}}} {
     set ::CaptureAiBridgeBaseUrl {}
     if {$attempt >= 19} {
         set ::CaptureAiBridgeConnecting 0
-        puts stderr "Capture AI bridge failed to start on 127.0.0.1:$::CaptureAiBridgePort (port conflict or server startup failure): $safeConnectError"
+        _captureAiConsole "Capture AI bridge failed to start on 127.0.0.1:$::CaptureAiBridgePort (port conflict or server startup failure): $safeConnectError"
         set ackCode [catch {
             _captureAiReadStoppedAck \
                 $::CaptureAiBridgeAckFile $::CaptureAiBridgeLaunchNonce
@@ -1629,13 +1687,13 @@ proc CaptureAiBridgeStart {} {
         return
     }
     if {[catch {package require http} packageError]} {
-        puts stderr "Capture AI bridge requires Tcl http package: $packageError"
+        _captureAiConsole "Capture AI bridge requires Tcl http package: $packageError"
         return
     }
     set pythonRoot [_captureAiResolvePythonPath]
     set serverScript [file join $pythonRoot capture_tcl_bridge_server.py]
     if {![file exists $serverScript]} {
-        puts stderr "Capture AI bridge server not found: $serverScript"
+        _captureAiConsole "Capture AI bridge server not found: $serverScript"
         return
     }
 
@@ -1646,7 +1704,7 @@ proc CaptureAiBridgeStart {} {
     if {[catch {
         set signals [_captureAiCreateLaunchSignals $generation]
     } signalError]} {
-        puts stderr "Capture AI bridge could not create its launch signals: $signalError"
+        _captureAiConsole "Capture AI bridge could not create its launch signals: $signalError"
         return
     }
     set launchFile [dict get $signals launchFile]
@@ -1687,7 +1745,7 @@ proc CaptureAiBridgeStart {} {
         set ::CaptureAiBridgeLaunchRevoked 0
         set ::CaptureAiBridgeLaunchManaged 0
         set ::CaptureAiBridgeExtraGrace 0
-        puts stderr "Capture AI bridge failed to launch: [_captureAiSafeError $launchResult]"
+        _captureAiConsole "Capture AI bridge failed to launch: [_captureAiSafeError $launchResult]"
         return
     }
     set childPid [lindex $launchResult 0]
@@ -1697,7 +1755,7 @@ proc CaptureAiBridgeStart {} {
         set ::CaptureAiBridgeStopping 1
         set ::CaptureAiBridgeAfterId [after $::CaptureAiBridgePollMs \
             [list _captureAiFinishStop $generation 0]]
-        puts stderr {Capture AI bridge launcher did not return a valid child PID.}
+        _captureAiConsole {Capture AI bridge launcher did not return a valid child PID.}
         return
     }
     set ::CaptureAiBridgeOwnedPid $childPid
@@ -1708,11 +1766,11 @@ proc CaptureAiBridgeStart {} {
 
 proc CaptureAiBridgeStatus {} {
     if {$::CaptureAiBridgeStopError ne {}} {
-        puts stderr "Capture AI bridge polling stopped; server cleanup required: $::CaptureAiBridgeStopError"
+        _captureAiConsole "Capture AI bridge polling stopped; server cleanup required: $::CaptureAiBridgeStopError"
     } elseif {$::CaptureAiBridgeStopping} {
         puts {Capture AI bridge stopping; waiting for server acknowledgement}
     } elseif {$::CaptureAiBridgePollingHalted} {
-        puts stderr "Capture AI bridge polling halted by protocol error: $::CaptureAiBridgeProtocolError"
+        _captureAiConsole "Capture AI bridge polling halted by protocol error: $::CaptureAiBridgeProtocolError"
     } elseif {$::CaptureAiBridgeActive} {
         puts "Capture AI bridge running at $::CaptureAiBridgeBaseUrl"
     } elseif {$::CaptureAiBridgeConnecting} {
@@ -1774,11 +1832,11 @@ proc CaptureAiBridgeStop {} {
                 set safeShutdownError [_captureAiSafeError $shutdownError]
                 set ::CaptureAiBridgeStopError \
                     "legacy authenticated shutdown failed: $safeShutdownError"
-                puts stderr "Capture AI bridge polling stopped; server cleanup required: $::CaptureAiBridgeStopError"
+                _captureAiConsole "Capture AI bridge polling stopped; server cleanup required: $::CaptureAiBridgeStopError"
             }
         } else {
             set ::CaptureAiBridgeStopError {launch control is unavailable}
-            puts stderr "Capture AI bridge polling stopped; server cleanup required: $::CaptureAiBridgeStopError"
+            _captureAiConsole "Capture AI bridge polling stopped; server cleanup required: $::CaptureAiBridgeStopError"
         }
         return
     }
@@ -1800,7 +1858,7 @@ proc CaptureAiBridgeStop {} {
         set ::CaptureAiBridgeBaseUrl {}
         set ::CaptureAiBridgeStopError \
             "could not create launch cancellation request: [_captureAiSafeError $markerState]"
-        puts stderr "Capture AI bridge polling stopped; server cleanup required: $::CaptureAiBridgeStopError"
+        _captureAiConsole "Capture AI bridge polling stopped; server cleanup required: $::CaptureAiBridgeStopError"
         return
     }
     set ::CaptureAiBridgeStopping 1
@@ -1812,7 +1870,7 @@ proc CaptureAiBridgeStop {} {
             return
         }
         if {$shutdownCode != 0} {
-            puts stderr "Capture AI bridge shutdown response was lost; waiting for launch cancellation: [_captureAiSafeError $shutdownError]"
+            _captureAiConsole "Capture AI bridge shutdown response was lost; waiting for launch cancellation: [_captureAiSafeError $shutdownError]"
         }
     }
     if {$stopGeneration != $::CaptureAiBridgeGeneration} {
