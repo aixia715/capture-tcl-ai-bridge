@@ -194,6 +194,30 @@ delete_DboOccurrenceChildrenIter $lIter
 $lStatus -delete
 ```
 
+### ⚠️ 迭代正常结束会把 status 设成"错误"
+
+**实测**：迭代取完最后一个元素后，下一次 `NextOccurrence` 会返回 `"NULL"`，
+**同时**把 status 置为：
+
+```
+ERROR(ORDBDLL-1022): At normal end of iteration
+```
+
+也就是说"正常结束"在 status 里表现为**错误码 1022**。如果在迭代步之后无条件
+`[$st OK]` 检查，每次遍历都会在正常结束时误报失败。
+
+Cadence 自己的脚本（`capRecurseParts.tcl`）**根本不检查迭代步的 status**，
+只判 `!= "NULL"`。本项目的写法是两者结合——先判哨兵，只有真的拿到句柄时
+才校验状态：
+
+```tcl
+set lChild [$lIter NextOccurrence $st]
+if { $lChild eq "NULL" } { break }   ;# 先判哨兵，1022 就落在这里
+_requireOk $st {NextOccurrence}      ;# 拿到句柄了才追究状态
+```
+
+这样既不会把正常结束当失败，又不会像 Cadence 那样把真实错误一并吞掉。
+
 要点，每一条都和本项目第一版示例的写法不同：
 
 | 项 | 正确写法 | 第一版错误写法 |
