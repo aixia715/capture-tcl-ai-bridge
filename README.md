@@ -174,3 +174,7 @@ tclsh tests\test_capture_ai_compat.tcl
 
 Tcl 套件在 8.4 和 8.6 上都必须通过。若 PATH 上的 `tclsh` 不是要验证的版本，
 用 `CAPTURE_TCL_TCLSH` 指定集成测试使用的解释器。
+
+## 许可证
+
+本项目采用 [MIT License](LICENSE)。

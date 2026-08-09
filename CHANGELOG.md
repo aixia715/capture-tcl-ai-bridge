@@ -15,6 +15,7 @@
 - Windows 安装、可选自启和保守卸载脚本。
 - 原理图只读检查、器件属性修改、headless DSN BOM 及 flat-net 拓扑示例。
 - 中文协议、安全、故障排查、Cookbook 和真实 Capture 验收文档。
+- MIT License。
 
 ### Validated
 
