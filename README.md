@@ -1,6 +1,7 @@
 # Capture Tcl AI Bridge
 
-当前预发布版本：**0.1.0-beta.1**。版本变化见 [CHANGELOG.md](CHANGELOG.md)。
+当前开发版本：**0.1.0-beta.2-dev**；最新预发布版本是 **0.1.0-beta.1**。
+版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 把本机 AI 客户端或人工命令行提交的多行 Tcl，交给**正在运行的** OrCAD Capture
 全局 Tcl 解释器执行，并把 `puts` 输出、返回值和 Tcl 错误详情原样带回来。
@@ -80,6 +81,16 @@ CaptureAiBridgeStatus
 启动后 `CaptureAiBridgeStatus` 应显示运行在 `127.0.0.1:8767`。
 每次修改 `captureAiBridge.tcl` 后都要重新 `source`。
 
+查看 Capture 当前实际加载的桥版本：
+
+```tcl
+puts $::CaptureAiBridgeVersion
+CaptureAiBridgeStatus
+```
+
+`CaptureAiBridgeStatus` 的第一行会显示版本，例如
+`Capture Tcl AI Bridge v0.1.0-beta.2-dev`。
+
 ### 3. 用命令行执行 Tcl
 
 ```powershell
@@ -91,6 +102,7 @@ python C:\tclpython\capture_tcl_cli.py --json -c "GetActiveDesign"
 ```
 
 `-c`、`-f` 和管道标准输入三者必选其一，且只能选一个。
+`status` 同时显示服务端软件版本；`status --json` 的 `version` 字段提供机器可读版本。
 不加 `--json` 时先打印捕获的 stdout/stderr，再打印结果或 Tcl 错误摘要。
 退出码：Tcl 执行失败为 1，命令行用法错误为 2，桥接/认证/协议/传输失败为 3。
 

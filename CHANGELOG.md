@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [Unreleased]
+
+### Added
+
+- Capture Tcl、运行描述文件、`/v1/health` 和 CLI `status` 公开同一软件版本，
+  并拒绝连接版本不一致的部署文件。
+
 ## [0.1.0-beta.1] - 2026-08-09
 
 首个公开 beta 候选版本。
@@ -35,3 +42,4 @@
   HTTP 协议调用它。
 
 [0.1.0-beta.1]: https://github.com/aixia715/capture-tcl-ai-bridge/releases/tag/v0.1.0-beta.1
+[Unreleased]: https://github.com/aixia715/capture-tcl-ai-bridge/compare/v0.1.0-beta.1...HEAD

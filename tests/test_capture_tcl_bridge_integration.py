@@ -99,7 +99,7 @@ def _wait_for_descriptor(
             )
         try:
             value = json.loads(runtime_file.read_text(encoding="utf-8"))
-        except (FileNotFoundError, UnicodeError, json.JSONDecodeError):
+        except (FileNotFoundError, PermissionError, UnicodeError, json.JSONDecodeError):
             time.sleep(0.02)
             continue
         if isinstance(value, dict):

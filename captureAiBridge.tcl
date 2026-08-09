@@ -2,6 +2,7 @@
 # Sourcing this module is side-effect free; lifecycle is always explicit.
 
 set ::CaptureAiBridgeService {capture-tcl-bridge}
+set ::CaptureAiBridgeVersion {0.1.0-beta.2-dev}
 set ::CaptureAiBridgeProtocolVersion 1
 set ::CaptureAiBridgePort 8767
 set ::CaptureAiBridgePollMs 250
@@ -1567,13 +1568,16 @@ proc _captureAiLoadDescriptor {{path {}}} {
         close $channel
     }
     set descriptor [_captureAiJsonParse $raw]
-    foreach key {service protocolVersion baseUrl token capturePid serverPid} {
+    foreach key {service version protocolVersion baseUrl token capturePid serverPid} {
         if {![dict exists $descriptor $key]} {
             error "Capture AI bridge descriptor is missing $key."
         }
     }
     if {[dict get $descriptor service] ne $::CaptureAiBridgeService} {
         error {Capture AI bridge descriptor has the wrong service.}
+    }
+    if {[dict get $descriptor version] ne $::CaptureAiBridgeVersion} {
+        error {Capture AI bridge descriptor has the wrong software version.}
     }
     if {![string is integer -strict [dict get $descriptor protocolVersion]] ||
         [dict get $descriptor protocolVersion] != $::CaptureAiBridgeProtocolVersion} {
@@ -1620,6 +1624,8 @@ proc _captureAiConnect {generation {attempt {}}} {
         }
         if {![dict exists $health service] ||
             [dict get $health service] ne $::CaptureAiBridgeService ||
+            ![dict exists $health version] ||
+            [dict get $health version] ne $::CaptureAiBridgeVersion ||
             ![dict exists $health protocolVersion] ||
             [dict get $health protocolVersion] != $::CaptureAiBridgeProtocolVersion ||
             ![dict exists $health capturePid] ||
@@ -1765,6 +1771,7 @@ proc CaptureAiBridgeStart {} {
 }
 
 proc CaptureAiBridgeStatus {} {
+    puts "Capture Tcl AI Bridge v$::CaptureAiBridgeVersion"
     if {$::CaptureAiBridgeStopError ne {}} {
         _captureAiConsole "Capture AI bridge polling stopped; server cleanup required: $::CaptureAiBridgeStopError"
     } elseif {$::CaptureAiBridgeStopping} {
