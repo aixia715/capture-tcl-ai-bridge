@@ -288,10 +288,12 @@ def test_docs_never_embed_a_bearer_token(
         assert not pattern.search(document), f"{name} looks like it embeds a token"
 
 
-def test_migration_does_not_claim_acceptance_it_has_not_earned(
+def test_migration_records_real_invalid_result_recovery_acceptance(
     migration: str,
 ) -> None:
     assert "capture-tcl-ai-bridge" in migration
-    # The HTTP 400 defect is fixed under automated test, but a real Capture
-    # session has not signed it off; the document must not imply otherwise.
-    assert "待验收" in migration or "not claim" in migration
+    # Real Capture acceptance confirmed that malformed result JSON synthesizes
+    # a stable completion, releases busy, and logs the deterministic failure once.
+    assert "INVALID_RESULT" in migration
+    assert "释放 busy" in migration
+    assert "只记录一次" in migration
