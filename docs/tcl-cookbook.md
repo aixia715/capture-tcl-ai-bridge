@@ -1,8 +1,9 @@
 # Capture Tcl Cookbook
 
-`examples/` 下的七个脚本是可以直接发送给桥的完整独立脚本：不 `source` 任何
+`examples/` 下共有十二个完整独立脚本，其中十一个可以直接发送给桥；`headless_set_first_capacitor_value.tcl` 由独立 Tcl 解释器运行。
+这些脚本不 `source` 任何
 公共文件，不依赖 TCLBOM 的 `_dniWalk` / `CollectSelectedDNIOccs` 之类的辅助过程。
-七个脚本都是照 [docs/capture-dbo-api-notes.md](capture-dbo-api-notes.md) 写的——
+这些示例参考 [docs/capture-dbo-api-notes.md](capture-dbo-api-notes.md) 写的——
 那份笔记记录了在真实 Capture 16.6 上实测确认的 Dbo Tcl API 调用约定，本手册的
 每一段代码示例和风险描述都以它为准。本手册对每个脚本逐一说明用途、风险、参数、
 三种调用方式、预期输出、UI 阻塞风险、回读验证方式，以及撤销和不自动保存的约定。
@@ -15,20 +16,23 @@
 测试就会失败。改了任何一个 `examples/*.tcl` 之后，必须同步更新本文档里对应的
 嵌入代码块，而不是反过来改脚本去迁就文档——脚本已经通过验收，脚本说了算。
 
+
+> 例外：`headless_set_first_capacitor_value.tcl` 不是桥内脚本，而是独立运行并直接保存 DSN 的示例。
+
 ## 真实 API 的安全规则：基类方法 vs 类型专属方法
 
-七个脚本共同遵守 `docs/capture-dbo-api-notes.md` 里的规则，读每个脚本前先了解
+桥内示例共同遵守 `docs/capture-dbo-api-notes.md` 里的规则，读每个脚本前先了解
 一次就够了，各脚本小节不再重复展开：
 
 1. **状态检查**：几乎每个 Dbo 调用都要一个 `DboState`，调用失败时不会抛出
-   Tcl 错误，而是悄悄给出一个空/无效句柄，继续用它会出更难查的错。七个脚本
+   Tcl 错误，而是悄悄给出一个空/无效句柄，继续用它会出更难查的错。相关脚本
    都在每次这样的调用之后立即检查 `[$lStatus OK] == 1`，失败就用 `error`
    带着 `DBO_CALL_FAILED:` 前缀清楚地报出来。**`Message` 本身也是一个 CString
    出参**，不是像 `OK`/`Succeeded`/`Failed`/`Code`/`Severity` 那样的普通返回值
-   ——本项目更早一版全部七个脚本都直接写 `[$st Message]`，这是一个实打实的
+   ——本项目更早一版的七个脚本都直接写 `[$st Message]`，这是一个实打实的
    bug：一旦某次 Dbo 调用真的失败，取诊断信息这一步自己先抛出 Tcl 参数个数
    错误，把真正的失败原因整个盖掉，而且只在失败路径才会触发，正常路径的
-   测试完全测不出来。现在七个脚本都用统一的 `_statusMessage` 辅助过程通过
+   测试完全测不出来。现在这些脚本都用 `_statusMessage` 辅助过程通过
    出参读：
 
    ```tcl
@@ -46,7 +50,7 @@
    `DboBaseObject`（基类）方法和类型专属方法的区分：
    - **基类方法，任何句柄都能直接调，不需要转型**：`GetObjectType`、
      `GetTypeString`、`GetName`、`GetId`、`GetEffectivePropStringValue`、
-     `SetEffectivePropStringValue`。七个脚本里所有的属性读写（位号、
+     `SetEffectivePropStringValue`。十二个脚本里所有的属性读写（位号、
      Value）都走这条路径，因此选择集脚本（见下文）完全不需要转型。
    - **类型专属方法，转型前必须先查类型**：`GetReference`、`GetPathName`、
      `IsPrimitive`、`NewChildrenIter`。把类型不对的句柄直接喂给
@@ -1488,3 +1492,522 @@ foreach occurrence $targets {
 puts [dict create changed $changed skipped $skipped]
 ```
 <!-- END EXAMPLE SOURCE: remove_selected_suffix.tcl -->
+
+---
+
+## `headless_set_first_capacitor_value.tcl`
+
+**用途**：不启动 Capture GUI，直接修改 DSN 中第一个电容的 Value、回读并保存。
+
+**风险级别**：高风险写入；会直接保存指定 DSN，请只对备份副本运行。
+
+**输入参数**：两个参数：DSN 路径与新 Value。
+
+**直接运行（推荐）**：
+
+```powershell
+tclsh .\examples\headless_set_first_capacitor_value.tcl .\design.dsn 100nF
+```
+下面两种桥调用和 HTTP 调用仅展示统一接口形式，不能执行本脚本。
+
+**CLI `-f` 调用**：
+
+~~~powershell
+python C:\tclpython\capture_tcl_cli.py -f .\examples\headless_set_first_capacitor_value.tcl
+~~~
+
+**标准输入调用**：
+
+~~~powershell
+Get-Content -Raw .\examples\headless_set_first_capacitor_value.tcl | python C:\tclpython\capture_tcl_cli.py
+~~~
+
+**HTTP 调用**：
+
+~~~powershell
+$runtime = Get-Content "$env:TEMP\capture_tcl_bridge.json" | ConvertFrom-Json
+Invoke-RestMethod -Method Post -Uri "$($runtime.baseUrl)/v1/execute" `
+  -Headers @{ Authorization = "Bearer $($runtime.token)" } `
+  -ContentType 'application/json' `
+  -Body (@{ script = (Get-Content -Raw .\examples\headless_set_first_capacitor_value.tcl) } | ConvertTo-Json)
+~~~
+
+**预期输出**：成功输出 REFDES、BEFORE、AFTER；失败输出 HEADLESS_WRITE_FAILED。
+
+**UI 阻塞风险**：独立进程运行，没有 Capture UI 阻塞风险；大型 DSN 加载和保存仍可能耗时。
+
+**回读验证**：写入后立即回读，一致后才调用 SaveDesign。
+
+**撤销与不自动保存**：这是“不自动保存”规则的例外：它会自动保存。撤销需恢复备份或写回 BEFORE 值。
+
+**完整脚本**：
+
+<!-- BEGIN EXAMPLE SOURCE: headless_set_first_capacitor_value.tcl -->
+```tcl
+# Change the first capacitor occurrence in a DSN without starting Capture GUI.
+# Usage: tclsh headless_set_first_capacitor_value.tcl design.dsn newValue
+
+if {$argc != 2} {
+    puts stderr "Usage: tclsh headless_set_first_capacitor_value.tcl design.dsn newValue"
+    exit 2
+}
+
+proc statusMessage {status} {
+    set message [DboTclHelper_sMakeCString]
+    $status Message $message
+    return [DboTclHelper_sGetConstCharPtr $message]
+}
+
+proc requireOk {status operation} {
+    if {![$status OK]} {
+        error "$operation failed: [statusMessage $status] (code [$status Code])"
+    }
+}
+
+proc stringOut {object method} {
+    set output [DboTclHelper_sMakeCString]
+    set status [$object $method $output]
+    requireOk $status $method
+    set value [DboTclHelper_sGetConstCharPtr $output]
+    $status -delete
+    return $value
+}
+
+proc getProperty {object propertyName} {
+    set name [DboTclHelper_sMakeCString $propertyName]
+    set output [DboTclHelper_sMakeCString]
+    set status [$object GetEffectivePropStringValue $name $output]
+    requireOk $status "GetEffectivePropStringValue($propertyName)"
+    set value [DboTclHelper_sGetConstCharPtr $output]
+    $status -delete
+    return $value
+}
+
+proc setProperty {object propertyName propertyValue} {
+    set name [DboTclHelper_sMakeCString $propertyName]
+    set value [DboTclHelper_sMakeCString $propertyValue]
+    set status [$object SetEffectivePropStringValue $name $value]
+    requireOk $status "SetEffectivePropStringValue($propertyName)"
+    $status -delete
+}
+
+proc findFirstCapacitor {occurrence status resultName} {
+    upvar $resultName result
+    if {$result != "NULL"} { return }
+    if {[DboBaseObject_GetObjectType $occurrence] != $::DboBaseObject_INST_OCCURRENCE} {
+        error "Unexpected occurrence type"
+    }
+    set instance [DboOccurrenceToDboInstOccurrence $occurrence]
+    set primitive [$instance IsPrimitive $status]
+    requireOk $status IsPrimitive
+    if {$primitive} {
+        set reference [string trim [stringOut $instance GetReference]]
+        if {[string match {C[0-9]*} $reference]} {
+            set result $instance
+            return
+        }
+    }
+    set iterator [$instance NewChildrenIter $status $::IterDefs_INSTS]
+    requireOk $status NewChildrenIter
+    $iterator Sort $status
+    requireOk $status Sort
+    set code [catch {
+        set child [$iterator NextOccurrence $status]
+        while {$child != "NULL" && $result == "NULL"} {
+            requireOk $status NextOccurrence
+            findFirstCapacitor $child $status result
+            set child [$iterator NextOccurrence $status]
+        }
+    } message]
+    catch {delete_DboOccurrenceChildrenIter $iterator}
+    if {$code} { error $message }
+}
+
+set designPath [file normalize [lindex $argv 0]]
+set newValue [lindex $argv 1]
+set installPath [exec cds_root cds_root]
+load [file normalize [file join $installPath tools capture orDb_Dll_TCL]] DboTclWriteBasic
+
+set status [DboState]
+set session [DboTclHelper_sCreateSession]
+set design "NULL"
+set code [catch {
+    set pathString [DboTclHelper_sMakeCString $designPath]
+    set design [$session GetDesignAndSchematics $pathString $status]
+    if {$design == "NULL"} { error "Could not open $designPath" }
+    requireOk $status GetDesignAndSchematics
+    set root [$design GetRootOccurrence $status]
+    requireOk $status GetRootOccurrence
+    set capacitor "NULL"
+    findFirstCapacitor $root $status capacitor
+    if {$capacitor == "NULL"} { error "No capacitor occurrence found" }
+    set reference [string trim [stringOut $capacitor GetReference]]
+    set before [getProperty $capacitor Value]
+    setProperty $capacitor Value $newValue
+    set after [getProperty $capacitor Value]
+    if {$after != $newValue} { error "Readback failed before save" }
+    set saveStatus [$session SaveDesign $design]
+    requireOk $saveStatus SaveDesign
+    $saveStatus -delete
+    puts "REFDES=$reference"
+    puts "BEFORE=$before"
+    puts "AFTER=$after"
+} message]
+
+if {$design != "NULL"} { catch {$session RemoveLib $design} }
+catch {DboTclHelper_sDeleteSession $session}
+catch {$status -delete}
+if {$code} {
+    puts stderr "HEADLESS_WRITE_FAILED=$message"
+    exit 1
+}
+```
+<!-- END EXAMPLE SOURCE: headless_set_first_capacitor_value.tcl -->
+
+---
+
+## `inspect_selected_components.tcl`
+
+**用途**：读取选中器件的已标注位号、Value、Part Name、封装与层级路径。
+
+**风险级别**：只读，不修改设计。
+
+**输入参数**：无需参数；先选择一个或多个器件。
+
+**CLI `-f` 调用**：
+
+~~~powershell
+python C:\tclpython\capture_tcl_cli.py -f .\examples\inspect_selected_components.tcl
+~~~
+
+**标准输入调用**：
+
+~~~powershell
+Get-Content -Raw .\examples\inspect_selected_components.tcl | python C:\tclpython\capture_tcl_cli.py
+~~~
+
+**HTTP 调用**：
+
+~~~powershell
+$runtime = Get-Content "$env:TEMP\capture_tcl_bridge.json" | ConvertFrom-Json
+Invoke-RestMethod -Method Post -Uri "$($runtime.baseUrl)/v1/execute" `
+  -Headers @{ Authorization = "Bearer $($runtime.token)" } `
+  -ContentType 'application/json' `
+  -Body (@{ script = (Get-Content -Raw .\examples\inspect_selected_components.tcl) } | ConvertTo-Json)
+~~~
+
+**预期输出**：每个器件输出 refdes、value、part、package、footprint 和可用时的 path。
+
+**UI 阻塞风险**：通常很快；选择极多时有短暂 UI 阻塞风险。
+
+**回读验证**：只读无写入；输出是 occurrence 属性的即时读取。
+
+**撤销与不自动保存**：不产生修改，不需要撤销，也不自动保存设计。
+
+**完整脚本**：
+
+<!-- BEGIN EXAMPLE SOURCE: inspect_selected_components.tcl -->
+```tcl
+# Read useful properties from selected component occurrences. Read-only.
+
+proc readProp {object propertyName} {
+    set name [DboTclHelper_sMakeCString $propertyName]
+    set value [DboTclHelper_sMakeCString]
+    set status [$object GetEffectivePropStringValue $name $value]
+    if {[$status OK] != 1} {
+        $status -delete
+        return ""
+    }
+    set result [DboTclHelper_sGetConstCharPtr $value]
+    $status -delete
+    return $result
+}
+
+set parent [GetInstanceOccurrence]
+foreach object [GetSelectedObjects] {
+    set type [DboBaseObject_GetObjectType $object]
+    if {$type != $::DboBaseObject_DRAWN_INSTANCE &&
+        $type != $::DboBaseObject_PLACED_INSTANCE} {
+        continue
+    }
+    set occurrence [$object GetObjectOccurrence $parent]
+    if {$occurrence == "NULL" ||
+        [DboBaseObject_GetObjectType $occurrence] != $::DboBaseObject_INST_OCCURRENCE} {
+        continue
+    }
+    set instance [DboOccurrenceToDboInstOccurrence $occurrence]
+    set reference [DboTclHelper_sMakeCString]
+    set path [DboTclHelper_sMakeCString]
+    $instance GetReferenceDesignator $reference
+    set pathStatus [$instance GetPathName $path]
+    set fields [list \
+        refdes [DboTclHelper_sGetConstCharPtr $reference] \
+        value [readProp $occurrence Value] \
+        part [readProp $occurrence {Part Name}] \
+        package [readProp $occurrence {Source Package}] \
+        footprint [readProp $occurrence {PCB Footprint}]]
+    if {[$pathStatus OK] == 1} {
+        lappend fields path [DboTclHelper_sGetConstCharPtr $path]
+    }
+    $pathStatus -delete
+    puts $fields
+}
+```
+<!-- END EXAMPLE SOURCE: inspect_selected_components.tcl -->
+
+---
+
+## `inspect_selected_pin_nets.tcl`
+
+**用途**：读取选中器件的引脚及网络，输出位号、引脚号、引脚名和网络名。
+
+**风险级别**：只读，不修改设计；未命名网络可能显示内部 ID。
+
+**输入参数**：无需参数；先选择一个或多个器件。
+
+**CLI `-f` 调用**：
+
+~~~powershell
+python C:\tclpython\capture_tcl_cli.py -f .\examples\inspect_selected_pin_nets.tcl
+~~~
+
+**标准输入调用**：
+
+~~~powershell
+Get-Content -Raw .\examples\inspect_selected_pin_nets.tcl | python C:\tclpython\capture_tcl_cli.py
+~~~
+
+**HTTP 调用**：
+
+~~~powershell
+$runtime = Get-Content "$env:TEMP\capture_tcl_bridge.json" | ConvertFrom-Json
+Invoke-RestMethod -Method Post -Uri "$($runtime.baseUrl)/v1/execute" `
+  -Headers @{ Authorization = "Bearer $($runtime.token)" } `
+  -ContentType 'application/json' `
+  -Body (@{ script = (Get-Content -Raw .\examples\inspect_selected_pin_nets.tcl) } | ConvertTo-Json)
+~~~
+
+**预期输出**：每个引脚输出 refdes、pin、pinName、net。
+
+**UI 阻塞风险**：通常很快；引脚极多时有 UI 阻塞风险。
+
+**回读验证**：只读无写入；输出是即时连接信息。
+
+**撤销与不自动保存**：不产生修改，不需要撤销，也不自动保存设计。
+
+**完整脚本**：
+
+<!-- BEGIN EXAMPLE SOURCE: inspect_selected_pin_nets.tcl -->
+```tcl
+# Print pin-to-net connectivity for selected component page instances.
+# Read-only. Net names may be generated IDs when the schematic has no alias.
+
+proc cstringValue {pointer} {
+    return [DboTclHelper_sGetConstCharPtr $pointer]
+}
+
+set status [DboState]
+set parent [GetInstanceOccurrence]
+foreach object [GetSelectedObjects] {
+    set objectType [DboBaseObject_GetObjectType $object]
+    if {$objectType != $::DboBaseObject_DRAWN_INSTANCE &&
+        $objectType != $::DboBaseObject_PLACED_INSTANCE} {
+        continue
+    }
+
+    set refdes "?"
+    set occurrence [$object GetObjectOccurrence $parent]
+    if {$occurrence != "NULL" &&
+        [DboBaseObject_GetObjectType $occurrence] == $::DboBaseObject_INST_OCCURRENCE} {
+        set instanceOccurrence [DboOccurrenceToDboInstOccurrence $occurrence]
+        set reference [DboTclHelper_sMakeCString]
+        $instanceOccurrence GetReferenceDesignator $reference
+        set refdes [cstringValue $reference]
+    }
+
+    set iterator [$object NewPinsIter $status]
+    if {$iterator == "NULL" || [$status OK] != 1} {
+        continue
+    }
+    set pin [$iterator NextPin $status]
+    while {$pin != "NULL"} {
+        set pinNumber [cstringValue [DboPortInst_sGetPinNumber $pin $status]]
+        set pinName [cstringValue [DboPortInst_sGetPinName $pin $status]]
+        set netName [cstringValue [DboPortInst_sGetNetName $pin $status]]
+        puts [list refdes $refdes pin $pinNumber pinName $pinName net $netName]
+        set pin [$iterator NextPin $status]
+    }
+    delete_DboPartInstPinsIter $iterator
+}
+$status -delete
+```
+<!-- END EXAMPLE SOURCE: inspect_selected_pin_nets.tcl -->
+
+---
+
+## `inspect_selection.tcl`
+
+**用途**：描述当前选择集中的对象，并尽可能解析器件 occurrence 和位号。
+
+**风险级别**：只读，不修改设计。
+
+**输入参数**：无需参数；先选择要检查的对象。
+
+**CLI `-f` 调用**：
+
+~~~powershell
+python C:\tclpython\capture_tcl_cli.py -f .\examples\inspect_selection.tcl
+~~~
+
+**标准输入调用**：
+
+~~~powershell
+Get-Content -Raw .\examples\inspect_selection.tcl | python C:\tclpython\capture_tcl_cli.py
+~~~
+
+**HTTP 调用**：
+
+~~~powershell
+$runtime = Get-Content "$env:TEMP\capture_tcl_bridge.json" | ConvertFrom-Json
+Invoke-RestMethod -Method Post -Uri "$($runtime.baseUrl)/v1/execute" `
+  -Headers @{ Authorization = "Bearer $($runtime.token)" } `
+  -ContentType 'application/json' `
+  -Body (@{ script = (Get-Content -Raw .\examples\inspect_selection.tcl) } | ConvertTo-Json)
+~~~
+
+**预期输出**：先输出 selection-count，随后输出 index、type、name，以及可能的 primitive 和 refdes。
+
+**UI 阻塞风险**：通常很快；选择极多时有短暂 UI 阻塞风险。
+
+**回读验证**：只读无写入；输出来自即时查询。
+
+**撤销与不自动保存**：不产生修改，不需要撤销，也不自动保存设计。
+
+**完整脚本**：
+
+<!-- BEGIN EXAMPLE SOURCE: inspect_selection.tcl -->
+```tcl
+# Describe every object in the current Capture selection. Read-only.
+
+set typeCString [DboTclHelper_sMakeCString]
+set nameCString [DboTclHelper_sMakeCString]
+set parentOccurrence [GetInstanceOccurrence]
+set selected [GetSelectedObjects]
+
+puts "selection-count: [llength $selected]"
+set index 0
+foreach object $selected {
+    incr index
+    $object GetTypeString $typeCString
+    set typeName [DboTclHelper_sGetConstCharPtr $typeCString]
+
+    set name ""
+    if {![catch {$object GetName $nameCString}]} {
+        set name [DboTclHelper_sGetConstCharPtr $nameCString]
+    }
+
+    set fields [list index $index type $typeName name $name]
+    set objectType [DboBaseObject_GetObjectType $object]
+    if {$parentOccurrence != "NULL" &&
+        ($objectType == $::DboBaseObject_DRAWN_INSTANCE ||
+         $objectType == $::DboBaseObject_PLACED_INSTANCE)} {
+        set occurrence [$object GetObjectOccurrence $parentOccurrence]
+        if {$occurrence != "NULL" &&
+            [DboBaseObject_GetObjectType $occurrence] == $::DboBaseObject_INST_OCCURRENCE} {
+            set instanceOccurrence [DboOccurrenceToDboInstOccurrence $occurrence]
+            set primitiveStatus [DboState]
+            lappend fields primitive [$instanceOccurrence IsPrimitive $primitiveStatus]
+            $primitiveStatus -delete
+            set referenceCString [DboTclHelper_sMakeCString]
+            $instanceOccurrence GetReferenceDesignator $referenceCString
+            lappend fields refdes [DboTclHelper_sGetConstCharPtr $referenceCString]
+        }
+    }
+    puts $fields
+}
+```
+<!-- END EXAMPLE SOURCE: inspect_selection.tcl -->
+
+---
+
+## `selected_occurrence_refs.tcl`
+
+**用途**：把选中页面器件映射到活动层次 occurrence，并输出已标注位号。
+
+**风险级别**：只读，不修改设计；要求活动 instance occurrence。
+
+**输入参数**：无需参数；先选择器件。
+
+**CLI `-f` 调用**：
+
+~~~powershell
+python C:\tclpython\capture_tcl_cli.py -f .\examples\selected_occurrence_refs.tcl
+~~~
+
+**标准输入调用**：
+
+~~~powershell
+Get-Content -Raw .\examples\selected_occurrence_refs.tcl | python C:\tclpython\capture_tcl_cli.py
+~~~
+
+**HTTP 调用**：
+
+~~~powershell
+$runtime = Get-Content "$env:TEMP\capture_tcl_bridge.json" | ConvertFrom-Json
+Invoke-RestMethod -Method Post -Uri "$($runtime.baseUrl)/v1/execute" `
+  -Headers @{ Authorization = "Bearer $($runtime.token)" } `
+  -ContentType 'application/json' `
+  -Body (@{ script = (Get-Content -Raw .\examples\selected_occurrence_refs.tcl) } | ConvertTo-Json)
+~~~
+
+**预期输出**：每个器件输出一个已标注位号；无法解析时返回明确错误。
+
+**UI 阻塞风险**：通常很快；选择极多时有短暂 UI 阻塞风险。
+
+**回读验证**：只读无写入；位号由 GetReferenceDesignator 即时读取。
+
+**撤销与不自动保存**：不产生修改，不需要撤销，也不自动保存设计。
+
+**完整脚本**：
+
+<!-- BEGIN EXAMPLE SOURCE: selected_occurrence_refs.tcl -->
+```tcl
+# Print the annotated reference designator for each selected component.
+# Read-only. Unlike selected_refs.tcl, this resolves the page instance to
+# its occurrence in the active hierarchy before reading the refdes.
+
+set parentOccurrence [GetInstanceOccurrence]
+if {$parentOccurrence == "NULL"} {
+    error "NO_ACTIVE_INSTANCE_OCCURRENCE"
+}
+
+set found 0
+foreach object [GetSelectedObjects] {
+    set objectType [DboBaseObject_GetObjectType $object]
+    if {$objectType != $::DboBaseObject_DRAWN_INSTANCE &&
+        $objectType != $::DboBaseObject_PLACED_INSTANCE} {
+        continue
+    }
+
+    set occurrence [$object GetObjectOccurrence $parentOccurrence]
+    if {$occurrence == "NULL"} {
+        continue
+    }
+
+    set occurrenceType [DboBaseObject_GetObjectType $occurrence]
+    if {$occurrenceType != $::DboBaseObject_INST_OCCURRENCE} {
+        error "UNEXPECTED_OCCURRENCE_TYPE: $occurrenceType"
+    }
+
+    set instanceOccurrence [DboOccurrenceToDboInstOccurrence $occurrence]
+    set referenceCString [DboTclHelper_sMakeCString]
+    $instanceOccurrence GetReferenceDesignator $referenceCString
+    puts [DboTclHelper_sGetConstCharPtr $referenceCString]
+    incr found
+}
+
+if {$found == 0} {
+    error "NO_SELECTED_COMPONENT_OCCURRENCE"
+}
+```
+<!-- END EXAMPLE SOURCE: selected_occurrence_refs.tcl -->
