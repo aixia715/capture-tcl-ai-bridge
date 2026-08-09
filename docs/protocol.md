@@ -10,6 +10,7 @@
 ```json
 {
   "service": "capture-tcl-bridge",
+  "version": "0.1.0-beta.2",
   "protocolVersion": 1,
   "baseUrl": "http://127.0.0.1:8767",
   "token": "<每次启动都不同的随机令牌>",
@@ -18,7 +19,7 @@
 }
 ```
 
-客户端在使用前必须校验 `service`、`protocolVersion`，以及 `capturePid` 是否
+客户端在使用前必须校验 `service`、`version`、`protocolVersion`，以及 `capturePid` 是否
 指向自己期望的 Capture 进程。写了一半或已过期的描述文件必须拒绝，而不是将就使用。
 停止时描述文件被删除。
 
@@ -42,7 +43,7 @@ GET  /v1/commands/{id}
 
 ### GET /v1/health
 
-返回服务名、协议版本、`captureConnected`、`busy`、Capture PID 和服务 PID。
+返回服务名、软件版本、协议版本、`captureConnected`、`busy`、Capture PID 和服务 PID。
 Tcl 端的心跳维持连接状态；连续 5 秒没有成功心跳后，新的执行请求会以
 `CAPTURE_DISCONNECTED` 失败。
 

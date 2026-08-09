@@ -376,6 +376,7 @@ def test_health_rejects_non_ascii_authorization_without_an_internal_error(client
 
 def test_health_returns_exact_service_identity_and_connection_status(client):
     assert bridge.SERVICE == "capture-tcl-bridge"
+    assert bridge.SOFTWARE_VERSION == "0.1.0-beta.2"
     assert bridge.PROTOCOL_VERSION == 1
 
     response = client.get("/v1/health", headers=bridge_headers())
@@ -383,6 +384,7 @@ def test_health_returns_exact_service_identity_and_connection_status(client):
     assert response.status_code == 200
     assert response.json() == {
         "service": bridge.SERVICE,
+        "version": bridge.SOFTWARE_VERSION,
         "protocolVersion": bridge.PROTOCOL_VERSION,
         "captureConnected": False,
         "busy": False,
@@ -984,6 +986,7 @@ def test_write_runtime_descriptor_is_atomic_and_contains_the_runtime_identity(tm
     assert replaced[0][1] == descriptor
     assert json.loads(descriptor.read_text(encoding="utf-8")) == {
         "service": "capture-tcl-bridge",
+        "version": bridge.SOFTWARE_VERSION,
         "protocolVersion": 1,
         "baseUrl": "http://127.0.0.1:8767",
         "token": "secret",

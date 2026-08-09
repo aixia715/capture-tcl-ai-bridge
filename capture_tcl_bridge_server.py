@@ -30,6 +30,7 @@ import uvicorn
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8767
 SERVICE = "capture-tcl-bridge"
+SOFTWARE_VERSION = "0.1.0-beta.2"
 PROTOCOL_VERSION = 1
 SCRIPT_LIMIT_BYTES = 1_048_576
 EXECUTE_BODY_LIMIT_BYTES = 8 * 1_048_576
@@ -225,6 +226,7 @@ def write_runtime_descriptor(path: Path, token: str, capture_pid: int, port: int
     """Atomically publish the connection details for this bridge process."""
     descriptor = {
         "service": SERVICE,
+        "version": SOFTWARE_VERSION,
         "protocolVersion": PROTOCOL_VERSION,
         "baseUrl": f"http://{DEFAULT_HOST}:{port}",
         "token": token,
@@ -564,6 +566,7 @@ async def health(request: Request) -> JSONResponse:
         return JSONResponse(
             content={
                 "service": SERVICE,
+                "version": SOFTWARE_VERSION,
                 "protocolVersion": PROTOCOL_VERSION,
                 "captureConnected": bridge.connected(),
                 "busy": bridge.active is not None,

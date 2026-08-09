@@ -61,6 +61,7 @@ set beforeAfter [after info]
 source $bridgeFile
 check {source preserves explicit Python path} $::CaptureAiBridgePythonPath $repoRoot
 check {service name} $::CaptureAiBridgeService {capture-tcl-bridge}
+check {software version} $::CaptureAiBridgeVersion {0.1.0-beta.2}
 check {protocol version} $::CaptureAiBridgeProtocolVersion 1
 check {port} $::CaptureAiBridgePort 8767
 check {poll period} $::CaptureAiBridgePollMs 250
@@ -1152,7 +1153,7 @@ if {[llength [info commands ::_captureAiLoadDescriptor]] > 0} {
     set descriptorChannel [open $descriptorFile w]
     fconfigure $descriptorChannel -encoding utf-8
     puts -nonewline $descriptorChannel [format \
-        {{"service":"capture-tcl-bridge","protocolVersion":1,"baseUrl":"http://127.0.0.1:8767","token":"descriptor-token","capturePid":%d,"serverPid":1234}} \
+        {{"service":"capture-tcl-bridge","version":"0.1.0-beta.2","protocolVersion":1,"baseUrl":"http://127.0.0.1:8767","token":"descriptor-token","capturePid":%d,"serverPid":1234}} \
         [pid]]
     close $descriptorChannel
     set descriptor [_captureAiLoadDescriptor $descriptorFile]
@@ -1161,8 +1162,9 @@ if {[llength [info commands ::_captureAiLoadDescriptor]] > 0} {
 
     proc captureAiDescriptorJson {value} {
         return [format \
-            {{"service":%s,"protocolVersion":%s,"baseUrl":%s,"token":%s,"capturePid":%s,"serverPid":%s}} \
+            {{"service":%s,"version":%s,"protocolVersion":%s,"baseUrl":%s,"token":%s,"capturePid":%s,"serverPid":%s}} \
             [_captureAiJsonQuote [dict get $value service]] \
+            [_captureAiJsonQuote [dict get $value version]] \
             [dict get $value protocolVersion] \
             [_captureAiJsonQuote [dict get $value baseUrl]] \
             [_captureAiJsonQuote [dict get $value token]] \
@@ -1172,6 +1174,7 @@ if {[llength [info commands ::_captureAiLoadDescriptor]] > 0} {
 
     foreach {field badValue} {
         service wrong-service
+        version wrong-version
         protocolVersion 2
         capturePid 999999
         baseUrl http://localhost:8767
@@ -1379,6 +1382,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
         proc ::_captureAiLoadDescriptor {args} {
             return [dict create \
                 service capture-tcl-bridge \
+                version $::CaptureAiBridgeVersion \
                 protocolVersion 1 \
                 baseUrl http://127.0.0.1:8767 \
                 token connect-stop-token \
@@ -1391,6 +1395,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
                 CaptureAiBridgeStop
                 return [dict create \
                     service capture-tcl-bridge \
+                    version $::CaptureAiBridgeVersion \
                     protocolVersion 1 \
                     capturePid [pid]]
             }
@@ -1416,6 +1421,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
         proc ::_captureAiLoadDescriptor {args} {
             return [dict create \
                 service capture-tcl-bridge \
+                version $::CaptureAiBridgeVersion \
                 protocolVersion 1 \
                 baseUrl http://127.0.0.1:8767 \
                 token connection-secret \
@@ -1439,6 +1445,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
         proc ::_captureAiRequest {method path {payload {}}} {
             return [dict create \
                 service capture-tcl-bridge \
+                version $::CaptureAiBridgeVersion \
                 protocolVersion 1 \
                 capturePid [pid]]
         }
@@ -1797,6 +1804,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
         if {$path eq "/v1/health"} {
             return [dict create \
                 service capture-tcl-bridge \
+                version $::CaptureAiBridgeVersion \
                 protocolVersion 1 \
                 capturePid [pid]]
         }
@@ -1818,6 +1826,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     proc ::_captureAiLoadDescriptor {args} {
         return [dict create \
             service capture-tcl-bridge \
+            version $::CaptureAiBridgeVersion \
             protocolVersion 1 \
             baseUrl http://127.0.0.1:8767 \
             token recovery-lifecycle-token \

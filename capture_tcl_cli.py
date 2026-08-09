@@ -15,6 +15,7 @@ import urllib.request
 
 
 SERVICE = "capture-tcl-bridge"
+SOFTWARE_VERSION = "0.1.0-beta.2"
 PROTOCOL_VERSION = 1
 REQUEST_TIMEOUT_SECONDS = 35
 RUNTIME_FILENAME = "capture_tcl_bridge.json"
@@ -124,6 +125,8 @@ def load_descriptor(path: str | Path) -> dict[str, Any]:
         raise BridgeClientError("Runtime descriptor must be a JSON object.")
     if value.get("service") != SERVICE or type(value.get("service")) is not str:
         raise _descriptor_error("service")
+    if value.get("version") != SOFTWARE_VERSION or type(value.get("version")) is not str:
+        raise _descriptor_error("version")
     if (
         type(value.get("protocolVersion")) is not int
         or value["protocolVersion"] != PROTOCOL_VERSION
@@ -335,6 +338,7 @@ def _validate_health(
 ) -> None:
     expected = {
         "service": descriptor["service"],
+        "version": descriptor["version"],
         "protocolVersion": descriptor["protocolVersion"],
         "capturePid": descriptor["capturePid"],
         "serverPid": descriptor["serverPid"],
@@ -410,7 +414,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             connection = "connected" if health["captureConnected"] else "disconnected"
             workload = "busy" if health["busy"] else "idle"
-            print(f"Capture Tcl bridge: {connection}, {workload}")
+            print(f"Capture Tcl bridge v{health['version']}: {connection}, {workload}")
         return 0 if health["captureConnected"] else 3
 
     stdin_value: str | None = None

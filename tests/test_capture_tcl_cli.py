@@ -23,6 +23,7 @@ TOKEN = "runtime-secret-token"
 def descriptor(**overrides):
     value = {
         "service": "capture-tcl-bridge",
+        "version": cli.SOFTWARE_VERSION,
         "protocolVersion": 1,
         "baseUrl": "http://127.0.0.1:8767",
         "token": TOKEN,
@@ -108,6 +109,8 @@ class ReconfigurableEncodingWriter(EncodingWriter):
     [
         ({"service": "other"}, "service"),
         ({"service": 1}, "service"),
+        ({"version": "0.0.0"}, "version"),
+        ({"version": 1}, "version"),
         ({"protocolVersion": 2}, "protocol"),
         ({"protocolVersion": True}, "protocol"),
         ({"token": ""}, "token"),
@@ -1021,6 +1024,7 @@ def test_status_requires_exact_health_identity_and_reports_connected(
 ):
     health = {
         "service": "capture-tcl-bridge",
+        "version": cli.SOFTWARE_VERSION,
         "protocolVersion": 1,
         "captureConnected": True,
         "busy": False,
@@ -1040,13 +1044,16 @@ def test_status_requires_exact_health_identity_and_reports_connected(
     assert cli.main(["status"]) == 0
 
     assert calls == [(descriptor(), "GET", "/v1/health", None)]
-    assert capsys.readouterr().out == "Capture Tcl bridge: connected, idle\n"
+    assert capsys.readouterr().out == (
+        f"Capture Tcl bridge v{cli.SOFTWARE_VERSION}: connected, idle\n"
+    )
 
 
 @pytest.mark.parametrize(
     "changes",
     [
         {"service": "other"},
+        {"version": "0.0.0"},
         {"protocolVersion": 2},
         {"capturePid": 9999},
         {"serverPid": 9999},
@@ -1056,6 +1063,7 @@ def test_status_requires_exact_health_identity_and_reports_connected(
 def test_status_rejects_any_health_identity_mismatch(monkeypatch, capsys, changes):
     health = {
         "service": "capture-tcl-bridge",
+        "version": cli.SOFTWARE_VERSION,
         "protocolVersion": 1,
         "captureConnected": True,
         "busy": False,
@@ -1076,6 +1084,7 @@ def test_status_rejects_any_health_identity_mismatch(monkeypatch, capsys, change
 def test_status_reports_disconnected_with_exit_three(monkeypatch, capsys):
     health = {
         "service": "capture-tcl-bridge",
+        "version": cli.SOFTWARE_VERSION,
         "protocolVersion": 1,
         "captureConnected": False,
         "busy": False,
@@ -1086,12 +1095,15 @@ def test_status_reports_disconnected_with_exit_three(monkeypatch, capsys):
     monkeypatch.setattr(cli, "request_json", lambda *_args, **_kwargs: health)
 
     assert cli.main(["status"]) == 3
-    assert capsys.readouterr().out == "Capture Tcl bridge: disconnected, idle\n"
+    assert capsys.readouterr().out == (
+        f"Capture Tcl bridge v{cli.SOFTWARE_VERSION}: disconnected, idle\n"
+    )
 
 
 def test_status_json_is_one_document_and_uses_connection_exit(monkeypatch, capsys):
     health = {
         "service": "capture-tcl-bridge",
+        "version": cli.SOFTWARE_VERSION,
         "protocolVersion": 1,
         "captureConnected": True,
         "busy": True,
