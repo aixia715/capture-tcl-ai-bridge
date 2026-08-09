@@ -10,7 +10,7 @@
 ```json
 {
   "service": "capture-tcl-bridge",
-  "version": "0.1.0-beta.2-dev",
+  "version": "0.1.0-beta.2",
   "protocolVersion": 1,
   "baseUrl": "http://127.0.0.1:8767",
   "token": "<每次启动都不同的随机令牌>",

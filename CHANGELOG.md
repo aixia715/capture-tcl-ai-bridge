@@ -2,7 +2,7 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
-## [Unreleased]
+## [0.1.0-beta.2] - 2026-08-09
 
 ### Added
 
@@ -42,4 +42,4 @@
   HTTP 协议调用它。
 
 [0.1.0-beta.1]: https://github.com/aixia715/capture-tcl-ai-bridge/releases/tag/v0.1.0-beta.1
-[Unreleased]: https://github.com/aixia715/capture-tcl-ai-bridge/compare/v0.1.0-beta.1...HEAD
+[0.1.0-beta.2]: https://github.com/aixia715/capture-tcl-ai-bridge/compare/v0.1.0-beta.1...v0.1.0-beta.2

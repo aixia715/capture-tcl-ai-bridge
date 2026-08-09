@@ -2,7 +2,7 @@
 # Sourcing this module is side-effect free; lifecycle is always explicit.
 
 set ::CaptureAiBridgeService {capture-tcl-bridge}
-set ::CaptureAiBridgeVersion {0.1.0-beta.2-dev}
+set ::CaptureAiBridgeVersion {0.1.0-beta.2}
 set ::CaptureAiBridgeProtocolVersion 1
 set ::CaptureAiBridgePort 8767
 set ::CaptureAiBridgePollMs 250
