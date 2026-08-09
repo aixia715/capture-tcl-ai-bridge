@@ -120,14 +120,13 @@ Capture 16.6 上实测，六条假设**无一成立**：
 `Value` 在页面实例上读写都正确，所以两个后缀脚本不受影响、已验证通过。
 补齐需要"页面实例 → occurrence"的关联，该 API 尚未确认。
 
-## 已知限制：extract_topology.tcl 尚不可用
+## 已解决：extract_topology.tcl 完整端点解析
 
-真机验证显示该示例能跑完不报错，但输出**达不到它的用途**：只有网络名和引脚
-编号，没有引脚所属的器件位号，因此无法回答"这条网络连了哪些器件的哪些脚"。
-`netOccurrenceCount` 恒为 1，说明 net occurrence 不是逐引脚的对象。
-
-补齐需要"从 port occurrence 回到所属器件 occurrence"的访问器，该 API 尚未确认。
-文件头部记录了安全的探测方式。其余六个示例不受影响。
+2026-08-09 在真实 Capture 16.6 上确认
+`DboPortOccurrence_sGetPathName` 与 `GetPortInst` 链路，并用
+`REF_INPUT` 验证得到 `SMA-19.1`、`R377.1`、`R380.1`。
+脚本现在输出网络、器件位号、引脚号、引脚名和 occurrence 路径，不再输出
+没有端点意义且恒为 1 的 `netOccurrenceCount`。
 
 ## 已知的验收环境限制
 

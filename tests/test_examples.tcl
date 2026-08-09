@@ -632,9 +632,33 @@ proc ::delete_DboFlatNetNetOccurrencesIter {iterHandle} {
     fx::deleteIter $iterHandle netOccs
 }
 
-proc fx::makePortOccurrence {name} {
+proc fx::makePortInst {pinNumber pinName} {
+    set handle [fx::makeHandle portinst fx::portInstDispatch]
+    set ::fx::portInstNumber($handle) $pinNumber
+    set ::fx::portInstName($handle) $pinName
+    return $handle
+}
+
+proc fx::portInstDispatch {handle method argsList} {
+    switch -exact -- $method {
+        GetPinNumber - GetPinName {
+            set cstr [lindex $argsList 0]
+            set st [fx::makeState]
+            if {$method eq {GetPinNumber}} {
+                fx::setCString $cstr $::fx::portInstNumber($handle)
+            } else {
+                fx::setCString $cstr $::fx::portInstName($handle)
+            }
+            return $st
+        }
+        default { error "fake port instance: unsupported method \"$method\"" }
+    }
+}
+
+proc fx::makePortOccurrence {path {pinNumber {}} {pinName {}}} {
     set handle [fx::makeHandle port fx::portDispatch]
-    set ::fx::portName($handle) $name
+    set ::fx::portPath($handle) $path
+    set ::fx::portInst($handle) [fx::makePortInst $pinNumber $pinName]
     return $handle
 }
 
@@ -643,11 +667,23 @@ proc fx::portDispatch {handle method argsList} {
         GetName {
             set cstr [lindex $argsList 0]
             set st [fx::makeState]
-            fx::setCString $cstr $::fx::portName($handle)
+            fx::setCString $cstr $::fx::portPath($handle)
             return $st
+        }
+        GetPortInst {
+            set st [lindex $argsList 0]
+            fx::okState $st
+            return $::fx::portInst($handle)
         }
         default { error "fake port occurrence: unsupported method \"$method\"" }
     }
+}
+
+proc ::DboPortOccurrence_sGetPathName {handle st} {
+    fx::okState $st
+    set cstr [DboTclHelper_sMakeCString]
+    fx::setCString $cstr $::fx::portPath($handle)
+    return $cstr
 }
 
 # A net occurrence's real field/method surface is not confirmed at all, so
@@ -1008,39 +1044,17 @@ proc fx::countOpenNetOccIters {} {
 proc suite_topology {} {
     fx::resetAll
 
-    # A minimal standalone net fixture -- independent of the occurrence
-    # suite's hierarchy tree. extract_topology.tcl reports net names, their
-    # hierarchical ports, and a net-occurrence count: NewPortOccurrencesIter
-    # and NewNetOccurrencesIter/NextNetOccurrence are all confirmed APIs,
-    # but the script never inspects a net occurrence's fields (see the
-    # comment above fx::makeFlatNet) -- two net occurrences are enough to
-    # prove counting works without ever touching one.
-    set portIn [fx::makePortOccurrence IN]
-    set netOccA [fx::makeNetOccurrence]
-    set netOccB [fx::makeNetOccurrence]
-    set n1 [fx::makeFlatNet N1 [list $portIn] [list $netOccA $netOccB]]
+    set r1Pin [fx::makePortOccurrence R1/1 1 A]
+    set u1Pin [fx::makePortOccurrence U1/3 3 IN]
+    set n1 [fx::makeFlatNet N1 [list $r1Pin $u1Pin] {}]
     set root [fx::makeOccurrence {} {} / {} 0]
     set ::fx::activeDesign [fx::makeDesign $root [list $n1]]
 
     lassign [fx::runExample extract_topology.tcl] code message output
     check {extract_topology.tcl runs without error} $code 0
-    check {extract_topology.tcl prints the net, its port and its net-occurrence count} \
-        $output [list \
-            [dict create net N1] \
-            [dict create net N1 port IN] \
-            [dict create net N1 netOccurrenceCount 2]]
-    # nets iterator (1) + ports iterator (1) + net-occurrences iterator (1)
-    # for the single net N1, each opened and freed exactly once: calling a
-    # Tcl command that does not exist is an ordinary catchable error, not a
-    # crash, so the free function's conventional name is probed with
-    # `info commands` and called for real rather than being guessed at
-    # blindly or skipped altogether.
-    check {extract_topology.tcl frees every iterator exactly once} \
-        $::fx::iterDeleteCalls 3
-    check {extract_topology.tcl leaves no net-occurrence iterator open} \
-        [fx::countOpenNetOccIters] 0
+    check {extract_topology.tcl prints component-pin endpoints} $output [list         [dict create net N1]         [dict create net N1 refdes R1 pin 1 pinName A path R1/1]         [dict create net N1 refdes U1 pin 3 pinName IN path U1/3]]
+    check {extract_topology.tcl frees every iterator exactly once}         $::fx::iterDeleteCalls 2
     check {extract_topology.tcl never mutates the design} $::fx::setPropCalls 0
-
 
     if {!$::fail} {
         puts {PASS: topology}

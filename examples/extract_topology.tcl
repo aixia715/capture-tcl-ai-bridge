@@ -1,46 +1,14 @@
-# Flat-net topology of the active design: for every net, its name, the
-# hierarchical ports connected to it, and how many net occurrences (the
-# flat net's equivalent of pin-level connections -- there is no pin API on
-# a flat net at all) it has.
+# Flat-net topology of the active design: for every net, its name and every
+# connected component pin. Each endpoint includes the annotated reference
+# designator, pin number, pin name, and occurrence path.
 #
-# Self-contained and read-only: walks the design's flat-net view directly
-# (NewFlatNetsIter) rather than any TCLBOM net-walking helper. A flat net
-# collapses hierarchy, so a single N1 here may connect a pin inside one
-# hierarchical block to a pin inside another -- the hierarchical ports on a
-# net are exactly the boundary crossings that made that possible. Every
-# iterator this script opens (nets, ports, net occurrences) is freed
-# exactly once, even when a later net is never reached because there are
-# no more nets left to enumerate.
+# Self-contained and read-only. Every iterator is freed exactly once.
 #
-# docs/capture-dbo-api-notes.md confirms there is no NewPinOccurrencesIter
-# on DboFlatNet -- info commands *PinOccurrence* is completely empty on
-# real Capture -- and that NewNetOccurrencesIter/NextNetOccurrence are the
-# replacement, with delete_DboFlatNetNetOccurrencesIter to free the
-# iterator. All three are confirmed to exist on real Capture.
-#
-# Note the two iterator constructors do NOT take the same arguments:
-# NewPortOccurrencesIter is "self status mode", NewNetOccurrencesIter is
-# "self" and rejects any argument at all. Sibling methods on one class are
-# not safe to write alike.
-#
-# KNOWN LIMITATION -- this script is not yet fit for its stated purpose.
-#
-# Run against a real design it prints net names and, per net, the names of
-# the port occurrences on it. Those names come back as pin numbers ("1",
-# "2"), and nothing here reports which component each pin belongs to. Real
-# topology extraction needs "net N1 connects R1 pin 1 to U1 pin 3"; what
-# this produces is "net N1 has a pin 1 and a pin 2", which cannot be acted
-# on. The net-occurrence count is likewise reported but not useful: it is 1
-# for every net, so a net occurrence is not the per-pin object it was
-# assumed to be.
-#
-# Closing the gap needs the accessor that walks from a port occurrence back
-# to its owning component occurrence, which is not confirmed. Probe it
-# before writing any of it -- zero-argument calls are safe and print the
-# real signature, whereas calling a type-specific method on a wrongly-typed
-# handle crashes Capture outright:
-#   puts [lsort [info commands DboPortOccurrence_*]]
-#   catch {DboPortOccurrence_GetInstOccurrence} probeResult
+# Real Capture 16.6 confirms that each DboPortOccurrence supplies both the
+# hierarchy-safe endpoint path (DboPortOccurrence_sGetPathName) and its
+# DboPortInst (GetPortInst). The former returns values such as R377/1; the
+# latter supplies GetPinNumber/GetPinName. This remains correct across
+# hierarchy because it does not map through whichever page is active.
 #
 # Two safety rules from docs/capture-dbo-api-notes.md drive the shape below:
 #   1. Every call that takes a DboState can fail, and an unchecked failure
@@ -118,41 +86,28 @@ try {
                     # first turns every completed walk into a reported failure.
                     if {$port eq {NULL}} { break }
                     _requireOk $st {NextPortOccurrence}
-                    set portName [_stringOut $port GetName {GetName(port)}]
-                    puts [dict create net $netName port $portName]
+                    set pathC [DboPortOccurrence_sGetPathName $port $st]
+                    _requireOk $st {DboPortOccurrence_sGetPathName}
+                    set path [DboTclHelper_sGetConstCharPtr $pathC]
+                    set pathParts [split [string trim $path /] /]
+                    if {[llength $pathParts] < 2} {
+                        error "INVALID_PORT_PATH: expected refdes/pin, got \"$path\""
+                    }
+                    set refdes [lindex $pathParts end-1]
+
+                    set portInst [$port GetPortInst $st]
+                    _requireOk $st {GetPortInst}
+                    if {$portInst eq {NULL}} {
+                        error "NULL_PORT_INSTANCE: $path"
+                    }
+                    set pin [_stringOut $portInst GetPinNumber {GetPinNumber(port)}]
+                    set pinName [_stringOut $portInst GetPinName {GetPinName(port)}]
+                    puts [dict create net $netName refdes $refdes pin $pin pinName $pinName path $path]
                 }
             } finally {
                 delete_DboFlatNetPortOccurrencesIter $portsIter
             }
 
-            # Net occurrences: the confirmed pin-level equivalent. Counted,
-            # not inspected -- see the file header for exactly what is and
-            # is not confirmed here.
-            # NewNetOccurrencesIter takes NO arguments -- confirmed
-            # signature "DboFlatNet_NewNetOccurrencesIter self". Its sibling
-            # NewPortOccurrencesIter above does take a status and an
-            # IterDefs mode, so the two cannot be written alike.
-            set netOccIter [$net NewNetOccurrencesIter]
-            try {
-                set netOccurrenceCount 0
-                while {1} {
-                    set netOcc [$netOccIter NextNetOccurrence $st]
-                    # A finished iterator returns NULL and at the same time sets the
-                    # status to error 1022 ("At normal end of iteration"), so the
-                    # sentinel has to be tested before the status -- checking status
-                    # first turns every completed walk into a reported failure.
-                    if {$netOcc eq {NULL}} { break }
-                    _requireOk $st {NextNetOccurrence}
-                    incr netOccurrenceCount
-                    # UNCONFIRMED: no field of a net occurrence (refdes,
-                    # pin name, pin number, owning component) is
-                    # confirmed, so nothing is read off $netOcc beyond the
-                    # fact that it exists.
-                }
-                puts [dict create net $netName netOccurrenceCount $netOccurrenceCount]
-            } finally {
-                delete_DboFlatNetNetOccurrencesIter $netOccIter
-            }
         }
     } finally {
         delete_DboDesignFlatNetsIter $netsIter

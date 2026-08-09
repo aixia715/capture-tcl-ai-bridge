@@ -346,6 +346,19 @@ net occurrence 就是等价物。
 `DboFlatNet_GetName self Name` 是 CString 出参；port occurrence 的 `GetName`
 实测同样如此。
 
+
+### 从 flat net 解析完整器件引脚端点
+
+真实 Capture 16.6 已确认：
+
+- `DboPortOccurrence_sGetPathName obj status` 返回 CString 句柄，解码后形如
+  `SMA-19/1`、`R377/1`；倒数第二段是已标注位号，最后一段是引脚号。
+- `DboPortOccurrence_GetPortInst self status` 返回 `DboPortInst`，其
+  `GetPinNumber` 和 `GetPinName` 都使用 CString 出参。
+- 这条路径不依赖当前活动页，适合 flat net 的跨层次遍历。
+
+在 `REF_INPUT` 上实测完整输出为 `SMA-19.1`、`R377.1`、`R380.1`。
+
 ## 选择集
 
 `GetSelectedObjects` 是**全局命令**，无参，返回句柄列表
