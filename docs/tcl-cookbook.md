@@ -94,34 +94,13 @@
 返回一个 `DboState`，成功后用 `DboTclHelper_sGetConstCharPtr` 读回字符串，
 最后释放状态对象。
 
-### 已知未确认、本手册的脚本刻意不实现的部分
+### 已确认的全网络端点解析
 
-`extract_topology.tcl` 输出网络名、它连接的层级端口，以及它有多少个 net
-occurrence（flat net 上引脚级连接的等价物——`info commands *PinOccurrence*`
-在真机上完全为空，flat net 上没有任何引脚级 API）。`NewNetOccurrencesIter`
-和 `NextNetOccurrence` 都已确认存在（`info commands DboFlatNetNetOccurrences*`
-返回 `DboFlatNetNetOccurrencesIter`、`..._GetKey`、`..._Next`、
-`..._NextNetOccurrence`）——本项目更早一版曾经因为在 Cadence 自带脚本里搜不到
-用例而误判 `NextNetOccurrence` 不存在、整段砍掉，那个判断是错的：
-Cadence 自带脚本没用到不等于真实 API 里没有。
-
-但一件事仍然没有确认：一个 net occurrence 本身能读到什么字段（位号、
-引脚名、引脚号、所属器件——一概未验证）。猜一个类型专属方法的名字不是
-语法风险，是崩溃风险——把类型不对的**句柄**喂给一个真实存在的类型专属
-方法会让 Capture 直接崩溃，因此脚本只用已确认的 `NextNetOccurrence` 把
-每个网络的 net occurrence **数一遍**，从不在返回的句柄上调用任何方法。
-脚本文件顶部和对应位置都用 `UNCONFIRMED` 标出这一处，并给出下一步在真机
-上探测的具体命令，等确认后只需要在标记处补一段代码。
-
-这个迭代器本身**会**被释放，这和"不猜字段方法名"不矛盾：释放函数按这个
-API 里"每种迭代器都有自己的 `delete_<迭代器类>`"的命名规律，猜测名字是
-`delete_DboFlatNetNetOccurrencesIter`（`DboFlatNetNetOccurrencesIter` 这个
-类名本身已经用 `info commands` 实测确认存在）。调用一个类型专属方法时
-喂错**句柄**会崩溃，但调用一个根本不存在的 Tcl **命令名**只是一个普通的、
-`catch` 得住的错误——两者是不同的风险类别。脚本因此用
-`info commands delete_DboFlatNetNetOccurrencesIter` 在运行时探测这个猜测
-出来的名字是否存在，存在才调用，不存在就照旧跳过，两条分支
-`tests/test_examples.tcl` 的 `topology` suite 都测到了。
+`extract_topology.tcl` 已在真实 Capture 16.6 上确认完整链路：
+`DboFlatNet → DboPortOccurrence → GetPortInst` 提供引脚信息，
+`DboPortOccurrence_sGetPathName` 提供层次安全的 `refdes/pin` 路径。
+测试网络 `REF_INPUT` 正确输出了 `SMA-19/1`、`R377/1` 和
+`R380/1`。脚本不再依赖没有端点意义的 `netOccurrenceCount`。
 
 ## 三种调用方式
 
@@ -691,15 +670,12 @@ puts [dict create refdes $refdes value $value path $hierarchyPath]
 
 ## `extract_topology.tcl`
 
-**用途**：按 flat net（拍平后的网络）输出设计的网络名、每个网络连接到的
-层级端口，以及每个网络有多少个 net occurrence（引脚级连接的等价物）。
-**不**输出每个 net occurrence 具体是哪个器件的哪个引脚——见下方"预期输出"
-和脚本内注释里对这部分未确认 API 的说明。
+**用途**：按 flat net 遍历整个设计，输出每条网络连接的器件位号、引脚号、
+引脚名和完整 occurrence 路径。
 
-**风险级别**：只读，但同样是整设计级的遍历（所有 flat net，以及每个
-net 上的所有端口和 net occurrence），在大设计上可能长时间运行。
+**风险级别**：只读，不修改设计；但会遍历整个设计，属于下面说明的 UI 阻塞风险。
 
-**输入参数**：无需编辑任何变量。
+**输入参数**：无需编辑变量，脚本遍历当前 Active Design。
 
 **CLI `-f` 调用**：
 
@@ -723,31 +699,9 @@ Invoke-RestMethod -Method Post -Uri "$($runtime.baseUrl)/v1/execute" `
   -Body (@{ script = (Get-Content -Raw .\examples\extract_topology.tcl) } | ConvertTo-Json)
 ```
 
-**预期输出**：每个网络先输出一行 `net N1`；随后每个连接到该网络的
-层级端口输出一行 `net N1 port IN`；最后输出一行
-`net N1 netOccurrenceCount 3`，即这个网络的 net occurrence 总数。三种行
-都用 `dict create` 格式，`net` 字段把同一个网络的所有行关联起来。
-**没有** `net N1 refdes ... pin ... name ...` 这一行——`NewNetOccurrencesIter`
-和 `NextNetOccurrence` 都已确认存在，脚本也确实打开了这个迭代器、用
-`NextNetOccurrence` 数出了总数，但一个 net occurrence 本身能读到什么字段
-（位号、引脚名、引脚号、所属器件）还没确认，脚本因此只数数，不读取任何
-字段——猜一个类型专属方法的名字去读字段，猜错了是崩溃 Capture 的风险，
-不是语法风险。
-
-这个迭代器**会**被释放，和只读部分的谨慎程度不一样：调用一个根本不存在
-的 Tcl 命令名，只是一个普通的、能被 `catch` 住的错误，不是崩溃风险
-——真正危险的是把类型不对的**句柄**喂给一个真实存在的类型专属方法。
-所以脚本用 `info commands delete_DboFlatNetNetOccurrencesIter` 在运行时
-探测这个按惯例推测出的释放函数名是否存在，存在就调用释放，不存在就照旧
-跳过——这样命名猜对时不会在大设计上每个网络泄漏一个迭代器，猜错时也
-不会崩溃，只是退回到之前"暂不回收"的状态。
-
-**风险提示**（不是 crash 风险，是设计选择的边界）：`delete_DboFlatNetNetOccurrencesIter`
-这个具体名字沿用了这个 API 里"每种迭代器都有自己的 `delete_<迭代器类>`"
-这一贯穿全文档的命名规律，`DboFlatNetNetOccurrencesIter` 这个类名本身是
-`info commands` 实测确认存在的，因此这个猜测有很强的依据，但**依据不等于
-确认**，`tests/test_examples.tcl` 的 `topology` suite 两个分支都测：命令
-存在时确实释放、命令不存在时确实优雅跳过。
+**预期输出**：每个网络先输出一行 `net N1`，随后每个端点输出一行，例如
+`net N1 refdes R1 pin 1 pinName A path R1/1`。层次设计中的 `path` 保留
+完整 occurrence 路径，`refdes` 取路径中紧邻引脚号的器件位号。
 
 **UI 阻塞风险**：和 `list_components.tcl` 一样，Capture 在 Tcl/UI
 线程上执行脚本，`extract_topology.tcl` 要遍历所有 flat net、其端口和 net
@@ -763,49 +717,17 @@ occurrence，设计越大运行越久，期间界面无响应。`POST /v1/execut
 
 <!-- BEGIN EXAMPLE SOURCE: extract_topology.tcl -->
 ```tcl
-# Flat-net topology of the active design: for every net, its name, the
-# hierarchical ports connected to it, and how many net occurrences (the
-# flat net's equivalent of pin-level connections -- there is no pin API on
-# a flat net at all) it has.
+# Flat-net topology of the active design: for every net, its name and every
+# connected component pin. Each endpoint includes the annotated reference
+# designator, pin number, pin name, and occurrence path.
 #
-# Self-contained and read-only: walks the design's flat-net view directly
-# (NewFlatNetsIter) rather than any TCLBOM net-walking helper. A flat net
-# collapses hierarchy, so a single N1 here may connect a pin inside one
-# hierarchical block to a pin inside another -- the hierarchical ports on a
-# net are exactly the boundary crossings that made that possible. Every
-# iterator this script opens (nets, ports, net occurrences) is freed
-# exactly once, even when a later net is never reached because there are
-# no more nets left to enumerate.
+# Self-contained and read-only. Every iterator is freed exactly once.
 #
-# docs/capture-dbo-api-notes.md confirms there is no NewPinOccurrencesIter
-# on DboFlatNet -- info commands *PinOccurrence* is completely empty on
-# real Capture -- and that NewNetOccurrencesIter/NextNetOccurrence are the
-# replacement, with delete_DboFlatNetNetOccurrencesIter to free the
-# iterator. All three are confirmed to exist on real Capture.
-#
-# Note the two iterator constructors do NOT take the same arguments:
-# NewPortOccurrencesIter is "self status mode", NewNetOccurrencesIter is
-# "self" and rejects any argument at all. Sibling methods on one class are
-# not safe to write alike.
-#
-# KNOWN LIMITATION -- this script is not yet fit for its stated purpose.
-#
-# Run against a real design it prints net names and, per net, the names of
-# the port occurrences on it. Those names come back as pin numbers ("1",
-# "2"), and nothing here reports which component each pin belongs to. Real
-# topology extraction needs "net N1 connects R1 pin 1 to U1 pin 3"; what
-# this produces is "net N1 has a pin 1 and a pin 2", which cannot be acted
-# on. The net-occurrence count is likewise reported but not useful: it is 1
-# for every net, so a net occurrence is not the per-pin object it was
-# assumed to be.
-#
-# Closing the gap needs the accessor that walks from a port occurrence back
-# to its owning component occurrence, which is not confirmed. Probe it
-# before writing any of it -- zero-argument calls are safe and print the
-# real signature, whereas calling a type-specific method on a wrongly-typed
-# handle crashes Capture outright:
-#   puts [lsort [info commands DboPortOccurrence_*]]
-#   catch {DboPortOccurrence_GetInstOccurrence} probeResult
+# Real Capture 16.6 confirms that each DboPortOccurrence supplies both the
+# hierarchy-safe endpoint path (DboPortOccurrence_sGetPathName) and its
+# DboPortInst (GetPortInst). The former returns values such as R377/1; the
+# latter supplies GetPinNumber/GetPinName. This remains correct across
+# hierarchy because it does not map through whichever page is active.
 #
 # Two safety rules from docs/capture-dbo-api-notes.md drive the shape below:
 #   1. Every call that takes a DboState can fail, and an unchecked failure
@@ -883,41 +805,28 @@ try {
                     # first turns every completed walk into a reported failure.
                     if {$port eq {NULL}} { break }
                     _requireOk $st {NextPortOccurrence}
-                    set portName [_stringOut $port GetName {GetName(port)}]
-                    puts [dict create net $netName port $portName]
+                    set pathC [DboPortOccurrence_sGetPathName $port $st]
+                    _requireOk $st {DboPortOccurrence_sGetPathName}
+                    set path [DboTclHelper_sGetConstCharPtr $pathC]
+                    set pathParts [split [string trim $path /] /]
+                    if {[llength $pathParts] < 2} {
+                        error "INVALID_PORT_PATH: expected refdes/pin, got \"$path\""
+                    }
+                    set refdes [lindex $pathParts end-1]
+
+                    set portInst [$port GetPortInst $st]
+                    _requireOk $st {GetPortInst}
+                    if {$portInst eq {NULL}} {
+                        error "NULL_PORT_INSTANCE: $path"
+                    }
+                    set pin [_stringOut $portInst GetPinNumber {GetPinNumber(port)}]
+                    set pinName [_stringOut $portInst GetPinName {GetPinName(port)}]
+                    puts [dict create net $netName refdes $refdes pin $pin pinName $pinName path $path]
                 }
             } finally {
                 delete_DboFlatNetPortOccurrencesIter $portsIter
             }
 
-            # Net occurrences: the confirmed pin-level equivalent. Counted,
-            # not inspected -- see the file header for exactly what is and
-            # is not confirmed here.
-            # NewNetOccurrencesIter takes NO arguments -- confirmed
-            # signature "DboFlatNet_NewNetOccurrencesIter self". Its sibling
-            # NewPortOccurrencesIter above does take a status and an
-            # IterDefs mode, so the two cannot be written alike.
-            set netOccIter [$net NewNetOccurrencesIter]
-            try {
-                set netOccurrenceCount 0
-                while {1} {
-                    set netOcc [$netOccIter NextNetOccurrence $st]
-                    # A finished iterator returns NULL and at the same time sets the
-                    # status to error 1022 ("At normal end of iteration"), so the
-                    # sentinel has to be tested before the status -- checking status
-                    # first turns every completed walk into a reported failure.
-                    if {$netOcc eq {NULL}} { break }
-                    _requireOk $st {NextNetOccurrence}
-                    incr netOccurrenceCount
-                    # UNCONFIRMED: no field of a net occurrence (refdes,
-                    # pin name, pin number, owning component) is
-                    # confirmed, so nothing is read off $netOcc beyond the
-                    # fact that it exists.
-                }
-                puts [dict create net $netName netOccurrenceCount $netOccurrenceCount]
-            } finally {
-                delete_DboFlatNetNetOccurrencesIter $netOccIter
-            }
         }
     } finally {
         delete_DboDesignFlatNetsIter $netsIter

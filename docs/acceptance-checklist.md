@@ -127,10 +127,11 @@
       puts "NETOCCITER => [lsort [info commands DboFlatNetNetOccurrences*]]"
       puts "PINISH     => [lsort [info commands *PinOccurrence*]]"
 
-      要确认的是：`GetName` 是否同样用 CString 出参；`DboState` 的
-      `Message`/`Code` 是直接返回值还是出参；以及 flat net 上从引脚回到所属器件
-      的正确方法名（`extract_topology.tcl` 目前**刻意不实现**这一段，
-      文件里留了 `UNCONFIRMED` 注释和探测配方）。
+      **2026-08-09 已补充确认**：`DboPortOccurrence_sGetPathName obj status`
+      返回层次安全的 `refdes/pin` 路径，`DboPortOccurrence_GetPortInst self status`
+      返回可读取 `GetPinNumber`/`GetPinName` 的 `DboPortInst`。已用
+      `REF_INPUT` 真机验证得到 `SMA-19/1`、`R377/1`、`R380/1`，
+      `extract_topology.tcl` 已实现这一链路。
 
 ## 阶段 3：只读链路
 
