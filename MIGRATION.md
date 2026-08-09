@@ -42,7 +42,8 @@ remains compatible with the existing `capture_tcl_bridge.json` contract.
 `capture-tcl-ai-bridge` 现在是这份代码的唯一维护位置。
 
 **桥本身已于 2026-08-08 通过真实 OrCAD Capture 16.6 验收**（Tcl 8.4.15）。
-示例部分**部分通过**：五个可用，两个有已记录的限制（见下）。
+示例中的 flat-net 拓扑链路及其阶段二边界场景已经通过真实设计验证；
+`selected_refs.tcl` 仍有下文记录的页面位号限制。
 
 验收范围：安装、加载、启动/停止、CLI 四种调用、`puts` 双向 tee、并发串行化、
 超时不取消、无效结果恢复、Token 轮换、退出 Capture 后 watchdog 收尾、
@@ -53,7 +54,7 @@ remains compatible with the existing `capture_tcl_bridge.json` contract.
 
 | 项目 | 状态 |
 | --- | --- |
-| `/internal/result` 确定性 4xx 导致刷屏与永久 busy | 自动测试已修复，真实 Capture **待验收** |
+| `/internal/result` 确定性 4xx 导致刷屏与永久 busy | **真实 Capture 已验证**：合成 `INVALID_RESULT`、释放 busy，且同一失败只记录一次 |
 | JSON 写出未转义反斜杠（Windows 路径产生非法 JSON） | **真实 Capture 已验证**：`puts "C:\\cadence\\SPB_16.6"` 正常返回 |
 | Tcl 8.4 / OrCAD 16.6 兼容 | **真实 Capture 已验证**：桥在 16.6 加载运行，CLI 全通 |
 | 只读示例对真实设计 | **已验证**：`list_components.tcl` 完整遍历 400+ 器件，位号/值/层次路径全对 |
@@ -78,10 +79,10 @@ remains compatible with the existing `capture_tcl_bridge.json` contract.
 
 `tcl_bom` 仍是回退来源；不要把它的工作树或源文件作为本次迁移的一部分删除。
 
-## 自动测试基线（2026-08-08）
+## 自动测试基线（2026-08-09）
 
 ```text
-Python：347 passed, 1 skipped        （CAPTURE_TCL_TCLSH 指向真实 tclsh 8.4）
+Python：357 passed, 1 skipped        （CAPTURE_TCL_TCLSH 指向真实 tclsh 8.4）
 tests/test_capture_ai_bridge.tcl     8.4 与 8.6 均 0 FAIL
 tests/test_capture_ai_compat.tcl     8.4 与 8.6 均 0 FAIL
 tests/test_examples.tcl              8.4 与 8.6 均 0 FAIL
@@ -127,6 +128,18 @@ Capture 16.6 上实测，六条假设**无一成立**：
 `REF_INPUT` 验证得到 `SMA-19.1`、`R377.1`、`R380.1`。
 脚本现在输出网络、器件位号、引脚号、引脚名和 occurrence 路径，不再输出
 没有端点意义且恒为 1 的 `netOccurrenceCount`。
+
+同日完成阶段二完整边界验收：
+
+| 场景 | 真机结果 |
+| --- | --- |
+| 普通网络 `REF_INPUT` | `SMA-19.1`、`R377.1`、`R380.1`，完全匹配 |
+| 复用模块同名网络 `PD_DC_N_1` | 正确区分各模块 flat net；`FNC-SP` 的 5 个端点完全匹配 |
+| 全局网络 `VCC_+12V` | 正确合并 TOP 与四个复用模块，7 个端点完全匹配 |
+| 未命名网络 | 2 个端点与人工结果完全匹配 |
+| 72 位总线 | 72 个成员、144 个端点；无缺失且每成员恰好 2 个端点 |
+| 跨页连接器 | 两侧端点与人工结果完全匹配，连接器未被误报为器件端点 |
+| 多单元器件 | 所选单元 16 个已连接引脚全部找到；物理器件 1575 个端点无重复 |
 
 ## 已知的验收环境限制
 

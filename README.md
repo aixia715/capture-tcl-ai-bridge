@@ -1,5 +1,7 @@
 # Capture Tcl AI Bridge
 
+当前预发布版本：**0.1.0-beta.1**。版本变化见 [CHANGELOG.md](CHANGELOG.md)。
+
 把本机 AI 客户端或人工命令行提交的多行 Tcl，交给**正在运行的** OrCAD Capture
 全局 Tcl 解释器执行，并把 `puts` 输出、返回值和 Tcl 错误详情原样带回来。
 `puts` 的内容同时保留在 Capture 控制台里，不会被"吞掉"。
@@ -20,6 +22,9 @@
 桥自带 Tcl 8.4 兼容层和 JSON 解析器，因此两个 Capture 版本都能直接运行，
 不需要额外安装 tcllib，也不需要配置 `TCLLIBPATH`。
 16.6 的唯一差异见[版本差异](#版本差异)。
+
+真实 Capture 验收目前在 16.6 / Tcl 8.4.15 上完成。17.4 / Tcl 8.6 已由自动兼容
+测试覆盖，但尚未进行真机验收；beta 使用者应将这一点视为已知验证边界。
 
 ## 最短使用路径
 
@@ -169,3 +174,7 @@ tclsh tests\test_capture_ai_compat.tcl
 
 Tcl 套件在 8.4 和 8.6 上都必须通过。若 PATH 上的 `tclsh` 不是要验证的版本，
 用 `CAPTURE_TCL_TCLSH` 指定集成测试使用的解释器。
+
+## 许可证
+
+本项目采用 [MIT License](LICENSE)。
