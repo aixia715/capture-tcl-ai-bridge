@@ -2,6 +2,16 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/)。
 
+## [Unreleased]
+
+### Added
+
+- 新增本地 stdio Capture MCP Server，向 Codex、Claude Code、Hermes 等 Agent
+  暴露元器件属性读取与单项属性修改工具；写入后立即回读，但不自动保存设计。
+- 同时支持初始化式 MCP `2024-11-05` 至 `2025-11-25` 和无状态
+  `2026-07-28` 协议，并提供严格参数校验、Tcl 注入隔离及结构化结果。
+- 安装器和卸载器现在把 `capture_mcp_server.py` 纳入带 SHA-256 的所有权清单。
+
 ## [0.1.0-beta.2] - 2026-08-09
 
 ### Added

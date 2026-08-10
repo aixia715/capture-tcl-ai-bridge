@@ -3,9 +3,9 @@
     Installs the Capture Tcl AI bridge runtime files.
 
 .DESCRIPTION
-    Copies the three runtime files - the broker, the CLI and the Capture Tcl
-    module - plus, with -EnableAutoStart, a fourth that starts the bridge when
-    Capture launches. All of them are recorded in
+    Copies the four runtime files - the broker, the CLI, the MCP server and the
+    Capture Tcl module - plus, with -EnableAutoStart, a fifth that starts the
+    bridge when Capture launches. All of them are recorded in
     %LOCALAPPDATA%\capture-tcl-ai-bridge\install.json so captureAiBridge.tcl can
     find the broker and so uninstall.ps1 can prove which files this project owns.
 
@@ -16,7 +16,8 @@
     Installing does not start Capture or the bridge.
 
 .PARAMETER PythonTarget
-    Directory receiving capture_tcl_bridge_server.py and capture_tcl_cli.py.
+    Directory receiving capture_tcl_bridge_server.py, capture_tcl_cli.py and
+    capture_mcp_server.py.
 
 .PARAMETER CaptureTclTarget
     Directory receiving captureAiBridge.tcl.
@@ -223,6 +224,10 @@ $plan = @(
     [pscustomobject]@{
         Source = Join-Path $SourceRoot 'capture_tcl_cli.py'
         Target = Join-Path $canonicalPythonTarget 'capture_tcl_cli.py'
+    }
+    [pscustomobject]@{
+        Source = Join-Path $SourceRoot 'capture_mcp_server.py'
+        Target = Join-Path $canonicalPythonTarget 'capture_mcp_server.py'
     }
     [pscustomobject]@{
         Source = Join-Path $SourceRoot 'captureAiBridge.tcl'

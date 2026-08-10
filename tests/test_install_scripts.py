@@ -1,6 +1,6 @@
 """Behaviour of the standalone install.ps1 and uninstall.ps1 scripts.
 
-The installer owns three runtime files and one manifest. Everything these
+The installer owns four runtime files and one manifest. Everything these
 tests assert is about ownership boundaries: the installer must never clobber a
 file it does not own, and the uninstaller must never delete a file the manifest
 does not prove it installed.
@@ -25,6 +25,7 @@ INSTALL = ROOT / "install.ps1"
 UNINSTALL = ROOT / "uninstall.ps1"
 SERVER_NAME = "capture_tcl_bridge_server.py"
 CLI_NAME = "capture_tcl_cli.py"
+MCP_NAME = "capture_mcp_server.py"
 TCL_NAME = "captureAiBridge.tcl"
 AUTOSTART_NAME = "captureAiBridgeAutoStart.tcl"
 
@@ -90,6 +91,7 @@ def sandbox(tmp_path: Path) -> SimpleNamespace:
     )
     box.server = box.python_target / SERVER_NAME
     box.cli = box.python_target / CLI_NAME
+    box.mcp = box.python_target / MCP_NAME
     box.tcl = box.capture_target / TCL_NAME
     box.autostart = box.capture_target / AUTOSTART_NAME
     return box
@@ -141,15 +143,16 @@ def _python_stub(directory: Path, *, version: str, imports_ok: bool) -> Path:
     return directory
 
 
-def test_install_copies_exactly_the_three_runtime_files(sandbox):
+def test_install_copies_exactly_the_four_runtime_files(sandbox):
     result = _install(sandbox)
 
     assert result.returncode == 0, result.stderr
     assert sandbox.server.read_bytes() == (ROOT / SERVER_NAME).read_bytes()
     assert sandbox.cli.read_bytes() == (ROOT / CLI_NAME).read_bytes()
+    assert sandbox.mcp.read_bytes() == (ROOT / MCP_NAME).read_bytes()
     assert sandbox.tcl.read_bytes() == (ROOT / TCL_NAME).read_bytes()
     assert sorted(p.name for p in sandbox.python_target.iterdir()) == sorted(
-        [SERVER_NAME, CLI_NAME]
+        [SERVER_NAME, CLI_NAME, MCP_NAME]
     )
     assert [p.name for p in sandbox.capture_target.iterdir()] == [TCL_NAME]
 
@@ -163,7 +166,7 @@ def test_install_does_not_auto_start_unless_asked(sandbox):
     assert AUTOSTART_NAME not in json.dumps(manifest)
 
 
-def test_enable_auto_start_installs_a_fourth_owned_file(sandbox):
+def test_enable_auto_start_installs_a_fifth_owned_file(sandbox):
     result = _install(sandbox, "-EnableAutoStart")
 
     assert result.returncode == 0, result.stderr
@@ -193,7 +196,7 @@ def test_uninstall_removes_the_auto_start_file_too(sandbox):
     assert not sandbox.manifest_path.exists()
 
 
-def test_uninstall_still_refuses_a_path_outside_the_four_targets(sandbox, tmp_path):
+def test_uninstall_still_refuses_a_path_outside_the_five_targets(sandbox, tmp_path):
     _install(sandbox, "-EnableAutoStart")
     outsider = tmp_path / "elsewhere" / AUTOSTART_NAME
     outsider.parent.mkdir(parents=True)
@@ -231,6 +234,7 @@ def test_install_writes_a_manifest_describing_the_installed_files(sandbox):
     assert set(recorded) == {
         str(sandbox.server.resolve()),
         str(sandbox.cli.resolve()),
+        str(sandbox.mcp.resolve()),
         str(sandbox.tcl.resolve()),
     }
     for path, digest in recorded.items():
@@ -241,7 +245,10 @@ def test_install_writes_a_manifest_describing_the_installed_files(sandbox):
 def test_install_is_idempotent(sandbox):
     assert _install(sandbox).returncode == 0
     first = _manifest(sandbox)
-    stamps = {p: p.stat().st_mtime_ns for p in (sandbox.server, sandbox.cli, sandbox.tcl)}
+    stamps = {
+        p: p.stat().st_mtime_ns
+        for p in (sandbox.server, sandbox.cli, sandbox.mcp, sandbox.tcl)
+    }
 
     second_result = _install(sandbox)
 
@@ -386,6 +393,7 @@ def test_uninstall_removes_unmodified_files_and_the_manifest(sandbox):
     assert result.returncode == 0, result.stderr
     assert not sandbox.server.exists()
     assert not sandbox.cli.exists()
+    assert not sandbox.mcp.exists()
     assert not sandbox.tcl.exists()
     assert not sandbox.manifest_path.exists()
 
@@ -445,6 +453,7 @@ def test_uninstall_refuses_a_path_outside_the_recorded_targets(sandbox, tmp_path
     assert outsider.exists()
     assert sandbox.server.exists(), "a rejected manifest must delete nothing"
     assert sandbox.cli.exists()
+    assert sandbox.mcp.exists()
     assert sandbox.tcl.exists()
 
 
