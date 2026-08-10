@@ -72,7 +72,12 @@ def _run_against_dbo_fixture(script: str, setup: str) -> subprocess.CompletedPro
         + "puts [list MCP_RESULT $mcpCode $mcpResult $::fx::setPropCalls]\n"
     )
     return subprocess.run(
-        [tclsh], input=program, capture_output=True, text=True, timeout=30
+        [tclsh],
+        input=program,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
     )
 
 
