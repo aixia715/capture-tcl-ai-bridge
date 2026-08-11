@@ -1,0 +1,78 @@
+name: Build offline release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Verify release version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          if ($env:GITHUB_REF_NAME -ne "v$version") { throw "Tag $env:GITHUB_REF_NAME does not match VERSION $version." }
+      - name: Install test dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Test release source
+        run: python -m pytest -q
+      - name: Build embedded Python runtime with offline dependencies
+        shell: pwsh
+        run: |
+          $version = '3.12.10'
+          $runtime = Join-Path $env:RUNNER_TEMP 'runtime'
+          $zip = Join-Path $env:RUNNER_TEMP "python-$version-embed-amd64.zip"
+          Invoke-WebRequest "https://www.python.org/ftp/python/$version/python-$version-embed-amd64.zip" -OutFile $zip
+          Expand-Archive -LiteralPath $zip -DestinationPath $runtime
+          $pth = Join-Path $runtime 'python312._pth'
+          @('python312.zip', '.', 'Lib', 'Lib/site-packages', 'import site') | Set-Content -LiteralPath $pth -Encoding ascii
+          python -m pip install --disable-pip-version-check --no-compile --target (Join-Path $runtime 'Lib/site-packages') -r requirements.txt
+          & (Join-Path $runtime 'python.exe') -c "import fastapi, uvicorn; print('bundled runtime OK')"
+      - name: Assemble release archive
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP 'capture-tcl-ai-bridge'
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          Copy-Item capture_tcl_bridge_server.py,capture_tcl_cli.py,capture_mcp_server.py,captureAiBridge.tcl,install.ps1,uninstall.ps1,README.md,LICENSE,CHANGELOG.md -Destination $stage
+          Copy-Item -Recurse examples,docs -Destination $stage
+          Copy-Item -Recurse (Join-Path $env:RUNNER_TEMP 'runtime') -Destination (Join-Path $stage 'runtime')
+          $version = (Get-Content VERSION -Raw).Trim()
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath "capture-tcl-ai-bridge-v$version-windows-x64.zip"
+      - name: Smoke test released archive
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          $archive = "capture-tcl-ai-bridge-v$version-windows-x64.zip"
+          $extracted = Join-Path $env:RUNNER_TEMP 'capture-tcl-ai-bridge-extracted'
+          $smokePython = Join-Path $env:RUNNER_TEMP 'capture-tcl-ai-bridge-smoke'
+          $smokeCapture = Join-Path $env:RUNNER_TEMP 'capture-tcl-ai-bridge-smoke-capAutoLoad'
+          Expand-Archive -LiteralPath $archive -DestinationPath $extracted
+          New-Item -ItemType Directory -Path $smokeCapture | Out-Null
+          & (Join-Path $extracted 'install.ps1') -PythonTarget $smokePython -CaptureTclTarget $smokeCapture
+          if ($LASTEXITCODE -ne 0) { throw 'Released archive installer smoke test failed.' }
+          & (Join-Path $smokePython 'runtime/python.exe') -c "import fastapi, uvicorn"
+          if ($LASTEXITCODE -ne 0) { throw 'Deployed runtime cannot import fastapi or uvicorn.' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capture-tcl-ai-bridge-windows-x64
+          path: capture-tcl-ai-bridge-*-windows-x64.zip
+          if-no-files-found: error
+
+      - name: Publish GitHub Release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: capture-tcl-ai-bridge-*-windows-x64.zip
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: ${{ !contains(github.ref_name, '-') }}

@@ -117,6 +117,7 @@ if {[llength [info commands ::_captureAiResolvePythonPath]] > 0} {
     check {valid install manifest supplies Python path} \
         [_captureAiResolvePythonPath] [file normalize [file join $manifestRoot manifest-target]]
 
+
     set manifestChannel [open $manifestPath w]
     fconfigure $manifestChannel -encoding utf-8
     puts -nonewline $manifestChannel {not JSON}
@@ -138,6 +139,21 @@ if {[llength [info commands ::_captureAiResolvePythonPath]] > 0} {
         puts -nonewline $channel $body
         close $channel
     }
+    set bundledPython [file join $manifestRoot runtime python.exe]
+    file mkdir [file dirname $bundledPython]
+    set bundledChannel [open $bundledPython w]
+    close $bundledChannel
+    _captureAiWriteManifest $manifestPath [format \
+        {{"schemaVersion":3,"project":"capture-tcl-ai-bridge","pythonTarget":"%s","pythonExecutable":"%s"}} \
+        [string map [list {\\} {/}] [file join $manifestRoot manifest-target]] \
+        [string map [list {\\} {/}] $bundledPython]]
+    check {schema 3 manifest supplies bundled Python executable} \
+        [_captureAiResolvePythonExecutable] [file normalize $bundledPython]
+    file delete -force -- $bundledPython
+    set missingRuntimeCode [catch {_captureAiResolvePythonExecutable} missingRuntimeMessage]
+    check {missing bundled Python runtime is an explicit error} $missingRuntimeCode 1
+    check {missing bundled Python runtime explains the repair} $missingRuntimeMessage \
+        {bundled Python runtime is missing; re-run install.ps1 from the Release ZIP.}
 
     set manifestTarget [string map [list {\\} {/}] \
         [file join $manifestRoot manifest-target]]
@@ -151,7 +167,7 @@ if {[llength [info commands ::_captureAiResolvePythonPath]] > 0} {
             {{"schemaVersion":1,"project":"capture-tcl-ai-bridge"}} \
         {manifest with unsupported schema version} \
             [format \
-                {{"schemaVersion":2,"project":"capture-tcl-ai-bridge","pythonTarget":"%s"}} \
+                {{"schemaVersion":4,"project":"capture-tcl-ai-bridge","pythonTarget":"%s"}} \
                 $manifestTarget] \
         {manifest owned by another project} \
             [format {{"schemaVersion":1,"project":"tcl-bom","pythonTarget":"%s"}} \

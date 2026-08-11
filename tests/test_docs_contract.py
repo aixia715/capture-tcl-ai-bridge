@@ -96,9 +96,9 @@ def test_cookbook_documents_exactly_the_examples_on_disk(cookbook: str) -> None:
 
 def test_cookbook_documents_the_three_invocation_methods(cookbook: str) -> None:
     for required in (
-        "python C:\\tclpython\\capture_tcl_cli.py -f .\\examples\\selected_refs.tcl",
+        "C:\\tclpython\\runtime\\python.exe C:\\tclpython\\capture_tcl_cli.py -f .\\examples\\selected_refs.tcl",
         "Get-Content -Raw .\\examples\\selected_refs.tcl | "
-        "python C:\\tclpython\\capture_tcl_cli.py",
+        "C:\\tclpython\\runtime\\python.exe C:\\tclpython\\capture_tcl_cli.py",
         "%TEMP%\\capture_tcl_bridge.json",
         "baseUrl",
         "token",

@@ -32,15 +32,19 @@
       记录结果。16.6 预期 `8.4.x`，17.4 预期 `8.6.x`。
       这决定了后面 `errorLine` 该期望什么。
 
-- [ ] **0.2** 【真机】 在仓库目录安装：
+- [ ] **0.2** 【真机】 解压 Release ZIP，在解压出来的目录安装：
 
-      python -m pip install -r requirements.txt
       .\install.ps1                      # 16.6 需加 -CaptureTclTarget
 
-      预期：只输出四个运行文件加一个 manifest 路径，然后给出 source / Start /
-      Status 三条命令。**不应**启动 Capture 或桥。
+      预期：输出 bridge、CLI、MCP、Capture Tcl 文件、`runtime\` 的文件数摘要和
+      manifest 路径，然后给出 source / Start / Status 三条命令。**不应**启动
+      Capture 或桥。
 
-- [ ] **0.3** 【已验】 比对部署文件与仓库文件的 SHA-256 一致：
+      源码 checkout 不包含 `runtime\`（只在发布打包时生成，见
+      [runtime-packaging.md](runtime-packaging.md)）；直接在仓库目录运行
+      `install.ps1` 会报 `bundled runtime is missing` 并退出，这是预期行为。
+
+- [ ] **0.3** 【已验】 比对部署文件与解压目录文件的 SHA-256 一致：
 
       Get-FileHash .\captureAiBridge.tcl, "<CaptureTclTarget>\captureAiBridge.tcl" |
           Select-Object Hash, Path
@@ -141,11 +145,11 @@
 
 - [ ] **3.1** 【复验】 CLI 五种形式全部走通：
 
-      python C:\tclpython\capture_tcl_cli.py status
-      python C:\tclpython\capture_tcl_cli.py -c "expr {1 + 1}"
-      python C:\tclpython\capture_tcl_cli.py -f .\examples\selected_refs.tcl
-      Get-Content -Raw .\examples\selected_refs.tcl | python C:\tclpython\capture_tcl_cli.py
-      python C:\tclpython\capture_tcl_cli.py --json -c "expr {1 + 1}"
+      C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py status
+      C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -c "expr {1 + 1}"
+      C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\selected_refs.tcl
+      Get-Content -Raw .\examples\selected_refs.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
+      C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py --json -c "expr {1 + 1}"
 
 - [ ] **3.2** 【复验】 多行 + UTF-8 脚本，确认返回值与中文原样往返。
 

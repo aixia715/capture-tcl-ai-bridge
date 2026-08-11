@@ -17,7 +17,6 @@ Capture remains the place where the user reviews and saves or discards changes.
 Install and start the Tcl bridge first:
 
 ```powershell
-python -m pip install -r requirements.txt
 .\install.ps1
 ```
 
@@ -39,7 +38,7 @@ The installer puts the MCP server at
 ### Codex
 
 ```powershell
-codex mcp add capture -- python C:\tclpython\capture_mcp_server.py
+codex mcp add capture -- C:\tclpython\runtime\python.exe C:\tclpython\capture_mcp_server.py
 codex mcp list
 ```
 
@@ -55,7 +54,7 @@ tool_timeout_sec = 45
 ### Claude Code
 
 ```powershell
-claude mcp add --transport stdio --scope user capture -- python C:\tclpython\capture_mcp_server.py
+claude mcp add --transport stdio --scope user capture -- C:\tclpython\runtime\python.exe C:\tclpython\capture_mcp_server.py
 claude mcp get capture
 ```
 

@@ -1,6 +1,6 @@
 """Behaviour of the standalone install.ps1 and uninstall.ps1 scripts.
 
-The installer owns four runtime files and one manifest. Everything these
+The installer owns three runtime files and one manifest. Everything these
 tests assert is about ownership boundaries: the installer must never clobber a
 file it does not own, and the uninstaller must never delete a file the manifest
 does not prove it installed.
@@ -52,12 +52,12 @@ def _run(
     args: list[str],
     *,
     local_app_data: Path,
-    path_prefix: Path | None = None,
+    skip_runtime_validation: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env["LOCALAPPDATA"] = str(local_app_data)
-    if path_prefix is not None:
-        env["PATH"] = f"{path_prefix}{os.pathsep}{env['PATH']}"
+    if skip_runtime_validation:
+        env["CAPTURE_AI_BRIDGE_TEST_SKIP_RUNTIME_VALIDATION"] = "1"
     return subprocess.run(
         [
             _powershell(),
@@ -71,6 +71,7 @@ def _run(
         ],
         capture_output=True,
         text=True,
+        errors="replace",
         cwd=str(ROOT),
         env=env,
         timeout=180,
@@ -86,6 +87,15 @@ def sandbox(tmp_path: Path) -> SimpleNamespace:
         capture_target=tmp_path / "capture",
     )
     box.local_app_data.mkdir()
+    box.capture_target.mkdir()
+    box.runtime_source = tmp_path / "bundled-runtime"
+    (box.runtime_source / "Lib" / "site-packages" / "fastapi").mkdir(parents=True)
+    (box.runtime_source / "Lib" / "site-packages" / "uvicorn").mkdir(parents=True)
+    (box.runtime_source / "python.exe").write_bytes(b"embedded python")
+    (box.runtime_source / "python312._pth").write_text("Lib\nLib/site-packages\nimport site\n", encoding="ascii")
+    (box.runtime_source / "Lib" / "site-packages" / "fastapi" / "__init__.py").write_text("", encoding="utf-8")
+    (box.runtime_source / "Lib" / "site-packages" / "uvicorn" / "__init__.py").write_text("", encoding="utf-8")
+    box.runtime_target = box.python_target / "runtime"
     box.manifest_path = (
         box.local_app_data / "capture-tcl-ai-bridge" / "install.json"
     )
@@ -100,7 +110,6 @@ def sandbox(tmp_path: Path) -> SimpleNamespace:
 def _install(
     sandbox: SimpleNamespace,
     *extra: str,
-    path_prefix: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return _run(
         INSTALL,
@@ -109,10 +118,12 @@ def _install(
             str(sandbox.python_target),
             "-CaptureTclTarget",
             str(sandbox.capture_target),
+            "-RuntimeSource",
+            str(sandbox.runtime_source),
             *extra,
         ],
         local_app_data=sandbox.local_app_data,
-        path_prefix=path_prefix,
+        skip_runtime_validation=True,
     )
 
 
@@ -128,22 +139,18 @@ def _manifest(sandbox: SimpleNamespace) -> dict:
     return json.loads(sandbox.manifest_path.read_text(encoding="utf-8"))
 
 
-def _python_stub(directory: Path, *, version: str, imports_ok: bool) -> Path:
-    """A PATH shim that answers --version and the dependency import probe."""
-    directory.mkdir(parents=True, exist_ok=True)
-    (directory / "python.cmd").write_text(
-        "@echo off\r\n"
-        'if "%~1"=="--version" (\r\n'
-        f"  echo Python {version}\r\n"
-        "  exit /b 0\r\n"
-        ")\r\n"
-        f"exit /b {0 if imports_ok else 1}\r\n",
-        encoding="ascii",
-    )
-    return directory
+
+def test_install_creates_the_bridge_owned_python_target(sandbox):
+    assert not sandbox.python_target.exists()
+
+    result = _install(sandbox)
+
+    assert result.returncode == 0, result.stderr
+    assert sandbox.python_target.is_dir()
+    assert sandbox.runtime_target.joinpath("python.exe").exists()
 
 
-def test_install_copies_exactly_the_four_runtime_files(sandbox):
+def test_install_copies_all_bridge_files_and_bundled_runtime(sandbox):
     result = _install(sandbox)
 
     assert result.returncode == 0, result.stderr
@@ -151,10 +158,49 @@ def test_install_copies_exactly_the_four_runtime_files(sandbox):
     assert sandbox.cli.read_bytes() == (ROOT / CLI_NAME).read_bytes()
     assert sandbox.mcp.read_bytes() == (ROOT / MCP_NAME).read_bytes()
     assert sandbox.tcl.read_bytes() == (ROOT / TCL_NAME).read_bytes()
-    assert sorted(p.name for p in sandbox.python_target.iterdir()) == sorted(
-        [SERVER_NAME, CLI_NAME, MCP_NAME]
-    )
+    assert sandbox.runtime_target.joinpath("python.exe").read_bytes() == b"embedded python"
     assert [p.name for p in sandbox.capture_target.iterdir()] == [TCL_NAME]
+
+
+def test_install_rejects_an_incomplete_bundled_runtime(sandbox):
+    result = _run(
+        INSTALL,
+        [
+            "-PythonTarget",
+            str(sandbox.python_target),
+            "-CaptureTclTarget",
+            str(sandbox.capture_target),
+            "-RuntimeSource",
+            str(sandbox.runtime_source),
+        ],
+        local_app_data=sandbox.local_app_data,
+    )
+
+    assert result.returncode != 0
+    assert "bundled runtime is incomplete" in (result.stderr + result.stdout)
+    assert not sandbox.python_target.exists()
+
+
+def test_install_reports_runtime_probe_output_when_an_executable_exits_nonzero(sandbox):
+    shutil.copyfile(_powershell(), sandbox.runtime_source / "python.exe")
+
+    result = _run(
+        INSTALL,
+        [
+            "-PythonTarget",
+            str(sandbox.python_target),
+            "-CaptureTclTarget",
+            str(sandbox.capture_target),
+            "-RuntimeSource",
+            str(sandbox.runtime_source),
+        ],
+        local_app_data=sandbox.local_app_data,
+    )
+
+    combined = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "bundled runtime is incomplete" in combined
+    assert "Python exited with code" not in combined
 
 
 def test_install_does_not_auto_start_unless_asked(sandbox):
@@ -166,7 +212,7 @@ def test_install_does_not_auto_start_unless_asked(sandbox):
     assert AUTOSTART_NAME not in json.dumps(manifest)
 
 
-def test_enable_auto_start_installs_a_fifth_owned_file(sandbox):
+def test_enable_auto_start_installs_a_fourth_owned_file(sandbox):
     result = _install(sandbox, "-EnableAutoStart")
 
     assert result.returncode == 0, result.stderr
@@ -196,7 +242,7 @@ def test_uninstall_removes_the_auto_start_file_too(sandbox):
     assert not sandbox.manifest_path.exists()
 
 
-def test_uninstall_still_refuses_a_path_outside_the_five_targets(sandbox, tmp_path):
+def test_uninstall_still_refuses_a_path_outside_the_four_targets(sandbox, tmp_path):
     _install(sandbox, "-EnableAutoStart")
     outsider = tmp_path / "elsewhere" / AUTOSTART_NAME
     outsider.parent.mkdir(parents=True)
@@ -219,16 +265,20 @@ def test_install_reports_the_source_and_start_commands(sandbox):
     assert str(sandbox.tcl) in result.stdout
     assert "CaptureAiBridgeStart" in result.stdout
     assert "CaptureAiBridgeStatus" in result.stdout
+    assert f"{sandbox.runtime_target}\\ (" in result.stdout
+    assert str(sandbox.runtime_target / "python.exe") not in result.stdout
 
 
 def test_install_writes_a_manifest_describing_the_installed_files(sandbox):
     _install(sandbox)
 
     manifest = _manifest(sandbox)
-    assert manifest["schemaVersion"] == 1
+    assert manifest["schemaVersion"] == 3
     assert manifest["project"] == "capture-tcl-ai-bridge"
     assert Path(manifest["pythonTarget"]) == sandbox.python_target.resolve()
-    assert Path(manifest["captureTclTarget"]) == sandbox.capture_target.resolve()
+    assert [Path(path) for path in manifest["captureTclTargets"]] == [sandbox.capture_target.resolve()]
+    assert Path(manifest["runtimeTarget"]) == sandbox.runtime_target.resolve()
+    assert Path(manifest["pythonExecutable"]) == (sandbox.runtime_target / "python.exe").resolve()
 
     recorded = {entry["path"]: entry["sha256"] for entry in manifest["files"]}
     assert set(recorded) == {
@@ -236,6 +286,10 @@ def test_install_writes_a_manifest_describing_the_installed_files(sandbox):
         str(sandbox.cli.resolve()),
         str(sandbox.mcp.resolve()),
         str(sandbox.tcl.resolve()),
+        str((sandbox.runtime_target / "python.exe").resolve()),
+        str((sandbox.runtime_target / "python312._pth").resolve()),
+        str((sandbox.runtime_target / "Lib" / "site-packages" / "fastapi" / "__init__.py").resolve()),
+        str((sandbox.runtime_target / "Lib" / "site-packages" / "uvicorn" / "__init__.py").resolve()),
     }
     for path, digest in recorded.items():
         assert digest == _sha256(Path(path))
@@ -245,10 +299,7 @@ def test_install_writes_a_manifest_describing_the_installed_files(sandbox):
 def test_install_is_idempotent(sandbox):
     assert _install(sandbox).returncode == 0
     first = _manifest(sandbox)
-    stamps = {
-        p: p.stat().st_mtime_ns
-        for p in (sandbox.server, sandbox.cli, sandbox.mcp, sandbox.tcl)
-    }
+    stamps = {p: p.stat().st_mtime_ns for p in (sandbox.server, sandbox.cli, sandbox.mcp, sandbox.tcl)}
 
     second_result = _install(sandbox)
 
@@ -259,7 +310,7 @@ def test_install_is_idempotent(sandbox):
 
 
 def test_install_refuses_to_overwrite_an_unowned_file(sandbox):
-    sandbox.python_target.mkdir(parents=True)
+    sandbox.python_target.mkdir()
     sandbox.cli.write_text("someone else's file\n", encoding="utf-8")
 
     result = _install(sandbox)
@@ -270,7 +321,6 @@ def test_install_refuses_to_overwrite_an_unowned_file(sandbox):
 
 
 def test_install_does_not_copy_anything_when_one_target_is_unsafe(sandbox):
-    sandbox.capture_target.mkdir(parents=True)
     sandbox.tcl.write_text("hand written bridge\n", encoding="utf-8")
 
     result = _install(sandbox)
@@ -329,36 +379,30 @@ def test_install_aborts_when_a_manifest_points_at_other_targets(sandbox, tmp_pat
             str(other_python),
             "-CaptureTclTarget",
             str(other_capture),
+            "-RuntimeSource",
+            str(sandbox.runtime_source),
         ],
         local_app_data=sandbox.local_app_data,
+        skip_runtime_validation=True,
     )
 
     assert result.returncode != 0
-    assert "uninstall" in (result.stdout + result.stderr).lower()
+    combined = result.stdout + result.stderr
+    assert "uninstall" in combined.lower()
+    assert "no files were copied or overwritten" in combined.lower()
     assert not other_python.exists()
     assert not other_capture.exists()
     assert Path(_manifest(sandbox)["pythonTarget"]) == sandbox.python_target.resolve()
 
 
-def test_install_requires_a_supported_python(sandbox, tmp_path):
-    stub = _python_stub(tmp_path / "oldpython", version="3.11.9", imports_ok=True)
+def test_install_requires_the_bundled_runtime(sandbox):
+    shutil.rmtree(sandbox.runtime_source)
 
-    result = _install(sandbox, path_prefix=stub)
-
-    assert result.returncode != 0
-    assert "3.12" in result.stdout + result.stderr
-    assert not sandbox.python_target.exists()
-
-
-def test_install_requires_fastapi_and_uvicorn(sandbox, tmp_path):
-    stub = _python_stub(tmp_path / "barepython", version="3.13.0", imports_ok=False)
-
-    result = _install(sandbox, path_prefix=stub)
+    result = _install(sandbox)
 
     assert result.returncode != 0
-    combined = (result.stdout + result.stderr).lower()
-    assert "fastapi" in combined and "uvicorn" in combined
-    assert not sandbox.python_target.exists()
+    assert "bundled runtime is missing" in (result.stdout + result.stderr).lower()
+    assert not sandbox.server.exists()
 
 
 def test_tcl_resolves_the_installed_python_target(sandbox, tmp_path):
@@ -395,6 +439,7 @@ def test_uninstall_removes_unmodified_files_and_the_manifest(sandbox):
     assert not sandbox.cli.exists()
     assert not sandbox.mcp.exists()
     assert not sandbox.tcl.exists()
+    assert not sandbox.runtime_target.exists()
     assert not sandbox.manifest_path.exists()
 
 

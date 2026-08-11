@@ -12,7 +12,8 @@
 
     A file whose content no longer matches the manifest was edited after
     installation, so it is kept and left in the manifest unless -ForceModified
-    is given. Target directories are never removed.
+    is given. The bridge-owned runtime directory is removed only after every
+    recorded runtime file is removed; Python and Capture target directories stay.
 
 .PARAMETER ForceModified
     Also delete owned files whose content no longer matches the manifest.
@@ -23,7 +24,7 @@ Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
 $ProjectName = 'capture-tcl-ai-bridge'
-$SchemaVersion = 1
+$SchemaVersion = 3
 $ServerName = 'capture_tcl_bridge_server.py'
 $CliName = 'capture_tcl_cli.py'
 $McpName = 'capture_mcp_server.py'
@@ -71,7 +72,8 @@ try {
     Stop-Uninstall "install manifest is not readable JSON: $manifestPath"
 }
 
-if ((Get-JsonProperty $data 'schemaVersion') -ne $SchemaVersion) {
+$manifestSchema = Get-JsonProperty $data 'schemaVersion'
+if ($manifestSchema -ne 1 -and $manifestSchema -ne 2 -and $manifestSchema -ne $SchemaVersion) {
     Stop-Uninstall "install manifest has an unsupported schema version: $manifestPath"
 }
 if ((Get-JsonProperty $data 'project') -ne $ProjectName) {
@@ -79,14 +81,19 @@ if ((Get-JsonProperty $data 'project') -ne $ProjectName) {
 }
 
 $pythonTarget = Get-JsonProperty $data 'pythonTarget'
-$captureTclTarget = Get-JsonProperty $data 'captureTclTarget'
-foreach ($value in @($pythonTarget, $captureTclTarget)) {
+$captureTclTargets = if ($manifestSchema -eq 1) { @((Get-JsonProperty $data 'captureTclTarget')) } else { @(Get-JsonProperty $data 'captureTclTargets') }
+$runtimeTarget = if ($manifestSchema -eq 3) { Get-JsonProperty $data 'runtimeTarget' } else { $null }
+foreach ($value in @($pythonTarget) + $captureTclTargets + @($runtimeTarget | Where-Object { $null -ne $_ })) {
     if ([string]::IsNullOrWhiteSpace($value) -or -not [IO.Path]::IsPathRooted($value)) {
         Stop-Uninstall "install manifest has a target directory that is not absolute."
     }
 }
 $pythonTarget = [IO.Path]::GetFullPath($pythonTarget)
-$captureTclTarget = [IO.Path]::GetFullPath($captureTclTarget)
+$captureTclTargets = @($captureTclTargets | ForEach-Object { [IO.Path]::GetFullPath($_) })
+if ($null -ne $runtimeTarget) {
+    $runtimeTarget = [IO.Path]::GetFullPath($runtimeTarget)
+    if ($runtimeTarget -ne (Join-Path $pythonTarget 'runtime')) { Stop-Uninstall "install manifest runtime directory is not the project runtime target." }
+}
 
 # The only paths this script may ever delete, rebuilt from the target
 # directories rather than taken from the recorded entries. The auto-start
@@ -96,10 +103,15 @@ $allowed = @{}
 foreach ($candidate in @(
         (Join-Path $pythonTarget $ServerName),
         (Join-Path $pythonTarget $CliName),
-        (Join-Path $pythonTarget $McpName),
-        (Join-Path $captureTclTarget $TclName),
-        (Join-Path $captureTclTarget $AutoStartName))) {
+        (Join-Path $pythonTarget $McpName))) {
     $allowed[$candidate.ToLowerInvariant()] = $candidate
+}
+foreach ($captureTclTarget in $captureTclTargets) {
+    foreach ($candidate in @(
+            (Join-Path $captureTclTarget $TclName),
+            (Join-Path $captureTclTarget $AutoStartName))) {
+        $allowed[$candidate.ToLowerInvariant()] = $candidate
+    }
 }
 
 $files = @(Get-JsonProperty $data 'files')
@@ -121,7 +133,8 @@ foreach ($entry in $files) {
     }
     $canonical = [IO.Path]::GetFullPath($entryPath)
     $key = $canonical.ToLowerInvariant()
-    if (-not $allowed.ContainsKey($key)) {
+    $runtimeFile = $null -ne $runtimeTarget -and $canonical.StartsWith($runtimeTarget + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
+    if (-not $allowed.ContainsKey($key) -and -not $runtimeFile) {
         Stop-Uninstall (
             "install manifest records '$canonical', which is not one of the " +
             "files this project installs; nothing was removed.")
@@ -131,7 +144,7 @@ foreach ($entry in $files) {
     }
     $seen[$key] = $true
     $entries += [pscustomobject]@{
-        Path   = $allowed[$key]
+        Path   = if ($runtimeFile) { $canonical } else { $allowed[$key] }
         Sha256 = "$entryHash".ToLowerInvariant()
     }
 }
@@ -151,6 +164,12 @@ foreach ($entry in $entries) {
 }
 
 foreach ($path in $removed) { Write-Output "Removed $path" }
+if ($null -ne $runtimeTarget -and (Test-Path -LiteralPath $runtimeTarget -PathType Container) -and @((Get-ChildItem -LiteralPath $runtimeTarget -Force -Recurse -File)).Count -eq 0) {
+    Get-ChildItem -LiteralPath $runtimeTarget -Force -Recurse -Directory | Sort-Object FullName -Descending | ForEach-Object {
+        if (@(Get-ChildItem -LiteralPath $_.FullName -Force).Count -eq 0) { Remove-Item -LiteralPath $_.FullName -Force }
+    }
+    if (@(Get-ChildItem -LiteralPath $runtimeTarget -Force).Count -eq 0) { Remove-Item -LiteralPath $runtimeTarget -Force }
+}
 
 if ($kept.Count -eq 0) {
     Remove-Item -LiteralPath $manifestPath -Force
@@ -163,11 +182,13 @@ if ($kept.Count -eq 0) {
 }
 
 $manifest = [ordered]@{
-    schemaVersion    = $SchemaVersion
-    project          = $ProjectName
-    pythonTarget     = $pythonTarget
-    captureTclTarget = $captureTclTarget
-    files            = @($kept | ForEach-Object {
+    schemaVersion      = $SchemaVersion
+    project            = $ProjectName
+    pythonTarget       = $pythonTarget
+    runtimeTarget      = $runtimeTarget
+    pythonExecutable   = if ($null -ne $runtimeTarget) { Join-Path $runtimeTarget 'python.exe' } else { $null }
+    captureTclTargets  = @($captureTclTargets)
+    files              = @($kept | ForEach-Object {
             [ordered]@{ path = $_.Path; sha256 = $_.Sha256 }
         })
 }

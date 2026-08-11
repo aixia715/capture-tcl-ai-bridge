@@ -1256,7 +1256,9 @@ proc _captureAiReadInstallManifest {path} {
             }
         }
         if {![string is integer -strict [dict get $manifest schemaVersion]] ||
-            [dict get $manifest schemaVersion] != 1} {
+            ([dict get $manifest schemaVersion] != 1 &&
+             [dict get $manifest schemaVersion] != 2 &&
+             [dict get $manifest schemaVersion] != 3)} {
             error {install manifest has an unsupported schema version}
         }
         if {[dict get $manifest project] ne {capture-tcl-ai-bridge}} {
@@ -1284,6 +1286,44 @@ proc _captureAiResolvePythonPath {} {
         return $pythonTarget
     }
     return {C:/tclpython}
+}
+
+proc _captureAiResolvePythonExecutable {} {
+    if {[info exists ::CaptureAiBridgePythonExecutable] &&
+        $::CaptureAiBridgePythonExecutable ne {}} {
+        return [file normalize $::CaptureAiBridgePythonExecutable]
+    }
+
+    set missingRuntimeMessage {bundled Python runtime is missing; re-run install.ps1 from the Release ZIP.}
+    set parseCode [catch {
+        set path [_captureAiInstallManifestPath]
+        if {$path eq {} || ![file isfile $path]} { return {} }
+        set channel [open $path r]
+        try {
+            fconfigure $channel -encoding utf-8
+            set manifest [_captureAiJsonParse [read $channel]]
+        } finally {
+            close $channel
+        }
+        if {[dict get $manifest schemaVersion] != 3 ||
+            [dict get $manifest project] ne {capture-tcl-ai-bridge} ||
+            ![dict exists $manifest pythonExecutable]} {
+            return {}
+        }
+        set executable [dict get $manifest pythonExecutable]
+        if {[file pathtype $executable] ne {absolute} || ![file isfile $executable]} {
+            error $missingRuntimeMessage
+        }
+        file normalize $executable
+    } executable]
+    if {$parseCode == 0 && $executable ne {}} { return $executable }
+    if {$parseCode == 1} {
+        if {$executable eq $missingRuntimeMessage} {
+            error $executable
+        }
+        return python
+    }
+    return python
 }
 
 proc _captureAiCreateLaunchSignals {generation} {
@@ -1730,7 +1770,7 @@ proc CaptureAiBridgeStart {} {
     set ::CaptureAiBridgeExtraGrace 0
     set ::CaptureAiBridgeStopError {}
     set launchCode [catch {
-        exec python $serverScript \
+        exec [_captureAiResolvePythonExecutable] $serverScript \
             --host 127.0.0.1 \
             --port $::CaptureAiBridgePort \
             --parent-pid [pid] \

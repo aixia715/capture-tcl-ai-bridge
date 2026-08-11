@@ -109,13 +109,13 @@
 ### 1. CLI，用 `-f` 传文件
 
 ```powershell
-python C:\tclpython\capture_tcl_cli.py -f .\examples\selected_refs.tcl
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\selected_refs.tcl
 ```
 
 ### 2. CLI，用标准输入传内容
 
 ```powershell
-Get-Content -Raw .\examples\selected_refs.tcl | python C:\tclpython\capture_tcl_cli.py
+Get-Content -Raw .\examples\selected_refs.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
 ```
 
 两种 CLI 调用等价；多行脚本、多行 UTF-8 输出都原样支持。不加 `--json` 时
@@ -160,13 +160,13 @@ Invoke-RestMethod -Method Post -Uri "$($runtime.baseUrl)/v1/execute" `
 **CLI `-f` 调用**：
 
 ```powershell
-python C:\tclpython\capture_tcl_cli.py -f .\examples\list_components.tcl
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\list_components.tcl
 ```
 
 **标准输入调用**：
 
 ```powershell
-Get-Content -Raw .\examples\list_components.tcl | python C:\tclpython\capture_tcl_cli.py
+Get-Content -Raw .\examples\list_components.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
 ```
 
 **HTTP 调用**：
@@ -352,13 +352,13 @@ try {
 **CLI `-f` 调用**：
 
 ```powershell
-python C:\tclpython\capture_tcl_cli.py -f .\examples\selected_refs.tcl
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\selected_refs.tcl
 ```
 
 **标准输入调用**：
 
 ```powershell
-Get-Content -Raw .\examples\selected_refs.tcl | python C:\tclpython\capture_tcl_cli.py
+Get-Content -Raw .\examples\selected_refs.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
 ```
 
 **HTTP 调用**：
@@ -484,13 +484,13 @@ set targetRefdes C3
 **CLI `-f` 调用**：
 
 ```powershell
-python C:\tclpython\capture_tcl_cli.py -f .\examples\get_component_value.tcl
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\get_component_value.tcl
 ```
 
 **标准输入调用**：
 
 ```powershell
-Get-Content -Raw .\examples\get_component_value.tcl | python C:\tclpython\capture_tcl_cli.py
+Get-Content -Raw .\examples\get_component_value.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
 ```
 
 **HTTP 调用**：
@@ -680,13 +680,13 @@ puts [dict create refdes $refdes value $value path $hierarchyPath]
 **CLI `-f` 调用**：
 
 ```powershell
-python C:\tclpython\capture_tcl_cli.py -f .\examples\extract_topology.tcl
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\extract_topology.tcl
 ```
 
 **标准输入调用**：
 
 ```powershell
-Get-Content -Raw .\examples\extract_topology.tcl | python C:\tclpython\capture_tcl_cli.py
+Get-Content -Raw .\examples\extract_topology.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
 ```
 
 **HTTP 调用**：
@@ -860,13 +860,13 @@ set newValue 100nF
 **CLI `-f` 调用**：
 
 ```powershell
-python C:\tclpython\capture_tcl_cli.py -f .\examples\set_component_value.tcl
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\set_component_value.tcl
 ```
 
 **标准输入调用**：
 
 ```powershell
-Get-Content -Raw .\examples\set_component_value.tcl | python C:\tclpython\capture_tcl_cli.py
+Get-Content -Raw .\examples\set_component_value.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
 ```
 
 **HTTP 调用**：
@@ -1086,13 +1086,13 @@ set suffix *
 **CLI `-f` 调用**：
 
 ```powershell
-python C:\tclpython\capture_tcl_cli.py -f .\examples\mark_selected_suffix.tcl
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\mark_selected_suffix.tcl
 ```
 
 **标准输入调用**：
 
 ```powershell
-Get-Content -Raw .\examples\mark_selected_suffix.tcl | python C:\tclpython\capture_tcl_cli.py
+Get-Content -Raw .\examples\mark_selected_suffix.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
 ```
 
 **HTTP 调用**：
@@ -1255,13 +1255,13 @@ set suffix *
 **CLI `-f` 调用**：
 
 ```powershell
-python C:\tclpython\capture_tcl_cli.py -f .\examples\remove_selected_suffix.tcl
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\remove_selected_suffix.tcl
 ```
 
 **标准输入调用**：
 
 ```powershell
-Get-Content -Raw .\examples\remove_selected_suffix.tcl | python C:\tclpython\capture_tcl_cli.py
+Get-Content -Raw .\examples\remove_selected_suffix.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
 ```
 
 **HTTP 调用**：
@@ -1422,13 +1422,13 @@ tclsh .\examples\headless_set_first_capacitor_value.tcl .\design.dsn 100nF
 **CLI `-f` 调用**：
 
 ~~~powershell
-python C:\tclpython\capture_tcl_cli.py -f .\examples\headless_set_first_capacitor_value.tcl
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\headless_set_first_capacitor_value.tcl
 ~~~
 
 **标准输入调用**：
 
 ~~~powershell
-Get-Content -Raw .\examples\headless_set_first_capacitor_value.tcl | python C:\tclpython\capture_tcl_cli.py
+Get-Content -Raw .\examples\headless_set_first_capacitor_value.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
 ~~~
 
 **HTTP 调用**：
@@ -1586,13 +1586,13 @@ if {$code} {
 **CLI `-f` 调用**：
 
 ~~~powershell
-python C:\tclpython\capture_tcl_cli.py -f .\examples\inspect_selected_components.tcl
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\inspect_selected_components.tcl
 ~~~
 
 **标准输入调用**：
 
 ~~~powershell
-Get-Content -Raw .\examples\inspect_selected_components.tcl | python C:\tclpython\capture_tcl_cli.py
+Get-Content -Raw .\examples\inspect_selected_components.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
 ~~~
 
 **HTTP 调用**：
@@ -1677,13 +1677,13 @@ foreach object [GetSelectedObjects] {
 **CLI `-f` 调用**：
 
 ~~~powershell
-python C:\tclpython\capture_tcl_cli.py -f .\examples\inspect_selected_pin_nets.tcl
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\inspect_selected_pin_nets.tcl
 ~~~
 
 **标准输入调用**：
 
 ~~~powershell
-Get-Content -Raw .\examples\inspect_selected_pin_nets.tcl | python C:\tclpython\capture_tcl_cli.py
+Get-Content -Raw .\examples\inspect_selected_pin_nets.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
 ~~~
 
 **HTTP 调用**：
@@ -1765,13 +1765,13 @@ $status -delete
 **CLI `-f` 调用**：
 
 ~~~powershell
-python C:\tclpython\capture_tcl_cli.py -f .\examples\inspect_selection.tcl
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\inspect_selection.tcl
 ~~~
 
 **标准输入调用**：
 
 ~~~powershell
-Get-Content -Raw .\examples\inspect_selection.tcl | python C:\tclpython\capture_tcl_cli.py
+Get-Content -Raw .\examples\inspect_selection.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
 ~~~
 
 **HTTP 调用**：
@@ -1850,13 +1850,13 @@ foreach object $selected {
 **CLI `-f` 调用**：
 
 ~~~powershell
-python C:\tclpython\capture_tcl_cli.py -f .\examples\selected_occurrence_refs.tcl
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\selected_occurrence_refs.tcl
 ~~~
 
 **标准输入调用**：
 
 ~~~powershell
-Get-Content -Raw .\examples\selected_occurrence_refs.tcl | python C:\tclpython\capture_tcl_cli.py
+Get-Content -Raw .\examples\selected_occurrence_refs.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
 ~~~
 
 **HTTP 调用**：
