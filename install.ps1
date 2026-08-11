@@ -41,7 +41,8 @@
 #>
 param(
     [string]$PythonTarget = 'C:\tclpython',
-    [string]$CaptureTclTarget = 'C:\cadence\SPB_17.4\tools\capture\tclscripts\capAutoLoad',
+    [string[]]$CaptureTclTarget = @(),
+    [string]$RuntimeSource = (Join-Path $PSScriptRoot 'runtime'),
     [switch]$ForceOverwriteModified,
     [switch]$EnableAutoStart,
     [string]$LogFile = ''
@@ -51,7 +52,7 @@ Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
 $ProjectName = 'capture-tcl-ai-bridge'
-$SchemaVersion = 1
+$SchemaVersion = 3
 $SourceRoot = $PSScriptRoot
 
 function Stop-Install {
@@ -66,6 +67,17 @@ function Get-CanonicalPath {
         $Path = Join-Path (Get-Location).ProviderPath $Path
     }
     return [IO.Path]::GetFullPath($Path)
+}
+
+function Get-CaptureTclTargets {
+    param([string[]]$RequestedTargets)
+    if ($RequestedTargets.Count -ne 0) { return @($RequestedTargets | ForEach-Object { Get-CanonicalPath $_ } | Select-Object -Unique) }
+    $cadenceRoot = 'C:\Cadence'
+    if (-not (Test-Path -LiteralPath $cadenceRoot -PathType Container)) { return @() }
+    return @(Get-ChildItem -LiteralPath $cadenceRoot -Directory -Filter 'SPB_*' |
+        ForEach-Object { Join-Path $_.FullName 'tools\capture\tclscripts\capAutoLoad' } |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Container } |
+        ForEach-Object { Get-CanonicalPath $_ } | Select-Object -Unique)
 }
 
 function Get-Sha256 {
@@ -89,35 +101,26 @@ function Read-BridgeManifest {
     } catch {
         return $null
     }
-    if ((Get-JsonProperty $data 'schemaVersion') -ne $SchemaVersion) { return $null }
+    $schema = Get-JsonProperty $data 'schemaVersion'
+    if ($schema -ne 1 -and $schema -ne 2 -and $schema -ne $SchemaVersion) { return $null }
     if ((Get-JsonProperty $data 'project') -ne $ProjectName) { return $null }
     $pythonTarget = Get-JsonProperty $data 'pythonTarget'
-    $captureTclTarget = Get-JsonProperty $data 'captureTclTarget'
+    $captureTclTargets = if ($schema -eq 1) { @((Get-JsonProperty $data 'captureTclTarget')) } else { @(Get-JsonProperty $data 'captureTclTargets') }
+    $runtimeTarget = if ($schema -eq 3) { Get-JsonProperty $data 'runtimeTarget' } else { $null }
+    $pythonExecutable = if ($schema -eq 3) { Get-JsonProperty $data 'pythonExecutable' } else { $null }
     $files = Get-JsonProperty $data 'files'
-    foreach ($value in @($pythonTarget, $captureTclTarget)) {
+    foreach ($value in @($pythonTarget) + $captureTclTargets + @($runtimeTarget, $pythonExecutable | Where-Object { $null -ne $_ })) {
         if ([string]::IsNullOrWhiteSpace($value) -or -not [IO.Path]::IsPathRooted($value)) {
             return $null
         }
     }
     if ($null -eq $files) { return $null }
     return [pscustomobject]@{
-        PythonTarget     = [IO.Path]::GetFullPath($pythonTarget)
-        CaptureTclTarget = [IO.Path]::GetFullPath($captureTclTarget)
-        Files            = @($files)
-    }
-}
-
-function Invoke-Python {
-    param([string[]]$Arguments)
-    $previous = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        $output = (& python @Arguments 2>&1 | Out-String)
-        return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = $output.Trim() }
-    } catch {
-        return [pscustomobject]@{ ExitCode = -1; Output = "$_" }
-    } finally {
-        $ErrorActionPreference = $previous
+        PythonTarget      = [IO.Path]::GetFullPath($pythonTarget)
+        CaptureTclTargets = @($captureTclTargets | ForEach-Object { [IO.Path]::GetFullPath($_) })
+        RuntimeTarget     = if ($null -ne $runtimeTarget) { [IO.Path]::GetFullPath($runtimeTarget) } else { $null }
+        PythonExecutable   = if ($null -ne $pythonExecutable) { [IO.Path]::GetFullPath($pythonExecutable) } else { $null }
+        Files             = @($files)
     }
 }
 
@@ -129,44 +132,26 @@ function Write-TextAtomic {
     Move-Item -LiteralPath $temporary -Destination $Path -Force
 }
 
-# --- Interpreter preflight -------------------------------------------------
-
-$version = Invoke-Python @('--version')
-if ($version.ExitCode -ne 0) {
-    Stop-Install "could not run 'python' from PATH: $($version.Output)"
-}
-if ($version.Output -notmatch 'Python\s+(\d+)\.(\d+)') {
-    Stop-Install "could not read a version from 'python --version': $($version.Output)"
-}
-$major = [int]$Matches[1]
-$minor = [int]$Matches[2]
-if ($major -lt 3 -or ($major -eq 3 -and $minor -lt 12)) {
-    Stop-Install ("$ProjectName requires Python 3.12 or newer, but 'python' on " +
-        "PATH reports $($version.Output).")
-}
-
-$dependencies = Invoke-Python @('-c', 'import fastapi, uvicorn')
-if ($dependencies.ExitCode -ne 0) {
-    Stop-Install ("$ProjectName requires the fastapi and uvicorn packages. " +
-        "Install them with 'python -m pip install -r requirements.txt'.")
-}
+# --- Bundled runtime preflight --------------------------------------------
 
 # --- Target preflight ------------------------------------------------------
 
 $canonicalPythonTarget = Get-CanonicalPath $PythonTarget
-$canonicalCaptureTclTarget = Get-CanonicalPath $CaptureTclTarget
+$canonicalRuntimeSource = Get-CanonicalPath $RuntimeSource
+$canonicalRuntimeTarget = Join-Path $canonicalPythonTarget 'runtime'
+$canonicalPythonExecutable = Join-Path $canonicalRuntimeTarget 'python.exe'
+if (-not (Test-Path -LiteralPath $canonicalRuntimeSource -PathType Container) -or -not (Test-Path -LiteralPath (Join-Path $canonicalRuntimeSource 'python.exe') -PathType Leaf)) { Stop-Install "bundled runtime is missing: $canonicalRuntimeSource" }
+$canonicalCaptureTclTargets = @(Get-CaptureTclTargets $CaptureTclTarget)
 $manifestDirectory = Join-Path $env:LOCALAPPDATA $ProjectName
 $manifestPath = Join-Path $manifestDirectory 'install.json'
 
 $existing = Read-BridgeManifest $manifestPath
 $owned = @{}
 if ($null -ne $existing) {
-    if ($existing.PythonTarget -ne $canonicalPythonTarget -or
-        $existing.CaptureTclTarget -ne $canonicalCaptureTclTarget) {
-        Stop-Install (
-            "$ProjectName is already installed into '$($existing.PythonTarget)' and " +
-            "'$($existing.CaptureTclTarget)'. Run uninstall.ps1 before installing " +
-            'into different directories, so the previous copies are not orphaned.')
+    $existingTargets = @($existing.CaptureTclTargets | ForEach-Object { $_.ToLowerInvariant() })
+    $requestedTargets = @($canonicalCaptureTclTargets | ForEach-Object { $_.ToLowerInvariant() })
+    if ($existing.PythonTarget -ne $canonicalPythonTarget -or ($null -ne $existing.RuntimeTarget -and $existing.RuntimeTarget -ne $canonicalRuntimeTarget) -or @($existingTargets | Where-Object { $_ -notin $requestedTargets }).Count -ne 0) {
+        Stop-Install ("$ProjectName is already installed with Python target '$($existing.PythonTarget)' and Capture Tcl target(s) '$($existing.CaptureTclTargets -join "', '")'. This invocation requests Python target '$canonicalPythonTarget' and Capture Tcl target(s) '$($canonicalCaptureTclTargets -join "', '")', so no files were copied or overwritten. Run uninstall.ps1 first, then install.ps1, to move the installation without orphaning the previous copies.")
     }
     foreach ($entry in $existing.Files) {
         $entryPath = Get-JsonProperty $entry 'path'
@@ -181,7 +166,6 @@ if ($null -ne $existing) {
 }
 
 $autoStartName = 'captureAiBridgeAutoStart.tcl'
-$autoStartTarget = Join-Path $canonicalCaptureTclTarget $autoStartName
 $autoStartSource = $null
 if ($EnableAutoStart) {
     # Built by concatenation rather than a here-string: the body is Tcl full
@@ -224,13 +208,17 @@ $plan = @(
         Source = Join-Path $SourceRoot 'capture_tcl_cli.py'
         Target = Join-Path $canonicalPythonTarget 'capture_tcl_cli.py'
     }
-    [pscustomobject]@{
-        Source = Join-Path $SourceRoot 'captureAiBridge.tcl'
-        Target = Join-Path $canonicalCaptureTclTarget 'captureAiBridge.tcl'
-    }
 )
+$runtimeFiles = @(Get-ChildItem -LiteralPath $canonicalRuntimeSource -Recurse -File)
+foreach ($runtimeFile in $runtimeFiles) {
+    $relative = $runtimeFile.FullName.Substring($canonicalRuntimeSource.Length).TrimStart('\')
+    $plan += [pscustomobject]@{ Source = $runtimeFile.FullName; Target = (Join-Path $canonicalRuntimeTarget $relative) }
+}
+foreach ($target in $canonicalCaptureTclTargets) {
+    $plan += [pscustomobject]@{ Source = Join-Path $SourceRoot 'captureAiBridge.tcl'; Target = Join-Path $target 'captureAiBridge.tcl' }
+}
 if ($EnableAutoStart) {
-    $plan += [pscustomobject]@{ Source = $autoStartSource; Target = $autoStartTarget }
+    foreach ($target in $canonicalCaptureTclTargets) { $plan += [pscustomobject]@{ Source = $autoStartSource; Target = (Join-Path $target $autoStartName) } }
 }
 
 $actions = @()
@@ -276,16 +264,21 @@ if ($blocked.Count -ne 0) {
         ($blocked -join [Environment]::NewLine))
 }
 
+if ($canonicalCaptureTclTargets.Count -eq 0) {
+    Write-Warning 'No existing Capture capAutoLoad directory was detected. No Capture Tcl file was installed; specify -CaptureTclTarget with the existing capAutoLoad directory for an unsupported layout.'
+}
+
 # --- Install ---------------------------------------------------------------
 
-foreach ($directory in @($canonicalPythonTarget, $canonicalCaptureTclTarget, $manifestDirectory)) {
-    if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
-        New-Item -ItemType Directory -Path $directory -Force | Out-Null
-    }
+foreach ($directory in @($canonicalPythonTarget) + $canonicalCaptureTclTargets) {
+    if (-not (Test-Path -LiteralPath $directory -PathType Container)) { Stop-Install "target directory does not exist; no directories are created: $directory" }
 }
+if (-not (Test-Path -LiteralPath $manifestDirectory -PathType Container)) { New-Item -ItemType Directory -Path $manifestDirectory -Force | Out-Null }
 
 foreach ($action in $actions) {
     if (-not $action.Copy) { continue }
+    $parent = Split-Path -Parent $action.Item.Target
+    if (-not (Test-Path -LiteralPath $parent -PathType Container)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
     $temporary = "$($action.Item.Target).$ProjectName.tmp"
     Copy-Item -LiteralPath $action.Item.Source -Destination $temporary -Force
     Move-Item -LiteralPath $temporary -Destination $action.Item.Target -Force
@@ -295,7 +288,9 @@ $manifest = [ordered]@{
     schemaVersion    = $SchemaVersion
     project          = $ProjectName
     pythonTarget     = $canonicalPythonTarget
-    captureTclTarget = $canonicalCaptureTclTarget
+    runtimeTarget    = $canonicalRuntimeTarget
+    pythonExecutable = $canonicalPythonExecutable
+    captureTclTargets = @($canonicalCaptureTclTargets)
     files            = @($plan | ForEach-Object {
             [ordered]@{
                 path   = $_.Target
@@ -305,24 +300,23 @@ $manifest = [ordered]@{
 }
 Write-TextAtomic $manifestPath (ConvertTo-Json $manifest -Depth 5)
 
-$captureTclFile = ($plan | Where-Object { $_.Target -like '*captureAiBridge.tcl' }).Target
-$sourceArgument = $captureTclFile -replace '\\', '/'
+$captureTclFiles = @($plan | Where-Object { $_.Target -like '*captureAiBridge.tcl' } | ForEach-Object { $_.Target })
 
 Write-Output "Installed ${ProjectName}:"
 foreach ($item in $plan) { Write-Output "  $($item.Target)" }
 Write-Output "  manifest: $manifestPath"
 Write-Output ''
-if ($EnableAutoStart) {
+if ($EnableAutoStart -and $captureTclFiles.Count -ne 0) {
     Write-Output 'Auto-start is enabled: the bridge opens whenever Capture launches.'
     Write-Output 'Restart Capture, or start it once by hand, to pick this up:'
-    Write-Output "  source $sourceArgument"
+    foreach ($captureTclFile in $captureTclFiles) { Write-Output "  source $($captureTclFile -replace '\\', '/')" }
     Write-Output '  CaptureAiBridgeStart'
     Write-Output ''
     Write-Output 'To require an explicit start again, run uninstall.ps1 or delete:'
-    Write-Output "  $autoStartTarget"
-} else {
+    foreach ($target in $canonicalCaptureTclTargets) { Write-Output "  $(Join-Path $target $autoStartName)" }
+} elseif ($captureTclFiles.Count -ne 0) {
     Write-Output 'In the Capture Tcl console, load and start the bridge explicitly:'
-    Write-Output "  source $sourceArgument"
+    foreach ($captureTclFile in $captureTclFiles) { Write-Output "  source $($captureTclFile -replace '\\', '/')" }
     Write-Output '  CaptureAiBridgeStart'
     Write-Output '  CaptureAiBridgeStatus'
 }

@@ -17,7 +17,7 @@
 ## 系统要求
 
 - Windows 10 或 Windows 11
-- Python 3.12 或更高版本，且已安装 `fastapi` 与 `uvicorn`
+- 无需单独安装 Python 或 Python 第三方包；发布包内含 Python 3.12 运行时和依赖
 - OrCAD Capture 17.4（Tcl 8.6）或 OrCAD Capture 16.6（Tcl 8.4）
 
 桥自带 Tcl 8.4 兼容层和 JSON 解析器，因此两个 Capture 版本都能直接运行，
@@ -32,20 +32,21 @@
 ### 1. 安装
 
 ```powershell
-python -m pip install -r requirements.txt
 .\install.ps1
 ```
 
-`install.ps1` 只部署三个运行文件，并把它们连同 SHA-256 记到
-`%LOCALAPPDATA%\capture-tcl-ai-bridge\install.json`：
+从 Release ZIP 解压后直接运行 `install.ps1`。它部署包内已预装依赖的 Python 3.12
+embeddable runtime，不使用系统 Python、`PATH`、pip 或网络；并把所有部署文件连同
+SHA-256 记到 `%LOCALAPPDATA%\capture-tcl-ai-bridge\install.json`：
 
 | 文件 | 默认目标 |
 | --- | --- |
 | `capture_tcl_bridge_server.py` | `C:\tclpython` |
 | `capture_tcl_cli.py` | `C:\tclpython` |
-| `captureAiBridge.tcl` | `C:\cadence\SPB_17.4\tools\capture\tclscripts\capAutoLoad` |
+| bundled `python.exe` + dependencies | `C:\tclpython\runtime` |
+| `captureAiBridge.tcl` | 自动检测到的每个 `C:\Cadence\SPB_*\tools\capture\tclscripts\capAutoLoad` |
 
-Capture 16.6 或自定义位置用参数指定：
+如果自动检测不到非标准 Capture 安装目录，脚本只会给出提示；可用参数指定：
 
 ```powershell
 .\install.ps1 -CaptureTclTarget 'C:\Cadence\SPB_16.6\tools\capture\tclscripts\capAutoLoad'
@@ -94,11 +95,11 @@ CaptureAiBridgeStatus
 ### 3. 用命令行执行 Tcl
 
 ```powershell
-python C:\tclpython\capture_tcl_cli.py status
-python C:\tclpython\capture_tcl_cli.py -c "expr {1 + 1}"
-python C:\tclpython\capture_tcl_cli.py -f .\examples\selected_refs.tcl
-Get-Content -Raw .\examples\selected_refs.tcl | python C:\tclpython\capture_tcl_cli.py
-python C:\tclpython\capture_tcl_cli.py --json -c "GetActiveDesign"
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py status
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -c "expr {1 + 1}"
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\selected_refs.tcl
+Get-Content -Raw .\examples\selected_refs.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
+C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py --json -c "GetActiveDesign"
 ```
 
 `-c`、`-f` 和管道标准输入三者必选其一，且只能选一个。

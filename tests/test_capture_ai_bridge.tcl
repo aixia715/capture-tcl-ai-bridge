@@ -151,7 +151,7 @@ if {[llength [info commands ::_captureAiResolvePythonPath]] > 0} {
             {{"schemaVersion":1,"project":"capture-tcl-ai-bridge"}} \
         {manifest with unsupported schema version} \
             [format \
-                {{"schemaVersion":2,"project":"capture-tcl-ai-bridge","pythonTarget":"%s"}} \
+                {{"schemaVersion":4,"project":"capture-tcl-ai-bridge","pythonTarget":"%s"}} \
                 $manifestTarget] \
         {manifest owned by another project} \
             [format {{"schemaVersion":1,"project":"tcl-bom","pythonTarget":"%s"}} \

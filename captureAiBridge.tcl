@@ -1256,7 +1256,9 @@ proc _captureAiReadInstallManifest {path} {
             }
         }
         if {![string is integer -strict [dict get $manifest schemaVersion]] ||
-            [dict get $manifest schemaVersion] != 1} {
+            ([dict get $manifest schemaVersion] != 1 &&
+             [dict get $manifest schemaVersion] != 2 &&
+             [dict get $manifest schemaVersion] != 3)} {
             error {install manifest has an unsupported schema version}
         }
         if {[dict get $manifest project] ne {capture-tcl-ai-bridge}} {
@@ -1284,6 +1286,28 @@ proc _captureAiResolvePythonPath {} {
         return $pythonTarget
     }
     return {C:/tclpython}
+}
+
+proc _captureAiResolvePythonExecutable {} {
+    if {[info exists ::CaptureAiBridgePythonExecutable] && $::CaptureAiBridgePythonExecutable ne {}} {
+        return [file normalize $::CaptureAiBridgePythonExecutable]
+    }
+    set path [_captureAiInstallManifestPath]
+    if {$path ne {} && ![catch {set channel [open $path r]}]} {
+        try {
+            fconfigure $channel -encoding utf-8
+            set manifest [_captureAiJsonParse [read $channel]]
+            if {[dict exists $manifest schemaVersion] && [dict get $manifest schemaVersion] == 3 &&
+                [dict exists $manifest project] && [dict get $manifest project] eq {capture-tcl-ai-bridge} &&
+                [dict exists $manifest pythonExecutable]} {
+                set executable [dict get $manifest pythonExecutable]
+                if {[file pathtype $executable] eq {absolute} && [file isfile $executable]} {
+                    return [file normalize $executable]
+                }
+            }
+        } finally { close $channel }
+    }
+    return python
 }
 
 proc _captureAiCreateLaunchSignals {generation} {
@@ -1730,7 +1754,7 @@ proc CaptureAiBridgeStart {} {
     set ::CaptureAiBridgeExtraGrace 0
     set ::CaptureAiBridgeStopError {}
     set launchCode [catch {
-        exec python $serverScript \
+        exec [_captureAiResolvePythonExecutable] $serverScript \
             --host 127.0.0.1 \
             --port $::CaptureAiBridgePort \
             --parent-pid [pid] \
