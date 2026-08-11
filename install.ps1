@@ -3,9 +3,9 @@
     Installs the Capture Tcl AI bridge runtime files.
 
 .DESCRIPTION
-    Copies four runtime files - the broker, CLI, MCP server, and Capture Tcl
-    module - plus, with -EnableAutoStart, a fifth that starts the bridge when
-    Capture launches. All of them are recorded in
+    Deploys the bridge, CLI, MCP server, Capture Tcl module, and the bundled
+    Python runtime. With -EnableAutoStart, it also installs a snippet that
+    starts the bridge when Capture launches. All deployed files are recorded in
     %LOCALAPPDATA%\capture-tcl-ai-bridge\install.json so captureAiBridge.tcl can
     find the broker and so uninstall.ps1 can prove which files this project owns.
 
@@ -20,7 +20,16 @@
     capture_mcp_server.py.
 
 .PARAMETER CaptureTclTarget
-    Directory receiving captureAiBridge.tcl.
+    One or more existing capAutoLoad directories receiving captureAiBridge.tcl.
+    When omitted, the installer detects every existing C:\Cadence\SPB_* Capture
+    installation. Capture directories are never created.
+
+.PARAMETER RuntimeSource
+    Source directory containing the bundled Python runtime. Release ZIPs include
+    it as runtime; this parameter is primarily useful for packaging tests.
+
+.PARAMETER SkipRuntimeValidation
+    Internal test switch. Do not use for normal installations.
 
 .PARAMETER ForceOverwriteModified
     Overwrite an owned file whose content no longer matches the manifest, i.e.
@@ -44,6 +53,7 @@ param(
     [string]$PythonTarget = 'C:\tclpython',
     [string[]]$CaptureTclTarget = @(),
     [string]$RuntimeSource = (Join-Path $PSScriptRoot 'runtime'),
+    [switch]$SkipRuntimeValidation,
     [switch]$ForceOverwriteModified,
     [switch]$EnableAutoStart,
     [string]$LogFile = ''
@@ -141,7 +151,19 @@ $canonicalPythonTarget = Get-CanonicalPath $PythonTarget
 $canonicalRuntimeSource = Get-CanonicalPath $RuntimeSource
 $canonicalRuntimeTarget = Join-Path $canonicalPythonTarget 'runtime'
 $canonicalPythonExecutable = Join-Path $canonicalRuntimeTarget 'python.exe'
-if (-not (Test-Path -LiteralPath $canonicalRuntimeSource -PathType Container) -or -not (Test-Path -LiteralPath (Join-Path $canonicalRuntimeSource 'python.exe') -PathType Leaf)) { Stop-Install "bundled runtime is missing: $canonicalRuntimeSource" }
+$runtimePython = Join-Path $canonicalRuntimeSource 'python.exe'
+if (-not (Test-Path -LiteralPath $canonicalRuntimeSource -PathType Container) -or
+    -not (Test-Path -LiteralPath $runtimePython -PathType Leaf)) {
+    Stop-Install "bundled runtime is missing: $canonicalRuntimeSource"
+}
+if (-not $SkipRuntimeValidation) {
+    try {
+        & $runtimePython -c 'import fastapi, uvicorn' 2>$null
+        if ($LASTEXITCODE -ne 0) { throw 'dependency import failed' }
+    } catch {
+        Stop-Install "bundled runtime is incomplete; re-download the Release ZIP: $($_.Exception.Message)"
+    }
+}
 $canonicalCaptureTclTargets = @(Get-CaptureTclTargets $CaptureTclTarget)
 $manifestDirectory = Join-Path $env:LOCALAPPDATA $ProjectName
 $manifestPath = Join-Path $manifestDirectory 'install.json'
@@ -214,7 +236,7 @@ $plan = @(
         Target = Join-Path $canonicalPythonTarget 'capture_mcp_server.py'
     }
 )
-$runtimeFiles = @(Get-ChildItem -LiteralPath $canonicalRuntimeSource -Recurse -File)
+$runtimeFiles = @(Get-ChildItem -LiteralPath $canonicalRuntimeSource -Recurse -File -Force)
 foreach ($runtimeFile in $runtimeFiles) {
     $relative = $runtimeFile.FullName.Substring($canonicalRuntimeSource.Length).TrimStart('\')
     $plan += [pscustomobject]@{ Source = $runtimeFile.FullName; Target = (Join-Path $canonicalRuntimeTarget $relative) }
@@ -270,13 +292,18 @@ if ($blocked.Count -ne 0) {
 }
 
 if ($canonicalCaptureTclTargets.Count -eq 0) {
-    Write-Warning 'No existing Capture capAutoLoad directory was detected. No Capture Tcl file was installed; specify -CaptureTclTarget with the existing capAutoLoad directory for an unsupported layout.'
+    Write-Warning 'No existing Capture capAutoLoad directory was detected. Bridge files were installed, but Capture cannot load them until you re-run install.ps1 -CaptureTclTarget <existing capAutoLoad directory>.'
 }
 
 # --- Install ---------------------------------------------------------------
 
-foreach ($directory in @($canonicalPythonTarget) + $canonicalCaptureTclTargets) {
-    if (-not (Test-Path -LiteralPath $directory -PathType Container)) { Stop-Install "target directory does not exist; no directories are created: $directory" }
+if (-not (Test-Path -LiteralPath $canonicalPythonTarget -PathType Container)) {
+    New-Item -ItemType Directory -Path $canonicalPythonTarget -Force | Out-Null
+}
+foreach ($directory in $canonicalCaptureTclTargets) {
+    if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+        Stop-Install "Capture target directory does not exist; no Capture directories are created: $directory"
+    }
 }
 if (-not (Test-Path -LiteralPath $manifestDirectory -PathType Container)) { New-Item -ItemType Directory -Path $manifestDirectory -Force | Out-Null }
 

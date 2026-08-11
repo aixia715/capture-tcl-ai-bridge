@@ -34,8 +34,7 @@
 
 - [ ] **0.2** 【真机】 在仓库目录安装：
 
-      python -m pip install -r requirements.txt
-      .\install.ps1                      # 16.6 需加 -CaptureTclTarget
+            .\install.ps1                      # 16.6 需加 -CaptureTclTarget
 
       预期：只输出四个运行文件加一个 manifest 路径，然后给出 source / Start /
       Status 三条命令。**不应**启动 Capture 或桥。
@@ -141,11 +140,11 @@
 
 - [ ] **3.1** 【复验】 CLI 五种形式全部走通：
 
-      python C:\tclpython\capture_tcl_cli.py status
-      python C:\tclpython\capture_tcl_cli.py -c "expr {1 + 1}"
-      python C:\tclpython\capture_tcl_cli.py -f .\examples\selected_refs.tcl
-      Get-Content -Raw .\examples\selected_refs.tcl | python C:\tclpython\capture_tcl_cli.py
-      python C:\tclpython\capture_tcl_cli.py --json -c "expr {1 + 1}"
+      C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py status
+      C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -c "expr {1 + 1}"
+      C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py -f .\examples\selected_refs.tcl
+      Get-Content -Raw .\examples\selected_refs.tcl | C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py
+      C:\tclpython\runtime\python.exe C:\tclpython\capture_tcl_cli.py --json -c "expr {1 + 1}"
 
 - [ ] **3.2** 【复验】 多行 + UTF-8 脚本，确认返回值与中文原样往返。
 

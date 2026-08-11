@@ -6,6 +6,11 @@
 
 ### Added
 
+- Release ZIP 现在内置 Python 3.12 embeddable runtime、FastAPI、Uvicorn 及其依赖；
+  用户无需安装系统 Python、pip 或第三方包即可运行 `install.ps1`。
+- 安装清单升级到 schema 3，记录桥接专用 `runtime\python.exe`；Capture 启动桥接时
+  固定使用该解释器。安装器会检测每个已存在的 Capture `capAutoLoad` 目录。
+
 - 新增本地 stdio Capture MCP Server，向 Codex、Claude Code、Hermes 等 Agent
   暴露元器件属性读取与单项属性修改工具；写入后立即回读，但不自动保存设计。
 - 同时支持初始化式 MCP `2024-11-05` 至 `2025-11-25` 和无状态

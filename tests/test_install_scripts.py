@@ -86,7 +86,6 @@ def sandbox(tmp_path: Path) -> SimpleNamespace:
         capture_target=tmp_path / "capture",
     )
     box.local_app_data.mkdir()
-    box.python_target.mkdir()
     box.capture_target.mkdir()
     box.runtime_source = tmp_path / "bundled-runtime"
     (box.runtime_source / "Lib" / "site-packages" / "fastapi").mkdir(parents=True)
@@ -121,6 +120,7 @@ def _install(
             str(sandbox.capture_target),
             "-RuntimeSource",
             str(sandbox.runtime_source),
+            "-SkipRuntimeValidation",
             *extra,
         ],
         local_app_data=sandbox.local_app_data,
@@ -155,7 +155,17 @@ def _python_stub(directory: Path, *, version: str, imports_ok: bool) -> Path:
     return directory
 
 
-def test_install_copies_exactly_the_three_runtime_files(sandbox):
+def test_install_creates_the_bridge_owned_python_target(sandbox):
+    assert not sandbox.python_target.exists()
+
+    result = _install(sandbox)
+
+    assert result.returncode == 0, result.stderr
+    assert sandbox.python_target.is_dir()
+    assert sandbox.runtime_target.joinpath("python.exe").exists()
+
+
+def test_install_copies_all_bridge_files_and_bundled_runtime(sandbox):
     result = _install(sandbox)
 
     assert result.returncode == 0, result.stderr
@@ -165,6 +175,25 @@ def test_install_copies_exactly_the_three_runtime_files(sandbox):
     assert sandbox.tcl.read_bytes() == (ROOT / TCL_NAME).read_bytes()
     assert sandbox.runtime_target.joinpath("python.exe").read_bytes() == b"embedded python"
     assert [p.name for p in sandbox.capture_target.iterdir()] == [TCL_NAME]
+
+
+def test_install_rejects_an_incomplete_bundled_runtime(sandbox):
+    result = _run(
+        INSTALL,
+        [
+            "-PythonTarget",
+            str(sandbox.python_target),
+            "-CaptureTclTarget",
+            str(sandbox.capture_target),
+            "-RuntimeSource",
+            str(sandbox.runtime_source),
+        ],
+        local_app_data=sandbox.local_app_data,
+    )
+
+    assert result.returncode != 0
+    assert "bundled runtime is incomplete" in (result.stderr + result.stdout)
+    assert not sandbox.python_target.exists()
 
 
 def test_install_does_not_auto_start_unless_asked(sandbox):
@@ -272,6 +301,7 @@ def test_install_is_idempotent(sandbox):
 
 
 def test_install_refuses_to_overwrite_an_unowned_file(sandbox):
+    sandbox.python_target.mkdir()
     sandbox.cli.write_text("someone else's file\n", encoding="utf-8")
 
     result = _install(sandbox)
@@ -342,6 +372,7 @@ def test_install_aborts_when_a_manifest_points_at_other_targets(sandbox, tmp_pat
             str(other_capture),
             "-RuntimeSource",
             str(sandbox.runtime_source),
+            "-SkipRuntimeValidation",
         ],
         local_app_data=sandbox.local_app_data,
     )

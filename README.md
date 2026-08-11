@@ -180,6 +180,7 @@ Capture 16.6 的 Tcl 是 8.4，它的 `catch` 没有选项字典，因而没有 
 ## 文档
 
 - [docs/protocol.md](docs/protocol.md) —— HTTP 接口、运行描述文件、状态机
+- [docs/runtime-packaging.md](docs/runtime-packaging.md) —— 离线 Python runtime 的发布打包方式
 - [docs/mcp.md](docs/mcp.md) —— Codex、Claude Code、Hermes 接入与元器件属性工具
 - [docs/security.md](docs/security.md) —— 权限边界与威胁模型
 - [docs/troubleshooting.md](docs/troubleshooting.md) —— 端口占用、描述文件过期、

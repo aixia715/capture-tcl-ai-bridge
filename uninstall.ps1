@@ -12,7 +12,8 @@
 
     A file whose content no longer matches the manifest was edited after
     installation, so it is kept and left in the manifest unless -ForceModified
-    is given. Target directories are never removed.
+    is given. The bridge-owned runtime directory is removed only after every
+    recorded runtime file is removed; Python and Capture target directories stay.
 
 .PARAMETER ForceModified
     Also delete owned files whose content no longer matches the manifest.

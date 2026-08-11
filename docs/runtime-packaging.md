@@ -1,9 +1,8 @@
-# Runtime packaging
+# 离线运行时打包
 
-The release workflow creates a Windows x64 ZIP containing Python 3.12 embeddable,
-FastAPI, Uvicorn, their transitive dependencies, and the bridge, CLI, and MCP server files. End users run `install.ps1`;
-the installer never downloads packages or uses a system Python.
+发布 workflow 生成 Windows x64 ZIP：其中包含 Python 3.12 embeddable runtime、FastAPI、
+Uvicorn、全部传递依赖，以及 bridge、CLI 与 MCP server 文件。终端用户只需运行
+`install.ps1`；安装过程不会下载依赖，也不会使用系统 Python。
 
-The repository intentionally does not commit `runtime/`: it is generated only in
-the release archive. Running `install.ps1` directly from a source checkout reports
-that the bundled runtime is missing.
+仓库不会提交 `runtime/` 目录：它只在 Release archive 的构建过程中生成。因此直接在
+源码 checkout 运行 `install.ps1` 会提示缺少 bundled runtime，这是预期行为。
