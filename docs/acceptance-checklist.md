@@ -34,10 +34,11 @@
 
 - [ ] **0.2** 【真机】 在仓库目录安装：
 
-            .\install.ps1                      # 16.6 需加 -CaptureTclTarget
+      .\install.ps1                      # 16.6 需加 -CaptureTclTarget
 
-      预期：只输出四个运行文件加一个 manifest 路径，然后给出 source / Start /
-      Status 三条命令。**不应**启动 Capture 或桥。
+      预期：输出 bridge、CLI、MCP、Capture Tcl 文件、`runtime\` 的文件数摘要和
+      manifest 路径，然后给出 source / Start / Status 三条命令。**不应**启动
+      Capture 或桥。
 
 - [ ] **0.3** 【已验】 比对部署文件与仓库文件的 SHA-256 一致：
 

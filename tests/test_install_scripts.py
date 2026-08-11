@@ -52,12 +52,12 @@ def _run(
     args: list[str],
     *,
     local_app_data: Path,
-    path_prefix: Path | None = None,
+    skip_runtime_validation: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env["LOCALAPPDATA"] = str(local_app_data)
-    if path_prefix is not None:
-        env["PATH"] = f"{path_prefix}{os.pathsep}{env['PATH']}"
+    if skip_runtime_validation:
+        env["CAPTURE_AI_BRIDGE_TEST_SKIP_RUNTIME_VALIDATION"] = "1"
     return subprocess.run(
         [
             _powershell(),
@@ -71,6 +71,7 @@ def _run(
         ],
         capture_output=True,
         text=True,
+        errors="replace",
         cwd=str(ROOT),
         env=env,
         timeout=180,
@@ -109,7 +110,6 @@ def sandbox(tmp_path: Path) -> SimpleNamespace:
 def _install(
     sandbox: SimpleNamespace,
     *extra: str,
-    path_prefix: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return _run(
         INSTALL,
@@ -120,11 +120,10 @@ def _install(
             str(sandbox.capture_target),
             "-RuntimeSource",
             str(sandbox.runtime_source),
-            "-SkipRuntimeValidation",
             *extra,
         ],
         local_app_data=sandbox.local_app_data,
-        path_prefix=path_prefix,
+        skip_runtime_validation=True,
     )
 
 
@@ -139,20 +138,6 @@ def _uninstall(
 def _manifest(sandbox: SimpleNamespace) -> dict:
     return json.loads(sandbox.manifest_path.read_text(encoding="utf-8"))
 
-
-def _python_stub(directory: Path, *, version: str, imports_ok: bool) -> Path:
-    """A PATH shim that answers --version and the dependency import probe."""
-    directory.mkdir(parents=True, exist_ok=True)
-    (directory / "python.cmd").write_text(
-        "@echo off\r\n"
-        'if "%~1"=="--version" (\r\n'
-        f"  echo Python {version}\r\n"
-        "  exit /b 0\r\n"
-        ")\r\n"
-        f"exit /b {0 if imports_ok else 1}\r\n",
-        encoding="ascii",
-    )
-    return directory
 
 
 def test_install_creates_the_bridge_owned_python_target(sandbox):
@@ -194,6 +179,28 @@ def test_install_rejects_an_incomplete_bundled_runtime(sandbox):
     assert result.returncode != 0
     assert "bundled runtime is incomplete" in (result.stderr + result.stdout)
     assert not sandbox.python_target.exists()
+
+
+def test_install_reports_runtime_probe_output_when_an_executable_exits_nonzero(sandbox):
+    shutil.copyfile(_powershell(), sandbox.runtime_source / "python.exe")
+
+    result = _run(
+        INSTALL,
+        [
+            "-PythonTarget",
+            str(sandbox.python_target),
+            "-CaptureTclTarget",
+            str(sandbox.capture_target),
+            "-RuntimeSource",
+            str(sandbox.runtime_source),
+        ],
+        local_app_data=sandbox.local_app_data,
+    )
+
+    combined = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "bundled runtime is incomplete" in combined
+    assert "Python exited with code" not in combined
 
 
 def test_install_does_not_auto_start_unless_asked(sandbox):
@@ -258,6 +265,8 @@ def test_install_reports_the_source_and_start_commands(sandbox):
     assert str(sandbox.tcl) in result.stdout
     assert "CaptureAiBridgeStart" in result.stdout
     assert "CaptureAiBridgeStatus" in result.stdout
+    assert f"{sandbox.runtime_target}\\ (" in result.stdout
+    assert str(sandbox.runtime_target / "python.exe") not in result.stdout
 
 
 def test_install_writes_a_manifest_describing_the_installed_files(sandbox):
@@ -372,9 +381,9 @@ def test_install_aborts_when_a_manifest_points_at_other_targets(sandbox, tmp_pat
             str(other_capture),
             "-RuntimeSource",
             str(sandbox.runtime_source),
-            "-SkipRuntimeValidation",
         ],
         local_app_data=sandbox.local_app_data,
+        skip_runtime_validation=True,
     )
 
     assert result.returncode != 0

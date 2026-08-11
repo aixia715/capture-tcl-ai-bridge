@@ -28,8 +28,6 @@
     Source directory containing the bundled Python runtime. Release ZIPs include
     it as runtime; this parameter is primarily useful for packaging tests.
 
-.PARAMETER SkipRuntimeValidation
-    Internal test switch. Do not use for normal installations.
 
 .PARAMETER ForceOverwriteModified
     Overwrite an owned file whose content no longer matches the manifest, i.e.
@@ -53,7 +51,6 @@ param(
     [string]$PythonTarget = 'C:\tclpython',
     [string[]]$CaptureTclTarget = @(),
     [string]$RuntimeSource = (Join-Path $PSScriptRoot 'runtime'),
-    [switch]$SkipRuntimeValidation,
     [switch]$ForceOverwriteModified,
     [switch]$EnableAutoStart,
     [string]$LogFile = ''
@@ -156,12 +153,29 @@ if (-not (Test-Path -LiteralPath $canonicalRuntimeSource -PathType Container) -o
     -not (Test-Path -LiteralPath $runtimePython -PathType Leaf)) {
     Stop-Install "bundled runtime is missing: $canonicalRuntimeSource"
 }
-if (-not $SkipRuntimeValidation) {
+$skipRuntimeValidation = $env:CAPTURE_AI_BRIDGE_TEST_SKIP_RUNTIME_VALIDATION -eq '1'
+if (-not $skipRuntimeValidation) {
+    $previousErrorActionPreference = $ErrorActionPreference
+    $probeOutput = @()
+    $probeExitCode = 1
     try {
-        & $runtimePython -c 'import fastapi, uvicorn' 2>$null
-        if ($LASTEXITCODE -ne 0) { throw 'dependency import failed' }
+        # Windows PowerShell 5.1 may turn native stderr into a terminating
+        # NativeCommandError when ErrorActionPreference is Stop. Capture it for
+        # diagnostics, but use the process exit code to decide success.
+        $ErrorActionPreference = 'Continue'
+        $probeOutput = @(& $runtimePython -c 'import fastapi, uvicorn' 2>&1)
+        $probeExitCode = $LASTEXITCODE
     } catch {
-        Stop-Install "bundled runtime is incomplete; re-download the Release ZIP: $($_.Exception.Message)"
+        $probeOutput = @($_)
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($probeExitCode -ne 0) {
+        $probeDetails = ($probeOutput | Out-String).Trim()
+        if ([string]::IsNullOrWhiteSpace($probeDetails)) {
+            $probeDetails = "Python exited with code $probeExitCode."
+        }
+        Stop-Install "bundled runtime is incomplete; re-download the Release ZIP: $probeDetails"
     }
 }
 $canonicalCaptureTclTargets = @(Get-CaptureTclTargets $CaptureTclTarget)
@@ -335,7 +349,13 @@ Write-TextAtomic $manifestPath (ConvertTo-Json $manifest -Depth 5)
 $captureTclFiles = @($plan | Where-Object { $_.Target -like '*captureAiBridge.tcl' } | ForEach-Object { $_.Target })
 
 Write-Output "Installed ${ProjectName}:"
-foreach ($item in $plan) { Write-Output "  $($item.Target)" }
+foreach ($item in $plan) {
+    if (-not $item.Target.StartsWith($canonicalRuntimeTarget,
+            [StringComparison]::OrdinalIgnoreCase)) {
+        Write-Output "  $($item.Target)"
+    }
+}
+Write-Output "  $canonicalRuntimeTarget\ ($($runtimeFiles.Count) files)"
 Write-Output "  manifest: $manifestPath"
 Write-Output ''
 if ($EnableAutoStart -and $captureTclFiles.Count -ne 0) {

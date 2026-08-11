@@ -1294,6 +1294,7 @@ proc _captureAiResolvePythonExecutable {} {
         return [file normalize $::CaptureAiBridgePythonExecutable]
     }
 
+    set missingRuntimeMessage {bundled Python runtime is missing; re-run install.ps1 from the Release ZIP.}
     set parseCode [catch {
         set path [_captureAiInstallManifestPath]
         if {$path eq {} || ![file isfile $path]} { return {} }
@@ -1311,17 +1312,17 @@ proc _captureAiResolvePythonExecutable {} {
         }
         set executable [dict get $manifest pythonExecutable]
         if {[file pathtype $executable] ne {absolute} || ![file isfile $executable]} {
-            error {bundled Python runtime is missing; re-run install.ps1 from the Release ZIP.}
+            error $missingRuntimeMessage
         }
         file normalize $executable
     } executable]
-    if {$parseCode != 0} {
-        if {$executable eq {bundled Python runtime is missing; re-run install.ps1 from the Release ZIP.}} {
+    if {$parseCode == 0 && $executable ne {}} { return $executable }
+    if {$parseCode == 1} {
+        if {$executable eq $missingRuntimeMessage} {
             error $executable
         }
         return python
     }
-    if {$executable ne {}} { return $executable }
     return python
 }
 
