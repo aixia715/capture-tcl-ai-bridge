@@ -43,6 +43,7 @@ SHA-256 记到 `%LOCALAPPDATA%\capture-tcl-ai-bridge\install.json`：
 | --- | --- |
 | `capture_tcl_bridge_server.py` | `C:\tclpython` |
 | `capture_tcl_cli.py` | `C:\tclpython` |
+| `capture_mcp_server.py` | `C:\tclpython` |
 | bundled `python.exe` + dependencies | `C:\tclpython\runtime` |
 | `captureAiBridge.tcl` | 自动检测到的每个 `C:\Cadence\SPB_*\tools\capture\tclscripts\capAutoLoad` |
 
@@ -120,7 +121,19 @@ POST /v1/execute
 
 完整协议见 [docs/protocol.md](docs/protocol.md)。
 
-### 5. 诊断日志（可选）
+### 5. 让 AI Agent 通过 MCP 读写元器件属性
+
+安装后可把 stdio MCP 服务注册给 Codex：
+
+```powershell
+codex mcp add capture -- C:\tclpython\runtime\python.exe C:\tclpython\capture_mcp_server.py
+```
+
+它只暴露两个工具：读取当前设计的元器件有效字符串属性，以及修改一个唯一
+元器件的一项属性并立即回读验证。写入不会自动保存设计，也不会开放任意 Tcl。
+Codex、Claude Code、Hermes 的完整配置和工具参数见 [docs/mcp.md](docs/mcp.md)。
+
+### 6. 诊断日志（可选）
 
 桥报告给 Capture 控制台的消息不会进入任何脚本的输出。需要留证时：
 
@@ -131,7 +144,7 @@ set ::CaptureAiBridgeLogFile C:/temp/capture_ai_bridge.log
 默认关闭；上限 20 MiB（`::CaptureAiBridgeLogLimitBytes`），超限截断并保留最新内容；
 每行带时间戳；不含 Bearer 令牌。装了自启的话用 `-LogFile` 更省事。
 
-### 6. 停止与卸载
+### 7. 停止与卸载
 
 ```tcl
 CaptureAiBridgeStop
@@ -167,6 +180,7 @@ Capture 16.6 的 Tcl 是 8.4，它的 `catch` 没有选项字典，因而没有 
 ## 文档
 
 - [docs/protocol.md](docs/protocol.md) —— HTTP 接口、运行描述文件、状态机
+- [docs/mcp.md](docs/mcp.md) —— Codex、Claude Code、Hermes 接入与元器件属性工具
 - [docs/security.md](docs/security.md) —— 权限边界与威胁模型
 - [docs/troubleshooting.md](docs/troubleshooting.md) —— 端口占用、描述文件过期、
   路径解析、HTTP 400、pending dump

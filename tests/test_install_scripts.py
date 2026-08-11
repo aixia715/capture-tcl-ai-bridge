@@ -25,6 +25,7 @@ INSTALL = ROOT / "install.ps1"
 UNINSTALL = ROOT / "uninstall.ps1"
 SERVER_NAME = "capture_tcl_bridge_server.py"
 CLI_NAME = "capture_tcl_cli.py"
+MCP_NAME = "capture_mcp_server.py"
 TCL_NAME = "captureAiBridge.tcl"
 AUTOSTART_NAME = "captureAiBridgeAutoStart.tcl"
 
@@ -100,6 +101,7 @@ def sandbox(tmp_path: Path) -> SimpleNamespace:
     )
     box.server = box.python_target / SERVER_NAME
     box.cli = box.python_target / CLI_NAME
+    box.mcp = box.python_target / MCP_NAME
     box.tcl = box.capture_target / TCL_NAME
     box.autostart = box.capture_target / AUTOSTART_NAME
     return box
@@ -159,6 +161,7 @@ def test_install_copies_exactly_the_three_runtime_files(sandbox):
     assert result.returncode == 0, result.stderr
     assert sandbox.server.read_bytes() == (ROOT / SERVER_NAME).read_bytes()
     assert sandbox.cli.read_bytes() == (ROOT / CLI_NAME).read_bytes()
+    assert sandbox.mcp.read_bytes() == (ROOT / MCP_NAME).read_bytes()
     assert sandbox.tcl.read_bytes() == (ROOT / TCL_NAME).read_bytes()
     assert sandbox.runtime_target.joinpath("python.exe").read_bytes() == b"embedded python"
     assert [p.name for p in sandbox.capture_target.iterdir()] == [TCL_NAME]
@@ -243,6 +246,7 @@ def test_install_writes_a_manifest_describing_the_installed_files(sandbox):
     assert set(recorded) == {
         str(sandbox.server.resolve()),
         str(sandbox.cli.resolve()),
+        str(sandbox.mcp.resolve()),
         str(sandbox.tcl.resolve()),
         str((sandbox.runtime_target / "python.exe").resolve()),
         str((sandbox.runtime_target / "python312._pth").resolve()),
@@ -257,7 +261,7 @@ def test_install_writes_a_manifest_describing_the_installed_files(sandbox):
 def test_install_is_idempotent(sandbox):
     assert _install(sandbox).returncode == 0
     first = _manifest(sandbox)
-    stamps = {p: p.stat().st_mtime_ns for p in (sandbox.server, sandbox.cli, sandbox.tcl)}
+    stamps = {p: p.stat().st_mtime_ns for p in (sandbox.server, sandbox.cli, sandbox.mcp, sandbox.tcl)}
 
     second_result = _install(sandbox)
 
@@ -393,6 +397,7 @@ def test_uninstall_removes_unmodified_files_and_the_manifest(sandbox):
     assert result.returncode == 0, result.stderr
     assert not sandbox.server.exists()
     assert not sandbox.cli.exists()
+    assert not sandbox.mcp.exists()
     assert not sandbox.tcl.exists()
     assert not sandbox.runtime_target.exists()
     assert not sandbox.manifest_path.exists()
@@ -453,6 +458,7 @@ def test_uninstall_refuses_a_path_outside_the_recorded_targets(sandbox, tmp_path
     assert outsider.exists()
     assert sandbox.server.exists(), "a rejected manifest must delete nothing"
     assert sandbox.cli.exists()
+    assert sandbox.mcp.exists()
     assert sandbox.tcl.exists()
 
 

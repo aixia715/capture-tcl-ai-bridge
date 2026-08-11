@@ -1,7 +1,7 @@
 # Runtime packaging
 
 The release workflow creates a Windows x64 ZIP containing Python 3.12 embeddable,
-FastAPI, Uvicorn, and their transitive dependencies. End users run `install.ps1`;
+FastAPI, Uvicorn, their transitive dependencies, and the bridge, CLI, and MCP server files. End users run `install.ps1`;
 the installer never downloads packages or uses a system Python.
 
 The repository intentionally does not commit `runtime/`: it is generated only in

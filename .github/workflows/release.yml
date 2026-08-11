@@ -34,7 +34,7 @@ jobs:
         run: |
           $stage = Join-Path $env:RUNNER_TEMP 'capture-tcl-ai-bridge'
           New-Item -ItemType Directory -Path $stage | Out-Null
-          Copy-Item capture_tcl_bridge_server.py,capture_tcl_cli.py,captureAiBridge.tcl,install.ps1,uninstall.ps1,README.md,LICENSE -Destination $stage
+          Copy-Item capture_tcl_bridge_server.py,capture_tcl_cli.py,capture_mcp_server.py,captureAiBridge.tcl,install.ps1,uninstall.ps1,README.md,LICENSE -Destination $stage
           Copy-Item -Recurse (Join-Path $env:RUNNER_TEMP 'runtime') -Destination (Join-Path $stage 'runtime')
           $version = (Get-Content VERSION -Raw).Trim()
           Compress-Archive -Path $stage -DestinationPath "capture-tcl-ai-bridge-v$version-windows-x64.zip"

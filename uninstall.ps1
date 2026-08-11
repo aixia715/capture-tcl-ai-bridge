@@ -26,6 +26,7 @@ $ProjectName = 'capture-tcl-ai-bridge'
 $SchemaVersion = 3
 $ServerName = 'capture_tcl_bridge_server.py'
 $CliName = 'capture_tcl_cli.py'
+$McpName = 'capture_mcp_server.py'
 $TclName = 'captureAiBridge.tcl'
 $AutoStartName = 'captureAiBridgeAutoStart.tcl'
 
@@ -95,12 +96,13 @@ if ($null -ne $runtimeTarget) {
 
 # The only paths this script may ever delete, rebuilt from the target
 # directories rather than taken from the recorded entries. The auto-start
-# file is optional, so a manifest may record three entries or four; what
+# file is optional, so a manifest may record four entries or five; what
 # matters is that nothing outside this set is ever deletable.
 $allowed = @{}
 foreach ($candidate in @(
         (Join-Path $pythonTarget $ServerName),
-        (Join-Path $pythonTarget $CliName))) {
+        (Join-Path $pythonTarget $CliName),
+        (Join-Path $pythonTarget $McpName))) {
     $allowed[$candidate.ToLowerInvariant()] = $candidate
 }
 foreach ($captureTclTarget in $captureTclTargets) {

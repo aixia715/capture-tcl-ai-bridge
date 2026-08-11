@@ -37,7 +37,7 @@
       python -m pip install -r requirements.txt
       .\install.ps1                      # 16.6 需加 -CaptureTclTarget
 
-      预期：只输出三个运行文件加一个 manifest 路径，然后给出 source / Start /
+      预期：只输出四个运行文件加一个 manifest 路径，然后给出 source / Start /
       Status 三条命令。**不应**启动 Capture 或桥。
 
 - [ ] **0.3** 【已验】 比对部署文件与仓库文件的 SHA-256 一致：
@@ -235,7 +235,7 @@
 
 ## 阶段 7：卸载
 
-- [ ] **7.1** 【已验】（沙箱已验，含拒绝换目标路径、保留他人文件）`.\uninstall.ps1`，确认三个运行文件和 manifest 都消失，
+- [ ] **7.1** 【已验】（沙箱已验，含拒绝换目标路径、保留他人文件）`.\uninstall.ps1`，确认四个运行文件和 manifest 都消失，
       **目标目录本身仍在**，目录里其他项目的文件没被动过。
 
 ---
