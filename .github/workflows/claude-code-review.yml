@@ -23,6 +23,7 @@ jobs:
       contents: read
       pull-requests: read
       issues: read
+      checks: read
       id-token: write
 
     steps:
@@ -31,9 +32,19 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Wait for CI to pass
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          check-name: 'test'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 15
+
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
+        env:
+          ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
