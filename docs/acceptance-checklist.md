@@ -32,7 +32,7 @@
       记录结果。16.6 预期 `8.4.x`，17.4 预期 `8.6.x`。
       这决定了后面 `errorLine` 该期望什么。
 
-- [ ] **0.2** 【真机】 在仓库目录安装：
+- [ ] **0.2** 【真机】 解压 Release ZIP，在解压出来的目录安装：
 
       .\install.ps1                      # 16.6 需加 -CaptureTclTarget
 
@@ -40,7 +40,11 @@
       manifest 路径，然后给出 source / Start / Status 三条命令。**不应**启动
       Capture 或桥。
 
-- [ ] **0.3** 【已验】 比对部署文件与仓库文件的 SHA-256 一致：
+      源码 checkout 不包含 `runtime\`（只在发布打包时生成，见
+      [runtime-packaging.md](runtime-packaging.md)）；直接在仓库目录运行
+      `install.ps1` 会报 `bundled runtime is missing` 并退出，这是预期行为。
+
+- [ ] **0.3** 【已验】 比对部署文件与解压目录文件的 SHA-256 一致：
 
       Get-FileHash .\captureAiBridge.tcl, "<CaptureTclTarget>\captureAiBridge.tcl" |
           Select-Object Hash, Path

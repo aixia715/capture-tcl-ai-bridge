@@ -49,18 +49,20 @@ jobs:
           Copy-Item -Recurse (Join-Path $env:RUNNER_TEMP 'runtime') -Destination (Join-Path $stage 'runtime')
           $version = (Get-Content VERSION -Raw).Trim()
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath "capture-tcl-ai-bridge-v$version-windows-x64.zip"
-      - name: Smoke test staged installer
+      - name: Smoke test released archive
         shell: pwsh
         run: |
-          $stage = Join-Path $env:RUNNER_TEMP 'capture-tcl-ai-bridge'
+          $version = (Get-Content VERSION -Raw).Trim()
+          $archive = "capture-tcl-ai-bridge-v$version-windows-x64.zip"
+          $extracted = Join-Path $env:RUNNER_TEMP 'capture-tcl-ai-bridge-extracted'
           $smokePython = Join-Path $env:RUNNER_TEMP 'capture-tcl-ai-bridge-smoke'
           $smokeCapture = Join-Path $env:RUNNER_TEMP 'capture-tcl-ai-bridge-smoke-capAutoLoad'
+          Expand-Archive -LiteralPath $archive -DestinationPath $extracted
           New-Item -ItemType Directory -Path $smokeCapture | Out-Null
-          & (Join-Path $stage 'install.ps1') -PythonTarget $smokePython -CaptureTclTarget $smokeCapture
-          if ($LASTEXITCODE -ne 0) { throw 'Staged installer smoke test failed.' }
-          if (-not (Test-Path -LiteralPath (Join-Path $smokePython 'runtime/python.exe') -PathType Leaf)) {
-            throw 'Staged installer did not deploy the bundled Python runtime.'
-          }
+          & (Join-Path $extracted 'install.ps1') -PythonTarget $smokePython -CaptureTclTarget $smokeCapture
+          if ($LASTEXITCODE -ne 0) { throw 'Released archive installer smoke test failed.' }
+          & (Join-Path $smokePython 'runtime/python.exe') -c "import fastapi, uvicorn"
+          if ($LASTEXITCODE -ne 0) { throw 'Deployed runtime cannot import fastapi or uvicorn.' }
       - uses: actions/upload-artifact@v4
         with:
           name: capture-tcl-ai-bridge-windows-x64
