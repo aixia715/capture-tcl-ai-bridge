@@ -302,6 +302,10 @@ def test_set_tool_allows_empty_value_and_parses_readback(monkeypatch, tmp_path):
     "arguments, message",
     [
         ({"property_names": []}, "non-empty array"),
+        (
+            {"property_names": ["Value", {"item": "PCB Footprint"}]},
+            r"property_names\[1\] must be a string",
+        ),
         ({"max_results": True}, "integer"),
         ({"unknown": 1}, "Unknown argument"),
     ],
@@ -711,9 +715,11 @@ fx::linkSelectionOccurrence $block $blockOcc
 set net [fx::makeFlatNet DATA0 {} {}]
 set scalar [fx::makeSelObject $::DboBaseObject_WIRE_SCALAR {} {}]
 fx::setSelectionWire $scalar $net 10 20 30 40
+fx::forceSelFail $scalar GetNet
 set bus [fx::makeSelObject $::DboBaseObject_WIRE_BUS {} {}]
 fx::setSelectionWire $bus $net 50 60 70 80
-set global [fx::makeSelObject $::DboBaseObject_GLOBAL_SYMBOL VCC {}]
+fx::forceSelFail $bus GetNet
+set global [fx::makeSelObject $::DboBaseObject_DBGLOBAL VCC {}]
 fx::setSelectionPinType $global 3
 set offpage [fx::makeSelObject $::DboBaseObject_OFF_PAGE_CONNECTOR NEXT {}]
 fx::setSelectionLocation $offpage 100 200
@@ -766,6 +772,7 @@ set ::fx::selectionObjectsList [list $block $scalar $bus $global $offpage $comme
     assert value["objects"][1]["start"] == {"x": 10, "y": 20}
     assert value["objects"][1]["end"] == {"x": 30, "y": 40}
     assert value["objects"][2]["wire_kind"] == "bus"
+    assert value["objects"][3]["raw_capture_type"] == 37
     assert value["objects"][3]["name"] == "VCC"
     assert value["objects"][3]["pin_type"] == 3
     assert value["objects"][4]["location"] == {"x": 100, "y": 200}
@@ -1003,6 +1010,10 @@ set ::fx::selectionObjectsList [list $repeated $repeated $other]
     "arguments, message",
     [
         ({"property_names": []}, "non-empty array"),
+        (
+            {"property_names": [{"item": "Value"}]},
+            r"property_names\[0\] must be a string",
+        ),
         ({"max_results": True}, "integer"),
         ({"max_results": 1001}, "1 through 1000"),
         ({"unknown": 1}, "Unknown argument"),

@@ -470,12 +470,7 @@ try {{
             set _captureMcpSupported 1
             set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
             set _captureMcpWireKind [expr {{$_captureMcpType == $::DboBaseObject_WIRE_BUS ? {{bus}} : {{scalar}}}}]
-            set _captureMcpNet [$_captureMcpObject GetNet $_captureMcpState]
-            _captureMcpRequireOk $_captureMcpState {{GetNet}}
-            set _captureMcpNetName {{}}
-            if {{$_captureMcpNet ne {{NULL}}}} {{
-                set _captureMcpNetName [_captureMcpStringOut $_captureMcpNet GetName {{GetName(net)}}]
-            }}
+            set _captureMcpNetName [_captureMcpStringOut $_captureMcpObject GetNetName {{GetNetName(wire)}}]
             set _captureMcpStart [$_captureMcpObject GetStartPoint $_captureMcpState]
             _captureMcpRequireOk $_captureMcpState {{GetStartPoint}}
             set _captureMcpEnd [$_captureMcpObject GetEndPoint $_captureMcpState]
@@ -483,7 +478,7 @@ try {{
             lappend _captureMcpFields wire_kind $_captureMcpWireKind net $_captureMcpNetName
             set _captureMcpFields [concat $_captureMcpFields [_captureMcpPointFields start $_captureMcpStart] [_captureMcpPointFields end $_captureMcpEnd]]
             _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
-        }} elseif {{$_captureMcpType == $::DboBaseObject_GLOBAL_SYMBOL}} {{
+        }} elseif {{$_captureMcpType == $::DboBaseObject_DBGLOBAL}} {{
             set _captureMcpKind global
             set _captureMcpSupported 1
             set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
@@ -849,10 +844,11 @@ def _property_names(arguments: dict[str, Any]) -> list[str]:
         )
     property_names: list[str] = []
     seen: set[str] = set()
-    for raw_name in raw_names:
+    for index, raw_name in enumerate(raw_names):
+        argument_name = f"property_names[{index}]"
         name = _string_argument(
-            {"property_name": raw_name},
-            "property_name",
+            {argument_name: raw_name},
+            argument_name,
             required=True,
             max_length=MAX_PROPERTY_NAME_LENGTH,
         )

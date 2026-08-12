@@ -226,6 +226,7 @@ set ::DboBaseObject_PORT_INSTANCE 15
 set ::DboBaseObject_WIRE_SCALAR 20
 set ::DboBaseObject_WIRE_BUS 21
 set ::DboBaseObject_GLOBAL_SYMBOL 33
+set ::DboBaseObject_DBGLOBAL 37
 set ::DboBaseObject_OFF_PAGE_CONNECTOR 38
 set ::DboBaseObject_COMMENT_TEXT 46
 set ::DboBaseObject_TITLEBLOCK_INSTANCE 65
@@ -518,7 +519,23 @@ proc fx::selDispatch {handle method argsList} {
         GetNet {
             set st [lindex $argsList 0]
             fx::okState $st
+            if {[fx::consumeForceFail selForceFail $handle GetNet]} {
+                fx::failState $st 1 {forced failure: GetNet}
+            }
             return $::fx::selNet($handle)
+        }
+        GetNetName {
+            if {[llength $argsList] != 1} {
+                error "wrong # args: should be \"DboWire_GetNetName self name\""
+            }
+            set cstr [lindex $argsList 0]
+            set st [fx::makeState]
+            if {[fx::consumeForceFail selForceFail $handle GetNetName]} {
+                fx::failState $st 1 {forced failure: GetNetName}
+                return $st
+            }
+            fx::setCString $cstr $::fx::netName($::fx::selNet($handle))
+            return $st
         }
         GetPinType {
             set st [lindex $argsList 0]
