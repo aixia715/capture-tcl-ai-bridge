@@ -248,9 +248,9 @@ proc _captureMcpReadWalk {{st occHandle propertyNames designName useRefFilter ta
 
     set childrenIter [$instOcc NewChildrenIter $st $::IterDefs_INSTS]
     _captureMcpRequireOk $st {{NewChildrenIter}}
-    $childrenIter Sort $st
-    _captureMcpRequireOk $st {{Sort}}
     try {{
+        $childrenIter Sort $st
+        _captureMcpRequireOk $st {{Sort}}
         while {{!$truncated}} {{
             set child [$childrenIter NextOccurrence $st]
             if {{$child eq {{NULL}}}} {{ break }}
@@ -435,10 +435,11 @@ set _captureMcpState [DboState]
 try {{
     for {{set _captureMcpIndex 0}} {{$_captureMcpIndex < $_captureMcpReturnedCount}} {{incr _captureMcpIndex}} {{
         set _captureMcpObject [lindex $_captureMcpSelected $_captureMcpIndex]
-        set _captureMcpType [DboBaseObject_GetObjectType $_captureMcpObject]
+        set _captureMcpType -1
         set _captureMcpKind unknown
         set _captureMcpSupported 0
         if {{[catch {{
+        set _captureMcpType [DboBaseObject_GetObjectType $_captureMcpObject]
         if {{$_captureMcpType == $::DboBaseObject_DRAWN_INSTANCE ||
                 $_captureMcpType == $::DboBaseObject_PLACED_INSTANCE}} {{
             set _captureMcpKind component

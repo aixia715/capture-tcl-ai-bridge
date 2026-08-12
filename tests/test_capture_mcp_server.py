@@ -72,13 +72,14 @@ def _run_against_dbo_fixture(script: str, setup: str) -> subprocess.CompletedPro
         fixture_prelude
         + "\n"
         + setup
+        + "\nfconfigure stdout -encoding utf-8\n"
         + "\nset mcpScript [encoding convertfrom utf-8 [binary format H* "
         + script.encode("utf-8").hex()
         + "]]\n"
         + "set mcpCode [catch {uplevel #0 $mcpScript} mcpResult]\n"
         + "puts [list MCP_RESULT $mcpCode $mcpResult $::fx::setPropCalls]\n"
         + "binary scan [encoding convertto utf-8 $mcpResult] H* mcpResultHex\n"
-        + "puts [list MCP_RESULT_HEX $mcpCode $mcpResultHex $::fx::setPropCalls]\n"
+        + "puts [list MCP_RESULT_HEX $mcpCode $mcpResultHex $::fx::setPropCalls $::fx::iterDeleteCalls]\n"
     )
     return subprocess.run(
         [tclsh],
@@ -95,9 +96,13 @@ def _bridge_fixture_executor(setup: str):
         result = _run_against_dbo_fixture(script, setup)
         assert result.returncode == 0, result.stderr
         marker = "MCP_RESULT_HEX "
-        line = next(line for line in result.stdout.splitlines() if line.startswith(marker))
+        line = next(
+            (line for line in result.stdout.splitlines() if line.startswith(marker)),
+            None,
+        )
+        assert line is not None, (result.stdout, result.stderr)
         code, payload = line[len(marker) :].split(" ", 1)
-        encoded, set_calls = payload.rsplit(" ", 1)
+        encoded, set_calls, _delete_calls = payload.rsplit(" ", 2)
         assert set_calls == "0", line
         decoded = bytes.fromhex(encoded).decode("utf-8")
         if code != "0":
@@ -156,7 +161,8 @@ set ::fx::activeDesign [fx::makeDesign $root {}]
     assert "CAPTURE_MCP_COMPONENT_V2" in result.stdout
     assert _hex("R1") in result.stdout
     assert _hex("10k") in result.stdout
-    assert result.stdout.rstrip().endswith(" 0")
+    raw_output = result.stdout.split("MCP_RESULT_HEX", 1)[0].rstrip()
+    assert raw_output.endswith(" 0")
 
 
 def test_generated_set_tcl_executes_exact_path_write_and_readback():
@@ -177,7 +183,8 @@ set ::fx::activeDesign [fx::makeDesign $root {}]
     assert "CAPTURE_MCP_SET_V1" in result.stdout
     assert _hex("100n") in result.stdout
     assert _hex(new_value) in result.stdout
-    assert result.stdout.rstrip().endswith(" 1")
+    raw_output = result.stdout.split("MCP_RESULT_HEX", 1)[0].rstrip()
+    assert raw_output.endswith(" 1")
 
 
 def test_parse_read_result_preserves_unicode_and_property_order():
@@ -544,6 +551,50 @@ set ::fx::selectionObjectsList [list $selected]
     assert "Value" not in properties
 
 
+def test_selection_properties_preserve_unicode_and_cannot_inject_tcl(
+    monkeypatch, tmp_path
+):
+    setup = """
+fx::resetAll
+set root [fx::makeOccurrence {} {} / {} 0]
+set ::fx::activeDesign [fx::makeDesign $root {}]
+set pageName [encoding convertfrom utf-8 [binary format H* e794b5e6ba90e9a1b5]]
+set ::fx::activePage [fx::makePage $pageName]
+set ::fx::instanceOccurrence $root
+set selected [fx::makeSelObject $::DboBaseObject_PLACED_INSTANCE U1 part]
+set path [encoding convertfrom utf-8 [binary format H* 2fe9a1b6e5b1822f5531]]
+set propertyName [encoding convertfrom utf-8 [binary format H* e4b8ade69687e5b19ee680a7cea9]]
+set propertyValue [encoding convertfrom utf-8 [binary format H* e580bce29c93]]
+set occurrence [fx::makeOccurrence U1 part $path {}]
+fx::setOccurrenceProperty $occurrence $propertyName $propertyValue
+fx::linkSelectionOccurrence $selected $occurrence
+set ::fx::selectionObjectsList [list $selected]
+    """
+    monkeypatch.setattr(mcp, "_execute_capture_script", _bridge_fixture_executor(setup))
+    server = mcp.CaptureMcpServer(tmp_path / "runtime.json")
+    attack = 'x]; error "injected"; #'
+
+    response = server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 18,
+            "method": "tools/call",
+            "params": {
+                "name": "capture_inspect_selection",
+                "arguments": {"property_names": ["中文属性Ω", attack]},
+            },
+        }
+    )
+
+    component = response["result"]["structuredContent"]["objects"][0]
+    assert component["occurrence"]["path"] == "/顶层/U1"
+    assert component["page_instance"]["page"] == "电源页"
+    assert component["properties"] == {
+        "中文属性Ω": {"present": True, "value": "值✓"},
+        attack: {"present": False},
+    }
+
+
 def test_design_read_returns_same_component_information_through_mcp(
     monkeypatch, tmp_path
 ):
@@ -781,6 +832,113 @@ set ::fx::selectionObjectsList [list $before $broken $after]
             "message": "DBO_CALL_FAILED: GetLocation: forced failure: GetLocation (code 1)",
         },
     }
+
+
+def test_selection_tool_isolates_type_failure_and_rejects_wrong_family(
+    monkeypatch, tmp_path
+):
+    setup = """
+fx::resetAll
+set root [fx::makeOccurrence {} {} / {} 0]
+set ::fx::activeDesign [fx::makeDesign $root {}]
+set ::fx::activePage [fx::makePage {PAGE 1}]
+set ::fx::instanceOccurrence $root
+set before [fx::makeSelObject $::DboBaseObject_COMMENT_TEXT before {}]
+set wrongFamily [fx::makeOccurrence BAD bad /BAD {}]
+set after [fx::makeSelObject $::DboBaseObject_TITLEBLOCK_INSTANCE {} {}]
+set ::fx::selectionObjectsList [list $before missing-selection-handle $wrongFamily $after]
+"""
+    monkeypatch.setattr(mcp, "_execute_capture_script", _bridge_fixture_executor(setup))
+    server = mcp.CaptureMcpServer(tmp_path / "runtime.json")
+
+    response = server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 16,
+            "method": "tools/call",
+            "params": {"name": "capture_inspect_selection", "arguments": {}},
+        }
+    )
+
+    objects = response["result"]["structuredContent"]["objects"]
+    assert [item["kind"] for item in objects] == [
+        "comment_text",
+        "unknown",
+        "unknown",
+        "title_block",
+    ]
+    assert objects[1] == {
+        "selection_index": 1,
+        "kind": "unknown",
+        "raw_capture_type": -1,
+        "supported": False,
+        "error": {
+            "code": "OBJECT_INSPECTION_FAILED",
+            "message": (
+                "fake DboBaseObject_GetObjectType: handle "
+                "missing-selection-handle has no recorded object type"
+            ),
+        },
+    }
+    assert objects[2] == {
+        "selection_index": 2,
+        "kind": "unknown",
+        "raw_capture_type": 66,
+        "supported": False,
+    }
+
+
+def test_design_read_releases_children_iterator_when_sort_fails(
+    monkeypatch, tmp_path
+):
+    setup = """
+fx::resetAll
+set root [fx::makeOccurrence {} {} / {} 0]
+set ::fx::activeDesign [fx::makeDesign $root {}]
+rename ::fx::iterDispatch ::fx::workingIterDispatch
+proc ::fx::iterDispatch {handle method argsList} {
+    if {$method eq {Sort}} {
+        set st [lindex $argsList 0]
+        fx::failState $st 1 {forced failure: Sort}
+        return {}
+    }
+    return [::fx::workingIterDispatch $handle $method $argsList]
+}
+"""
+
+    def execute(_runtime_file, script):
+        result = _run_against_dbo_fixture(script, setup)
+        assert result.returncode == 0, result.stderr
+        marker = "MCP_RESULT_HEX "
+        line = next(
+            line for line in result.stdout.splitlines() if line.startswith(marker)
+        )
+        code, payload = line[len(marker) :].split(" ", 1)
+        encoded, set_calls, delete_calls = payload.rsplit(" ", 2)
+        assert set_calls == "0"
+        assert delete_calls == "1"
+        decoded = bytes.fromhex(encoded).decode("utf-8")
+        if code != "0":
+            raise mcp.ToolExecutionError(decoded)
+        return decoded
+
+    monkeypatch.setattr(mcp, "_execute_capture_script", execute)
+    server = mcp.CaptureMcpServer(tmp_path / "runtime.json")
+
+    response = server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 17,
+            "method": "tools/call",
+            "params": {
+                "name": "capture_read_component_properties",
+                "arguments": {},
+            },
+        }
+    )
+
+    assert response["result"]["isError"] is True
+    assert "forced failure: Sort" in response["result"]["content"][0]["text"]
 
 
 def test_selection_tool_requires_schematic_view_through_mcp(monkeypatch, tmp_path):
