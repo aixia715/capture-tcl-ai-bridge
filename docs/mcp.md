@@ -155,10 +155,16 @@ the defaults, and duplicates are removed in first-seen order.
 
 Selection results preserve Capture's order and selection index. Supported kinds
 are `component`, `hierarchical_block`, `wire` (scalar or bus), `global`,
-`off_page_connector`, `comment_text`, `port`, and `title_block`. Supported
-non-components use a `design + page + kind + object_id` locator. Unknown kinds
-remain visible with `supported:false` and no locator. A field failure is attached
-to only that object when the rest of the selection can still be returned.
+`off_page_connector`, `comment_text`, `port`, `pin`, `net_alias`, `graphic_box`,
+`graphic_line`, `graphic_ellipse`, and `title_block`. Ports and pins include their
+page connection point, connectivity, and net name when connected; pins also
+include the owner refdes, pin name/number/type/position, and body-side start
+point. Aliases include name, location, and rotation. Graphic objects include
+bounds or endpoints plus their applicable line/fill styles. Coordinates are raw
+Capture document units. Supported non-components use a
+`design + page + kind + object_id` locator. Unknown kinds remain visible with
+`supported:false` and no locator. A field failure is attached to only that object
+when the rest of the selection can still be returned.
 
 Write results contain `before` and `after`. DBO failures are returned as MCP tool
 errors so the agent can correct its request.

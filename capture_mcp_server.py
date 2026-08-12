@@ -405,6 +405,17 @@ proc _captureMcpPointFields {{prefix point}} {{
     return [list "$prefix.x" [DboTclHelper_sGetCPointX $point] "$prefix.y" [DboTclHelper_sGetCPointY $point]]
 }}
 
+proc _captureMcpConnectionFields {{obj}} {{
+    set st [DboState]
+    set net [$obj GetNet $st]
+    if {{$net eq {{NULL}} || [$st OK] != 1}} {{
+        $st -delete
+        return [list connected 0 net {{}}]
+    }}
+    $st -delete
+    return [list connected 1 net [_captureMcpStringOut $net GetNetName {{GetNetName(net)}}]]
+}}
+
 proc _captureMcpObjectErrorCode {{message}} {{
     if {{[regexp {{^([A-Z][A-Z0-9_]*):}} $message _ code]}} {{ return $code }}
     return OBJECT_INSPECTION_FAILED
@@ -495,6 +506,41 @@ try {{
             lappend _captureMcpFields name [_captureMcpBaseName $_captureMcpObject]
             set _captureMcpFields [concat $_captureMcpFields [_captureMcpPointFields location $_captureMcpLocation]]
             _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_ALIAS}} {{
+            set _captureMcpKind net_alias
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpLocation [$_captureMcpObject GetLocation $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetLocation(alias)}}
+            set _captureMcpRotation [DboAlias_sGetRotation $_captureMcpObject $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetRotation(alias)}}
+            lappend _captureMcpFields name [_captureMcpBaseName $_captureMcpObject] rotation $_captureMcpRotation
+            set _captureMcpFields [concat $_captureMcpFields [_captureMcpPointFields location $_captureMcpLocation]]
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_GRAPHIC_BOX_INST}} {{
+            set _captureMcpKind graphic_box
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpBox [DboGraphicInstanceToDboGraphicBoxInst $_captureMcpObject]
+            lappend _captureMcpFields left [DboGraphicBoxInst_sGetLeft $_captureMcpBox $_captureMcpState] top [DboGraphicBoxInst_sGetTop $_captureMcpBox $_captureMcpState] right [DboGraphicBoxInst_sGetRight $_captureMcpBox $_captureMcpState] bottom [DboGraphicBoxInst_sGetBottom $_captureMcpBox $_captureMcpState] line_style [DboGraphicBoxInst_sGetLineStyle $_captureMcpBox $_captureMcpState] line_width [DboGraphicBoxInst_sGetLineWidth $_captureMcpBox $_captureMcpState] fill_style [DboGraphicBoxInst_sGetFillStyle $_captureMcpBox $_captureMcpState] hatch_style [DboGraphicBoxInst_sGetHatchStyle $_captureMcpBox $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetGraphicBoxFields}}
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_GRAPHIC_LINE_INST}} {{
+            set _captureMcpKind graphic_line
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpLine [DboGraphicInstanceToDboGraphicLineInst $_captureMcpObject]
+            lappend _captureMcpFields start.x [DboGraphicLineInst_sGetStartX $_captureMcpLine $_captureMcpState] start.y [DboGraphicLineInst_sGetStartY $_captureMcpLine $_captureMcpState] end.x [DboGraphicLineInst_sGetEndX $_captureMcpLine $_captureMcpState] end.y [DboGraphicLineInst_sGetEndY $_captureMcpLine $_captureMcpState] line_style [DboGraphicLineInst_sGetLineStyle $_captureMcpLine $_captureMcpState] line_width [DboGraphicLineInst_sGetLineWidth $_captureMcpLine $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetGraphicLineFields}}
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_GRAPHIC_ELLIPSE_INST}} {{
+            set _captureMcpKind graphic_ellipse
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpEllipse [DboGraphicInstanceToDboGraphicEllipseInst $_captureMcpObject]
+            lappend _captureMcpFields left [DboGraphicEllipseInst_sGetBoundingBoxLeft $_captureMcpEllipse $_captureMcpState] top [DboGraphicEllipseInst_sGetBoundingBoxTop $_captureMcpEllipse $_captureMcpState] right [DboGraphicEllipseInst_sGetBoundingBoxRight $_captureMcpEllipse $_captureMcpState] bottom [DboGraphicEllipseInst_sGetBoundingBoxBottom $_captureMcpEllipse $_captureMcpState] line_style [DboGraphicEllipseInst_sGetLineStyle $_captureMcpEllipse $_captureMcpState] line_width [DboGraphicEllipseInst_sGetLineWidth $_captureMcpEllipse $_captureMcpState] fill_style [DboGraphicEllipseInst_sGetFillStyle $_captureMcpEllipse $_captureMcpState] hatch_style [DboGraphicEllipseInst_sGetHatchStyle $_captureMcpEllipse $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetGraphicEllipseFields}}
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
         }} elseif {{$_captureMcpType == $::DboBaseObject_COMMENT_TEXT ||
                 ([info exists ::DboBaseObject_GRAPHIC_COMMENTTEXT_INST] && $_captureMcpType == $::DboBaseObject_GRAPHIC_COMMENTTEXT_INST)}} {{
             set _captureMcpKind comment_text
@@ -502,13 +548,34 @@ try {{
             set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
             lappend _captureMcpFields text [_captureMcpBaseName $_captureMcpObject]
             _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
-        }} elseif {{$_captureMcpType == $::DboBaseObject_PORT_INSTANCE}} {{
+        }} elseif {{$_captureMcpType == $::DboBaseObject_PORT}} {{
             set _captureMcpKind port
             set _captureMcpSupported 1
             set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
             set _captureMcpPinType [$_captureMcpObject GetPinType $_captureMcpState]
-            _captureMcpRequireOk $_captureMcpState {{GetPinType}}
+            _captureMcpRequireOk $_captureMcpState {{GetPinType(port)}}
+            set _captureMcpLocation [$_captureMcpObject GetLocation $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetLocation(port)}}
+            set _captureMcpConnectionPoint [$_captureMcpObject GetOffsetHotSpot $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetOffsetHotSpot(port)}}
             lappend _captureMcpFields name [_captureMcpBaseName $_captureMcpObject] pin_type $_captureMcpPinType
+            set _captureMcpFields [concat $_captureMcpFields [_captureMcpConnectionFields $_captureMcpObject] [_captureMcpPointFields location $_captureMcpLocation] [_captureMcpPointFields connection_point $_captureMcpConnectionPoint]]
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_PORT_INSTANCE_SCALAR}} {{
+            set _captureMcpKind pin
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpOwner [$_captureMcpObject GetOwner]
+            set _captureMcpStart [$_captureMcpObject GetOffsetStartPoint $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetOffsetStartPoint(pin)}}
+            set _captureMcpConnectionPoint [$_captureMcpObject GetOffsetHotSpot $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetOffsetHotSpot(pin)}}
+            set _captureMcpPinType [$_captureMcpObject GetPinType $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetPinType(pin)}}
+            set _captureMcpPinPosition [$_captureMcpObject GetPinPosition $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetPinPosition(pin)}}
+            lappend _captureMcpFields component_refdes [_captureMcpStringOut $_captureMcpOwner GetReference {{GetReference(pin owner)}}] pin_name [_captureMcpStringOut $_captureMcpObject GetPinName {{GetPinName}}] pin_number [_captureMcpStringOut $_captureMcpObject GetPinNumber {{GetPinNumber}}] pin_type $_captureMcpPinType pin_position $_captureMcpPinPosition
+            set _captureMcpFields [concat $_captureMcpFields [_captureMcpConnectionFields $_captureMcpObject] [_captureMcpPointFields start $_captureMcpStart] [_captureMcpPointFields connection_point $_captureMcpConnectionPoint]]
             _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
         }} elseif {{$_captureMcpType == $::DboBaseObject_TITLEBLOCK_INSTANCE}} {{
             set _captureMcpKind title_block
@@ -763,11 +830,95 @@ def _parse_selection_result(raw: str, property_names: list[str]) -> dict[str, An
                             },
                         }
                     )
-                elif kind in ("global", "port"):
+                elif kind == "global":
                     record.update(
                         {
                             "name": fields.pop("name"),
                             "pin_type": int(fields.pop("pin_type")),
+                        }
+                    )
+                elif kind == "port":
+                    connected = int(fields.pop("connected"))
+                    if connected not in (0, 1):
+                        raise ValueError("invalid connected flag")
+                    record.update(
+                        {
+                            "name": fields.pop("name"),
+                            "pin_type": int(fields.pop("pin_type")),
+                            "connected": bool(connected),
+                            "net": fields.pop("net"),
+                            "location": {
+                                "x": int(fields.pop("location.x")),
+                                "y": int(fields.pop("location.y")),
+                            },
+                            "connection_point": {
+                                "x": int(fields.pop("connection_point.x")),
+                                "y": int(fields.pop("connection_point.y")),
+                            },
+                        }
+                    )
+                elif kind == "pin":
+                    connected = int(fields.pop("connected"))
+                    if connected not in (0, 1):
+                        raise ValueError("invalid connected flag")
+                    record.update(
+                        {
+                            "component_refdes": fields.pop("component_refdes"),
+                            "pin_name": fields.pop("pin_name"),
+                            "pin_number": fields.pop("pin_number"),
+                            "pin_type": int(fields.pop("pin_type")),
+                            "pin_position": int(fields.pop("pin_position")),
+                            "connected": bool(connected),
+                            "net": fields.pop("net"),
+                            "start": {
+                                "x": int(fields.pop("start.x")),
+                                "y": int(fields.pop("start.y")),
+                            },
+                            "connection_point": {
+                                "x": int(fields.pop("connection_point.x")),
+                                "y": int(fields.pop("connection_point.y")),
+                            },
+                        }
+                    )
+                elif kind == "net_alias":
+                    record.update(
+                        {
+                            "name": fields.pop("name"),
+                            "rotation": int(fields.pop("rotation")),
+                            "location": {
+                                "x": int(fields.pop("location.x")),
+                                "y": int(fields.pop("location.y")),
+                            },
+                        }
+                    )
+                elif kind in ("graphic_box", "graphic_ellipse"):
+                    record.update(
+                        {
+                            "bounds": {
+                                "left": int(fields.pop("left")),
+                                "top": int(fields.pop("top")),
+                                "right": int(fields.pop("right")),
+                                "bottom": int(fields.pop("bottom")),
+                            },
+                            "line_style": int(fields.pop("line_style")),
+                            "line_width": int(fields.pop("line_width")),
+                            "fill_style": int(fields.pop("fill_style")),
+                            "hatch_style": int(fields.pop("hatch_style")),
+                        }
+                    )
+                elif kind == "graphic_line":
+                    record.update(
+                        {
+                            "start": {
+                                "x": int(fields.pop("start.x")),
+                                "y": int(fields.pop("start.y")),
+                            },
+                            "end": {
+                                "x": int(fields.pop("end.x")),
+                                "y": int(fields.pop("end.y")),
+                            },
+                            "line_style": int(fields.pop("line_style")),
+                            "line_width": int(fields.pop("line_width")),
                         }
                     )
                 elif kind == "off_page_connector":

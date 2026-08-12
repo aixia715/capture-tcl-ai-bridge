@@ -724,11 +724,21 @@ fx::setSelectionPinType $global 3
 set offpage [fx::makeSelObject $::DboBaseObject_OFF_PAGE_CONNECTOR NEXT {}]
 fx::setSelectionLocation $offpage 100 200
 set comment [fx::makeSelObject $::DboBaseObject_GRAPHIC_COMMENTTEXT_INST {Check bias} {}]
-set port [fx::makeSelObject $::DboBaseObject_PORT_INSTANCE INPUT {}]
-fx::setSelectionPinType $port 1
+set port [fx::makeSelObject $::DboBaseObject_PORT INPUT {}]
+fx::setSelectionPortDetails $port $net 1 100 300 110 300
+set pin [fx::makeSelObject $::DboBaseObject_PORT_INSTANCE_SCALAR {} {}]
+fx::setSelectionPinDetails $pin $block $net CLK 7 2 5 200 300 230 300
+set alias [fx::makeSelObject $::DboBaseObject_ALIAS DATA0 {}]
+fx::setSelectionAlias $alias 300 400 1
+set box [fx::makeSelObject $::DboBaseObject_GRAPHIC_BOX_INST {} {}]
+fx::setSelectionGraphic $box 10 20 30 40 1 2 3 4
+set line [fx::makeSelObject $::DboBaseObject_GRAPHIC_LINE_INST {} {}]
+fx::setSelectionGraphic $line 50 60 70 80 5 6 0 0
+set ellipse [fx::makeSelObject $::DboBaseObject_GRAPHIC_ELLIPSE_INST {} {}]
+fx::setSelectionGraphic $ellipse 90 100 110 120 7 8 9 10
 set title [fx::makeSelObject $::DboBaseObject_TITLEBLOCK_INSTANCE {} {}]
 set unknown [fx::makeSelObject 85 JUNCTION {}]
-set ::fx::selectionObjectsList [list $block $scalar $bus $global $offpage $comment $port $title $unknown]
+set ::fx::selectionObjectsList [list $block $scalar $bus $global $offpage $comment $port $pin $alias $box $line $ellipse $title $unknown]
 """
     monkeypatch.setattr(mcp, "_execute_capture_script", _bridge_fixture_executor(setup))
     server = mcp.CaptureMcpServer(tmp_path / "runtime.json")
@@ -743,7 +753,7 @@ set ::fx::selectionObjectsList [list $block $scalar $bus $global $offpage $comme
     )
 
     value = response["result"]["structuredContent"]
-    assert value["selection_count"] == value["returned_count"] == 9
+    assert value["selection_count"] == value["returned_count"] == 14
     assert value["truncated"] is False
     assert [(item["selection_index"], item["kind"]) for item in value["objects"]] == [
         (0, "hierarchical_block"),
@@ -753,8 +763,13 @@ set ::fx::selectionObjectsList [list $block $scalar $bus $global $offpage $comme
         (4, "off_page_connector"),
         (5, "comment_text"),
         (6, "port"),
-        (7, "title_block"),
-        (8, "unknown"),
+        (7, "pin"),
+        (8, "net_alias"),
+        (9, "graphic_box"),
+        (10, "graphic_line"),
+        (11, "graphic_ellipse"),
+        (12, "title_block"),
+        (13, "unknown"),
     ]
     common_locator = {"design": "C:/designs/mixed.dsn", "page": "PAGE 2"}
     assert value["objects"][0] == {
@@ -777,22 +792,69 @@ set ::fx::selectionObjectsList [list $block $scalar $bus $global $offpage $comme
     assert value["objects"][3]["pin_type"] == 3
     assert value["objects"][4]["location"] == {"x": 100, "y": 200}
     assert value["objects"][5]["text"] == "Check bias"
-    assert value["objects"][6]["name"] == "INPUT"
-    assert value["objects"][6]["pin_type"] == 1
-    assert value["objects"][7]["page_name"] == "PAGE 2"
-    assert value["objects"][8] == {
-        "selection_index": 8,
+    assert value["objects"][6] | {
+        "selection_index": 6,
+        "kind": "port",
+        "raw_capture_type": 23,
+        "supported": True,
+        "locator": value["objects"][6]["locator"],
+    } == {
+        **value["objects"][6],
+        "name": "INPUT",
+        "pin_type": 1,
+        "connected": True,
+        "net": "DATA0",
+        "location": {"x": 100, "y": 300},
+        "connection_point": {"x": 110, "y": 300},
+    }
+    assert value["objects"][7]["component_refdes"] == "HB1"
+    assert value["objects"][7]["pin_name"] == "CLK"
+    assert value["objects"][7]["pin_number"] == "7"
+    assert value["objects"][7]["pin_type"] == 2
+    assert value["objects"][7]["pin_position"] == 5
+    assert value["objects"][7]["connected"] is True
+    assert value["objects"][7]["net"] == "DATA0"
+    assert value["objects"][7]["start"] == {"x": 200, "y": 300}
+    assert value["objects"][7]["connection_point"] == {"x": 230, "y": 300}
+    assert value["objects"][8]["name"] == "DATA0"
+    assert value["objects"][8]["location"] == {"x": 300, "y": 400}
+    assert value["objects"][8]["rotation"] == 1
+    assert value["objects"][9]["bounds"] == {
+        "left": 10,
+        "top": 20,
+        "right": 30,
+        "bottom": 40,
+    }
+    assert value["objects"][9]["line_style"] == 1
+    assert value["objects"][9]["line_width"] == 2
+    assert value["objects"][9]["fill_style"] == 3
+    assert value["objects"][9]["hatch_style"] == 4
+    assert value["objects"][10]["start"] == {"x": 50, "y": 60}
+    assert value["objects"][10]["end"] == {"x": 70, "y": 80}
+    assert value["objects"][10]["line_style"] == 5
+    assert value["objects"][10]["line_width"] == 6
+    assert value["objects"][11]["bounds"] == {
+        "left": 90,
+        "top": 100,
+        "right": 110,
+        "bottom": 120,
+    }
+    assert value["objects"][11]["fill_style"] == 9
+    assert value["objects"][11]["hatch_style"] == 10
+    assert value["objects"][12]["page_name"] == "PAGE 2"
+    assert value["objects"][13] == {
+        "selection_index": 13,
         "kind": "unknown",
         "raw_capture_type": 85,
         "supported": False,
     }
-    for item in value["objects"][1:8]:
+    for item in value["objects"][1:13]:
         assert item["locator"] == {
             **common_locator,
             "kind": item["kind"],
             "object_id": 1001 + item["selection_index"],
         }
-    assert "locator" not in value["objects"][8]
+    assert "locator" not in value["objects"][13]
 
 
 def test_selection_tool_isolates_one_object_failure_through_mcp(
