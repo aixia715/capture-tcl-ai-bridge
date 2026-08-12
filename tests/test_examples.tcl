@@ -78,14 +78,16 @@ proc fx::resetAll {} {
     variable counter
     set counter 0
     foreach arrayName {occRef occValue occPath occObjType occIsPrimitive \
-            occChildren occRejectWrite occForceFail \
-            selObjType selProps selRejectWrite selForceFail \
+            occChildren occRejectWrite occForceFail occProps occPartInst \
+            selObjType selProps selRejectWrite selForceFail selId selName \
+            selOwner selOccurrence selTypeString \
+            selLocation selStart selEnd selNet selPinType \
             iterKind iterItems iterIndex iterAlive \
             stOK stCode stMessage \
             netName netPorts netNetOccs \
             portName \
-            designRoot designFlatNets \
-            selectionObjects} {
+            designRoot designFlatNets designName \
+            selectionObjects pageName} {
         if {[array exists ::fx::$arrayName]} {
             array unset ::fx::$arrayName
         }
@@ -94,7 +96,10 @@ proc fx::resetAll {} {
     set ::fx::iterDeleteCalls 0
     set ::fx::iterDeletedHandles {}
     set ::fx::activeDesign {}
+    set ::fx::activePage NULL
+    set ::fx::instanceOccurrence NULL
     set ::fx::selectionObjectsList {}
+    set ::fx::selectionIdCounter 1000
     # Write-suite safety counters: the read-only examples never touch these
     # commands and the write examples must not either.
     set ::fx::refreshPartsCalls 0
@@ -217,6 +222,14 @@ set ::DboBaseObject_INST_OCCURRENCE 66
 set ::DboBaseObject_PART_INSTANCE 11
 set ::DboBaseObject_DRAWN_INSTANCE 12
 set ::DboBaseObject_PLACED_INSTANCE 13
+set ::DboBaseObject_PORT_INSTANCE 15
+set ::DboBaseObject_WIRE_SCALAR 20
+set ::DboBaseObject_WIRE_BUS 21
+set ::DboBaseObject_GLOBAL_SYMBOL 33
+set ::DboBaseObject_OFF_PAGE_CONNECTOR 38
+set ::DboBaseObject_COMMENT_TEXT 46
+set ::DboBaseObject_TITLEBLOCK_INSTANCE 65
+set ::DboBaseObject_GRAPHIC_COMMENTTEXT_INST 61
 set ::IterDefs_INSTS 19
 set ::IterDefs_PRIMITIVES 21
 set ::IterDefs_ALL 0
@@ -229,6 +242,10 @@ proc ::DboBaseObject_GetObjectType {handle} {
         return $::fx::selObjType($handle)
     }
     error "fake DboBaseObject_GetObjectType: handle $handle has no recorded object type"
+}
+
+proc ::DboBaseObject_GetName {handle cstr} {
+    return [$handle GetName $cstr]
 }
 
 # -- occurrence family: DboOccurrence / DboInstOccurrence -----------------
@@ -252,7 +269,13 @@ proc fx::makeOccurrence {reference value path children {isPrimitive 1}} {
     set ::fx::occObjType($handle) $::DboBaseObject_INST_OCCURRENCE
     set ::fx::occIsPrimitive($handle) $isPrimitive
     set ::fx::occChildren($handle) $children
+    set ::fx::occProps($handle,Value) $value
+    set ::fx::occPartInst($handle) NULL
     return $handle
+}
+
+proc fx::setOccurrenceProperty {handle name value} {
+    set ::fx::occProps($handle,$name) $value
 }
 
 # A write that Capture accepts (SetEffectivePropStringValue's status comes
@@ -303,10 +326,11 @@ proc fx::occDispatch {handle method argsList} {
                 return $st
             }
             set propName [DboTclHelper_sGetConstCharPtr $nameCstr]
-            if {$propName ne {Value}} {
-                error "fake occurrence: unsupported property \"$propName\""
+            if {![info exists ::fx::occProps($handle,$propName)]} {
+                fx::failState $st 1021 {ERROR(ORDBDLL-1021): Object Not Found}
+                return $st
             }
-            fx::setCString $valueCstr $::fx::occValue($handle)
+            fx::setCString $valueCstr $::fx::occProps($handle,$propName)
             return $st
         }
         SetEffectivePropStringValue {
@@ -323,7 +347,9 @@ proc fx::occDispatch {handle method argsList} {
             }
             incr ::fx::setPropCalls
             if {![info exists ::fx::occRejectWrite($handle)] || !$::fx::occRejectWrite($handle)} {
-                set ::fx::occValue($handle) [DboTclHelper_sGetConstCharPtr $valueCstr]
+                set newValue [DboTclHelper_sGetConstCharPtr $valueCstr]
+                set ::fx::occValue($handle) $newValue
+                set ::fx::occProps($handle,$propName) $newValue
             }
             return $st
         }
@@ -335,6 +361,18 @@ proc fx::occDispatch {handle method argsList} {
                 return 0
             }
             return $::fx::occIsPrimitive($handle)
+        }
+        GetPartInst - GetInstance {
+            set st [lindex $argsList 0]
+            fx::okState $st
+            return $::fx::occPartInst($handle)
+        }
+        GetPartInstId {
+            set st [lindex $argsList 0]
+            fx::okState $st
+            set partInst $::fx::occPartInst($handle)
+            if {$partInst eq {NULL}} { return 0 }
+            return $::fx::selId($partInst)
         }
         NewChildrenIter {
             set st [lindex $argsList 0]
@@ -400,7 +438,34 @@ proc fx::makeSelObject {objType reference value} {
     set refPropName {Part Reference}
     set ::fx::selProps($handle,$refPropName) $reference
     set ::fx::selProps($handle,Value) $value
+    set ::fx::selId($handle) [incr ::fx::selectionIdCounter]
+    set ::fx::selName($handle) $reference
+    set ::fx::selOwner($handle) $::fx::activePage
+    set ::fx::selOccurrence($handle) NULL
+    set ::fx::selTypeString($handle) "OBJECT_$objType"
     return $handle
+}
+
+proc fx::linkSelectionOccurrence {selection occurrence} {
+    set ::fx::selOccurrence($selection) $occurrence
+    set ::fx::occPartInst($occurrence) $selection
+}
+
+proc fx::setSelectionProperty {handle name value} {
+    set ::fx::selProps($handle,$name) $value
+}
+
+proc fx::setSelectionName {handle name} { set ::fx::selName($handle) $name }
+proc fx::setSelectionLocation {handle x y} {
+    set ::fx::selLocation($handle) [list $x $y]
+}
+proc fx::setSelectionWire {handle net startX startY endX endY} {
+    set ::fx::selNet($handle) $net
+    set ::fx::selStart($handle) [list $startX $startY]
+    set ::fx::selEnd($handle) [list $endX $endY]
+}
+proc fx::setSelectionPinType {handle pinType} {
+    set ::fx::selPinType($handle) $pinType
 }
 
 proc fx::makeStubbornSelObject {objType reference value} {
@@ -415,6 +480,51 @@ proc fx::forceSelFail {handle method} {
 
 proc fx::selDispatch {handle method argsList} {
     switch -exact -- $method {
+        GetId {
+            set st [lindex $argsList 0]
+            fx::okState $st
+            return $::fx::selId($handle)
+        }
+        GetOwner { return $::fx::selOwner($handle) }
+        GetObjectOccurrence { return $::fx::selOccurrence($handle) }
+        GetName {
+            set cstr [lindex $argsList 0]
+            fx::setCString $cstr $::fx::selName($handle)
+            return {}
+        }
+        GetTypeString {
+            set cstr [lindex $argsList 0]
+            fx::setCString $cstr $::fx::selTypeString($handle)
+            return {}
+        }
+        GetLocation {
+            set st [lindex $argsList 0]
+            fx::okState $st
+            if {[fx::consumeForceFail selForceFail $handle GetLocation]} {
+                fx::failState $st 1 {forced failure: GetLocation}
+            }
+            return $::fx::selLocation($handle)
+        }
+        GetStartPoint {
+            set st [lindex $argsList 0]
+            fx::okState $st
+            return $::fx::selStart($handle)
+        }
+        GetEndPoint {
+            set st [lindex $argsList 0]
+            fx::okState $st
+            return $::fx::selEnd($handle)
+        }
+        GetNet {
+            set st [lindex $argsList 0]
+            fx::okState $st
+            return $::fx::selNet($handle)
+        }
+        GetPinType {
+            set st [lindex $argsList 0]
+            fx::okState $st
+            return $::fx::selPinType($handle)
+        }
         GetEffectivePropStringValue {
             set nameCstr [lindex $argsList 0]
             set valueCstr [lindex $argsList 1]
@@ -456,6 +566,30 @@ proc fx::selDispatch {handle method argsList} {
 # returns a plain Tcl list of handles -- confirmed in
 # docs/capture-dbo-api-notes.md; there is no GetActivePMSelection.
 proc ::GetSelectedObjects {} { return $::fx::selectionObjectsList }
+
+proc ::DboBaseObject_GetId {handle st} { return [$handle GetId $st] }
+proc ::DboTclHelper_sGetCPointX {point} { return [lindex $point 0] }
+proc ::DboTclHelper_sGetCPointY {point} { return [lindex $point 1] }
+
+proc fx::makePage {name} {
+    set handle [fx::makeHandle page fx::pageDispatch]
+    set ::fx::pageName($handle) $name
+    return $handle
+}
+
+proc fx::pageDispatch {handle method argsList} {
+    switch -exact -- $method {
+        GetName {
+            set cstr [lindex $argsList 0]
+            fx::setCString $cstr $::fx::pageName($handle)
+            return {}
+        }
+        default { error "fake page: unsupported method \"$method\"" }
+    }
+}
+
+proc ::GetActivePage {} { return $::fx::activePage }
+proc ::GetInstanceOccurrence {} { return $::fx::instanceOccurrence }
 
 # -- generic list-backed iterator ------------------------------------------
 #
@@ -700,10 +834,11 @@ proc fx::netOccDispatch {handle method argsList} {
 
 # -- design -----------------------------------------------------------------
 
-proc fx::makeDesign {root flatNets} {
+proc fx::makeDesign {root flatNets {name {C:/designs/test.dsn}}} {
     set handle [fx::makeHandle design fx::designDispatch]
     set ::fx::designRoot($handle) $root
     set ::fx::designFlatNets($handle) $flatNets
+    set ::fx::designName($handle) $name
     return $handle
 }
 
@@ -713,6 +848,11 @@ proc fx::designDispatch {handle method argsList} {
             set st [lindex $argsList 0]
             fx::okState $st
             return $::fx::designRoot($handle)
+        }
+        GetName {
+            set cstr [lindex $argsList 0]
+            fx::setCString $cstr $::fx::designName($handle)
+            return {}
         }
         NewFlatNetsIter {
             set st [lindex $argsList 0]

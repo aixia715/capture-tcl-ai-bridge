@@ -50,6 +50,11 @@ def migration() -> str:
 
 
 @pytest.fixture(scope="module")
+def mcp_doc() -> str:
+    return _read("docs/mcp.md")
+
+
+@pytest.fixture(scope="module")
 def cookbook() -> str:
     return _read("docs/tcl-cookbook.md")
 
@@ -297,3 +302,16 @@ def test_migration_records_real_invalid_result_recovery_acceptance(
     assert "INVALID_RESULT" in migration
     assert "释放 busy" in migration
     assert "只记录一次" in migration
+
+
+def test_mcp_docs_describe_selection_identity_and_property_presence(mcp_doc: str) -> None:
+    for required in (
+        "capture_inspect_selection",
+        "SCHEMATIC_VIEW_REQUIRED",
+        "Component Information",
+        "object_id",
+        '"present":false',
+        "does not inspect GUI selection",
+        "never guess",
+    ):
+        assert required in mcp_doc, required

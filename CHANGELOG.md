@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.1.0-beta.3] - 2026-08-12
+
 ### Added
 
 - Release ZIP 现在内置 Python 3.12 embeddable runtime、FastAPI、Uvicorn 及其依赖；
@@ -16,6 +18,29 @@
 - 同时支持初始化式 MCP `2024-11-05` 至 `2025-11-25` 和无状态
   `2026-07-28` 协议，并提供严格参数校验、Tcl 注入隔离及结构化结果。
 - 安装器和卸载器现在把 `capture_mcp_server.py` 纳入带 SHA-256 的所有权清单。
+
+- 新增只读 MCP 工具 `capture_inspect_selection`，在调用时读取当前原理图选择，
+  支持器件、层次块、标量/总线、全局符号、跨页连接器、文字、端口和标题栏；
+  混合选择保序返回，未知类型不会被误当成可定位对象。
+- 组件查询现在同时返回 occurrence（design/refdes/path）与 page instance
+  （design/page/object_id）双定位信息。
+
+### Changed
+
+- `capture_read_component_properties` 与 `capture_inspect_selection` 共用 Component
+  Information 和属性读取逻辑。默认属性改为 `Value`、`PCB Footprint`；显式属性名
+  替换默认值并按首次出现去重。
+- 属性结果现在用 `present` 区分缺失、存在空字符串和值。这是 beta 输出契约的
+  不兼容变更；旧的 `{refdes,path,properties:{name:value}}` 结构不再返回。
+- MCP 指令明确要求“当前/新选择”在写入前刷新 selection，明确的先前对象才复用
+  locator，歧义写入目标不得猜测。
+
+### Validated
+
+- 自动 MCP 测试覆盖两代协议发现、空/异构/未知选择、双定位、属性缺失与空值、
+  对象级错误隔离、截断、Unicode 和 Tcl 注入隔离。
+- OrCAD Capture 16.6 真机只读验证了选中 U3 的 page instance → occurrence 映射、
+  design-wide occurrence → page instance 反查、两个入口相同输出及缺失属性语义。
 
 ## [0.1.0-beta.2] - 2026-08-09
 
@@ -58,3 +83,4 @@
 
 [0.1.0-beta.1]: https://github.com/aixia715/capture-tcl-ai-bridge/releases/tag/v0.1.0-beta.1
 [0.1.0-beta.2]: https://github.com/aixia715/capture-tcl-ai-bridge/compare/v0.1.0-beta.1...v0.1.0-beta.2
+[0.1.0-beta.3]: https://github.com/aixia715/capture-tcl-ai-bridge/compare/v0.1.0-beta.2...v0.1.0-beta.3

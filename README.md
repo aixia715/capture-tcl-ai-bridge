@@ -1,6 +1,6 @@
 # Capture Tcl AI Bridge
 
-当前预发布版本：**0.1.0-beta.2**。
+当前预发布版本：**0.1.0-beta.3**。
 版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 把本机 AI 客户端或人工命令行提交的多行 Tcl，交给**正在运行的** OrCAD Capture
@@ -91,7 +91,7 @@ CaptureAiBridgeStatus
 ```
 
 `CaptureAiBridgeStatus` 的第一行会显示版本，例如
-`Capture Tcl AI Bridge v0.1.0-beta.2`。
+`Capture Tcl AI Bridge v0.1.0-beta.3`。
 
 ### 3. 用命令行执行 Tcl
 
@@ -129,8 +129,10 @@ POST /v1/execute
 codex mcp add capture -- C:\tclpython\runtime\python.exe C:\tclpython\capture_mcp_server.py
 ```
 
-它只暴露两个工具：读取当前设计的元器件有效字符串属性，以及修改一个唯一
-元器件的一项属性并立即回读验证。写入不会自动保存设计，也不会开放任意 Tcl。
+它暴露三个工具：检查当前 GUI 选择、读取当前设计的元器件有效字符串属性，
+以及修改一个唯一元器件的一项属性并立即回读验证。选择检查支持器件、层次块、
+标量/总线、全局符号、跨页连接器、文字、端口和标题栏；写入不会自动保存设计，
+也不会开放任意 Tcl。
 Codex、Claude Code、Hermes 的完整配置和工具参数见 [docs/mcp.md](docs/mcp.md)。
 
 ### 6. 诊断日志（可选）
