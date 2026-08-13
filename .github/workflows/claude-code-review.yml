@@ -40,6 +40,22 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 15
 
+      - name: Install tclsh (8.6 via apt, 8.4 built from source)
+        # The bridge must work on both OrCAD Capture 16.6 (Tcl 8.4) and 17.4
+        # (Tcl 8.6) — see README.md. Ubuntu dropped tcl8.4 from its archives,
+        # so it's built from the last 8.4 release; apt's tcl8.6 stays the
+        # default `tclsh` on PATH, and this adds `tclsh8.4` alongside it
+        # (Tcl's own install target never touches the bare `tclsh` name).
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tcl
+          curl -fsSL https://prdownloads.sourceforge.net/tcl/tcl8.4.20-src.tar.gz -o /tmp/tcl8.4.20-src.tar.gz
+          tar xzf /tmp/tcl8.4.20-src.tar.gz -C /tmp
+          cd /tmp/tcl8.4.20/unix
+          ./configure --prefix=/usr/local
+          make -j"$(nproc)"
+          sudo make install
+
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
