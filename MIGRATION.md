@@ -148,3 +148,15 @@ Capture 16.6 上实测，六条假设**无一成立**：
 桥因此加入了 Tcl 8.4 兼容层和自带 JSON 解析器，两个 Capture 版本共用同一份源码。
 Tcl 8.4 的 `catch` 没有选项字典，所以 16.6 上 `errorLine` 恒为 `null`；
 这是记录在案的平台差异，不是缺陷。
+
+## MCP Current Selection 验收状态（2026-08-12）
+
+OrCAD Capture 16.6 上已通过只读真机链路：当前选择中的 U3 从 page instance
+解析到 occurrence，并返回设计路径、`refdes/path`、页面名和 `object_id=3324`；
+design-wide 查询对同一 occurrence 反向解析出相同 page instance；默认 Value 与
+PCB Footprint 在两个入口完全一致；不存在属性返回 `present:false`，重复属性名被
+去重。未修改、未保存设计。
+
+仍需人工完成：七类非器件代表字段、层次设计 occurrence → page instance 反查、
+非原理图焦点错误，以及 OrCAD Capture 17.4 的同组验收。自动 fixture 覆盖不替代
+这些原生 DBO 调用的真机证明。

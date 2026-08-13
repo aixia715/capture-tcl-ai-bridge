@@ -15,7 +15,7 @@ import urllib.request
 
 
 SERVICE = "capture-tcl-bridge"
-SOFTWARE_VERSION = "0.1.0-beta.2"
+SOFTWARE_VERSION = "0.1.0-beta.3"
 PROTOCOL_VERSION = 1
 REQUEST_TIMEOUT_SECONDS = 35
 RUNTIME_FILENAME = "capture_tcl_bridge.json"

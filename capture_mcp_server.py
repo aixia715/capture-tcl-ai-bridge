@@ -1,4 +1,4 @@
-"""MCP stdio server for reading and changing OrCAD Capture part properties.
+"""MCP stdio server for inspecting OrCAD Capture and changing part properties.
 
 The server intentionally exposes a narrow, typed surface instead of arbitrary Tcl.
 It delegates each operation to the authenticated localhost Capture Tcl bridge.
@@ -31,12 +31,13 @@ LEGACY_PROTOCOL_VERSIONS = (
     "2025-06-18",
     "2025-11-25",
 )
-DEFAULT_PROPERTIES = ("Value", "Part Reference", "Part Name", "PCB Footprint")
+DEFAULT_PROPERTIES = ("Value", "PCB Footprint")
 MAX_MESSAGE_BYTES = 1024 * 1024
 MAX_PROPERTY_NAME_LENGTH = 256
 MAX_PROPERTY_VALUE_LENGTH = 64 * 1024
 MAX_PROPERTIES_PER_READ = 32
 MAX_RESULTS = 5000
+MAX_SELECTION_RESULTS = 1000
 SERVER_INFO_META_KEY = "io.modelcontextprotocol/serverInfo"
 PROTOCOL_VERSION_META_KEY = "io.modelcontextprotocol/protocolVersion"
 
@@ -115,6 +116,25 @@ proc _captureMcpGetProp {obj propName} {
     return $value
 }
 
+proc _captureMcpReadPropertyRecord {obj propName} {
+    set nameC [DboTclHelper_sMakeCString $propName]
+    set valueC [DboTclHelper_sMakeCString]
+    set st [$obj GetEffectivePropStringValue $nameC $valueC]
+    if {[$st OK] == 1} {
+        set value [DboTclHelper_sGetConstCharPtr $valueC]
+        $st -delete
+        return [list 1 $value]
+    }
+    set code [$st Code]
+    if {$code == 1021} {
+        $st -delete
+        return [list 0 {}]
+    }
+    set msg [_captureMcpStatusMessage $st]
+    $st -delete
+    error "DBO_CALL_FAILED: GetEffectivePropStringValue($propName): $msg (code $code)"
+}
+
 proc _captureMcpSetProp {obj propName propValue} {
     set nameC [DboTclHelper_sMakeCString $propName]
     set valueC [DboTclHelper_sMakeCString $propValue]
@@ -140,6 +160,47 @@ proc _captureMcpMatches {refdes path useRefFilter targetRefdes usePathFilter tar
     if {$usePathFilter && $path ne $targetPath} { return 0 }
     return 1
 }
+
+
+proc _captureMcpComponentFields {st instOcc propertyNames designName pageObject pageName} {
+    set refdes [_captureMcpStringOut $instOcc GetReference {GetReference}]
+    set path [_captureMcpStringOut $instOcc GetPathName {GetPathName}]
+    if {$pageObject eq {NULL}} {
+        set pageObject [$instOcc GetPartInst $st]
+        _captureMcpRequireOk $st {GetPartInst}
+        if {$pageObject eq {NULL}} {
+            error "PAGE_INSTANCE_NOT_FOUND: component occurrence has no page instance"
+        }
+        set pageOwner [$pageObject GetOwner]
+        if {$pageOwner eq {NULL}} {
+            error "PAGE_NOT_FOUND: component page instance has no owner"
+        }
+        set pageNameC [DboTclHelper_sMakeCString]
+        DboBaseObject_GetName $pageOwner $pageNameC
+        set pageName [DboTclHelper_sGetConstCharPtr $pageNameC]
+    }
+    set pageType [DboBaseObject_GetObjectType $pageObject]
+    if {$pageType != $::DboBaseObject_DRAWN_INSTANCE &&
+            $pageType != $::DboBaseObject_PLACED_INSTANCE} {
+        error "UNEXPECTED_PAGE_INSTANCE_TYPE: expected DRAWN_INSTANCE or PLACED_INSTANCE, got object type $pageType"
+    }
+    set objectId [DboBaseObject_GetId $pageObject $st]
+    _captureMcpRequireOk $st {GetId}
+    set fields [list \
+        design $designName \
+        occurrence.refdes $refdes \
+        occurrence.path $path \
+        page_instance.page $pageName \
+        page_instance.object_id $objectId]
+    foreach propertyName $propertyNames {
+        lassign [_captureMcpReadPropertyRecord $instOcc $propertyName] present value
+        lappend fields "property_present:$propertyName" $present
+        if {$present} {
+            lappend fields "property_value:$propertyName" $value
+        }
+    }
+    return $fields
+}
 """
 
 
@@ -155,15 +216,17 @@ def build_read_script(
     return (
         _TCL_COMMON
         + rf"""
-proc _captureMcpAppendRecord {{values outputVar}} {{
+proc _captureMcpAppendRecord {{fields outputVar}} {{
     upvar 1 $outputVar output
-    set fields {{CAPTURE_MCP_V1}}
-    foreach value $values {{ lappend fields [_captureMcpHex $value] }}
+    set row [list CAPTURE_MCP_COMPONENT_V2 [expr {{[llength $fields] / 2}}]]
+    foreach {{key value}} $fields {{
+        lappend row [_captureMcpHex $key] [_captureMcpHex $value]
+    }}
     if {{$output ne {{}}}} {{ append output "\n" }}
-    append output [join $fields "\t"]
+    append output [join $row "\t"]
 }}
 
-proc _captureMcpReadWalk {{st occHandle propertyNames useRefFilter targetRefdes usePathFilter targetPath maxResults outputVar countVar truncatedVar}} {{
+proc _captureMcpReadWalk {{st occHandle propertyNames designName useRefFilter targetRefdes usePathFilter targetPath maxResults outputVar countVar truncatedVar}} {{
     upvar 1 $outputVar output $countVar count $truncatedVar truncated
     if {{$truncated}} {{ return }}
     set instOcc [_captureMcpToInstOccurrence $occHandle]
@@ -177,25 +240,22 @@ proc _captureMcpReadWalk {{st occHandle propertyNames useRefFilter targetRefdes 
                 set truncated 1
                 return
             }}
-            set record [list $refdes $path]
-            foreach propertyName $propertyNames {{
-                lappend record $propertyName [_captureMcpGetProp $instOcc $propertyName]
-            }}
-            _captureMcpAppendRecord $record output
+            set fields [_captureMcpComponentFields $st $instOcc $propertyNames $designName NULL {{}}]
+            _captureMcpAppendRecord $fields output
             incr count
         }}
     }}
 
     set childrenIter [$instOcc NewChildrenIter $st $::IterDefs_INSTS]
     _captureMcpRequireOk $st {{NewChildrenIter}}
-    $childrenIter Sort $st
-    _captureMcpRequireOk $st {{Sort}}
     try {{
+        $childrenIter Sort $st
+        _captureMcpRequireOk $st {{Sort}}
         while {{!$truncated}} {{
             set child [$childrenIter NextOccurrence $st]
             if {{$child eq {{NULL}}}} {{ break }}
             _captureMcpRequireOk $st {{NextOccurrence}}
-            _captureMcpReadWalk $st $child $propertyNames $useRefFilter $targetRefdes $usePathFilter $targetPath $maxResults output count truncated
+            _captureMcpReadWalk $st $child $propertyNames $designName $useRefFilter $targetRefdes $usePathFilter $targetPath $maxResults output count truncated
         }}
     }} finally {{
         delete_DboOccurrenceChildrenIter $childrenIter
@@ -216,7 +276,10 @@ try {{
     }}
     set _captureMcpRoot [$_captureMcpDesign GetRootOccurrence $_captureMcpState]
     _captureMcpRequireOk $_captureMcpState {{GetRootOccurrence}}
-    _captureMcpReadWalk $_captureMcpState $_captureMcpRoot $_captureMcpProperties {int(refdes is not None)} $_captureMcpTargetRefdes {int(path is not None)} $_captureMcpTargetPath {max_results} _captureMcpOutput _captureMcpCount _captureMcpTruncated
+    set _captureMcpDesignNameC [DboTclHelper_sMakeCString]
+    DboBaseObject_GetName $_captureMcpDesign $_captureMcpDesignNameC
+    set _captureMcpDesignName [DboTclHelper_sGetConstCharPtr $_captureMcpDesignNameC]
+    _captureMcpReadWalk $_captureMcpState $_captureMcpRoot $_captureMcpProperties $_captureMcpDesignName {int(refdes is not None)} $_captureMcpTargetRefdes {int(path is not None)} $_captureMcpTargetPath {max_results} _captureMcpOutput _captureMcpCount _captureMcpTruncated
 }} finally {{
     $_captureMcpState -delete
 }}
@@ -309,6 +372,238 @@ join [list CAPTURE_MCP_SET_V1 [_captureMcpHex $_captureMcpTargetRefdes] [_captur
     )
 
 
+def build_inspect_selection_script(
+    property_names: list[str], max_results: int
+) -> str:
+    properties = " ".join(_tcl_decode_expression(name) for name in property_names)
+    return (
+        _TCL_COMMON
+        + rf"""
+proc _captureMcpAppendSelectionRecord {{index kind rawType supported fields outputVar}} {{
+    upvar 1 $outputVar output
+    set row [list CAPTURE_MCP_SELECTION_V1 $index [_captureMcpHex $kind] $rawType $supported [expr {{[llength $fields] / 2}}]]
+    foreach {{key value}} $fields {{
+        lappend row [_captureMcpHex $key] [_captureMcpHex $value]
+    }}
+    if {{$output ne {{}}}} {{ append output "\n" }}
+    append output [join $row "\t"]
+}}
+
+proc _captureMcpBaseName {{obj}} {{
+    set valueC [DboTclHelper_sMakeCString]
+    DboBaseObject_GetName $obj $valueC
+    return [DboTclHelper_sGetConstCharPtr $valueC]
+}}
+
+proc _captureMcpLocatorFields {{st obj designName pageName kind}} {{
+    set objectId [DboBaseObject_GetId $obj $st]
+    _captureMcpRequireOk $st {{GetId}}
+    return [list locator.design $designName locator.page $pageName locator.kind $kind locator.object_id $objectId]
+}}
+
+proc _captureMcpPointFields {{prefix point}} {{
+    return [list "$prefix.x" [DboTclHelper_sGetCPointX $point] "$prefix.y" [DboTclHelper_sGetCPointY $point]]
+}}
+
+proc _captureMcpConnectionFields {{obj}} {{
+    set st [DboState]
+    set net [$obj GetNet $st]
+    if {{$net eq {{NULL}} || [$st OK] != 1}} {{
+        $st -delete
+        return [list connected 0 net {{}}]
+    }}
+    $st -delete
+    return [list connected 1 net [_captureMcpStringOut $net GetNetName {{GetNetName(net)}}]]
+}}
+
+proc _captureMcpObjectErrorCode {{message}} {{
+    if {{[regexp {{^([A-Z][A-Z0-9_]*):}} $message _ code]}} {{ return $code }}
+    return OBJECT_INSPECTION_FAILED
+}}
+
+set _captureMcpProperties [list {properties}]
+set _captureMcpDesign [GetActivePMDesign]
+if {{$_captureMcpDesign eq {{NULL}}}} {{
+    error "NO_ACTIVE_DESIGN: open a design in Capture before using the MCP server"
+}}
+set _captureMcpPage [GetActivePage]
+set _captureMcpParentOccurrence [GetInstanceOccurrence]
+if {{$_captureMcpPage eq {{NULL}} || $_captureMcpParentOccurrence eq {{NULL}}}} {{
+    error "SCHEMATIC_VIEW_REQUIRED: focus an open schematic page before inspecting selection"
+}}
+set _captureMcpDesignNameC [DboTclHelper_sMakeCString]
+DboBaseObject_GetName $_captureMcpDesign $_captureMcpDesignNameC
+set _captureMcpDesignName [DboTclHelper_sGetConstCharPtr $_captureMcpDesignNameC]
+set _captureMcpPageNameC [DboTclHelper_sMakeCString]
+DboBaseObject_GetName $_captureMcpPage $_captureMcpPageNameC
+set _captureMcpPageName [DboTclHelper_sGetConstCharPtr $_captureMcpPageNameC]
+set _captureMcpSelected [GetSelectedObjects]
+set _captureMcpSelectionCount [llength $_captureMcpSelected]
+set _captureMcpReturnedCount [expr {{$_captureMcpSelectionCount < {max_results} ? $_captureMcpSelectionCount : {max_results}}}]
+set _captureMcpTruncated [expr {{$_captureMcpSelectionCount > {max_results}}}]
+set _captureMcpOutput {{}}
+set _captureMcpState [DboState]
+try {{
+    for {{set _captureMcpIndex 0}} {{$_captureMcpIndex < $_captureMcpReturnedCount}} {{incr _captureMcpIndex}} {{
+        set _captureMcpObject [lindex $_captureMcpSelected $_captureMcpIndex]
+        set _captureMcpType -1
+        set _captureMcpKind unknown
+        set _captureMcpSupported 0
+        if {{[catch {{
+        set _captureMcpType [DboBaseObject_GetObjectType $_captureMcpObject]
+        if {{$_captureMcpType == $::DboBaseObject_DRAWN_INSTANCE ||
+                $_captureMcpType == $::DboBaseObject_PLACED_INSTANCE}} {{
+            set _captureMcpKind component
+            set _captureMcpSupported 1
+            set _captureMcpOccurrence [$_captureMcpObject GetObjectOccurrence $_captureMcpParentOccurrence]
+            if {{$_captureMcpOccurrence eq {{NULL}}}} {{
+                error "COMPONENT_OCCURRENCE_NOT_FOUND: selected page instance has no occurrence in the active hierarchy"
+            }}
+            set _captureMcpInstOccurrence [_captureMcpToInstOccurrence $_captureMcpOccurrence]
+            set _captureMcpPrimitive [$_captureMcpInstOccurrence IsPrimitive $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{IsPrimitive}}
+            if {{$_captureMcpPrimitive == 1}} {{
+                set _captureMcpFields [_captureMcpComponentFields $_captureMcpState $_captureMcpInstOccurrence $_captureMcpProperties $_captureMcpDesignName $_captureMcpObject $_captureMcpPageName]
+                _captureMcpAppendSelectionRecord $_captureMcpIndex component $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+            }} else {{
+                set _captureMcpKind hierarchical_block
+                set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+                set _captureMcpName [_captureMcpBaseName $_captureMcpObject]
+                set _captureMcpPath [_captureMcpStringOut $_captureMcpInstOccurrence GetPathName {{GetPathName}}]
+                lassign [_captureMcpReadPropertyRecord $_captureMcpInstOccurrence {{Implementation Type}}] _captureMcpPresent _captureMcpImplementationType
+                if {{!$_captureMcpPresent}} {{ set _captureMcpImplementationType {{}} }}
+                lappend _captureMcpFields name $_captureMcpName path $_captureMcpPath implementation_type $_captureMcpImplementationType
+                _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+            }}
+        }} elseif {{$_captureMcpType == $::DboBaseObject_WIRE_SCALAR ||
+                $_captureMcpType == $::DboBaseObject_WIRE_BUS}} {{
+            set _captureMcpKind wire
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpWireKind [expr {{$_captureMcpType == $::DboBaseObject_WIRE_BUS ? {{bus}} : {{scalar}}}}]
+            set _captureMcpNetName [_captureMcpStringOut $_captureMcpObject GetNetName {{GetNetName(wire)}}]
+            set _captureMcpStart [$_captureMcpObject GetStartPoint $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetStartPoint}}
+            set _captureMcpEnd [$_captureMcpObject GetEndPoint $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetEndPoint}}
+            lappend _captureMcpFields wire_kind $_captureMcpWireKind net $_captureMcpNetName
+            set _captureMcpFields [concat $_captureMcpFields [_captureMcpPointFields start $_captureMcpStart] [_captureMcpPointFields end $_captureMcpEnd]]
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_DBGLOBAL}} {{
+            set _captureMcpKind global
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpPinType [$_captureMcpObject GetPinType $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetPinType}}
+            lappend _captureMcpFields name [_captureMcpBaseName $_captureMcpObject] pin_type $_captureMcpPinType
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_OFF_PAGE_CONNECTOR}} {{
+            set _captureMcpKind off_page_connector
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpLocation [$_captureMcpObject GetLocation $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetLocation}}
+            lappend _captureMcpFields name [_captureMcpBaseName $_captureMcpObject]
+            set _captureMcpFields [concat $_captureMcpFields [_captureMcpPointFields location $_captureMcpLocation]]
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_ALIAS}} {{
+            set _captureMcpKind net_alias
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpLocation [$_captureMcpObject GetLocation $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetLocation(alias)}}
+            set _captureMcpRotation [DboAlias_sGetRotation $_captureMcpObject $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetRotation(alias)}}
+            lappend _captureMcpFields name [_captureMcpBaseName $_captureMcpObject] rotation $_captureMcpRotation
+            set _captureMcpFields [concat $_captureMcpFields [_captureMcpPointFields location $_captureMcpLocation]]
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_GRAPHIC_BOX_INST}} {{
+            set _captureMcpKind graphic_box
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpBox [DboGraphicInstanceToDboGraphicBoxInst $_captureMcpObject]
+            lappend _captureMcpFields left [DboGraphicBoxInst_sGetLeft $_captureMcpBox $_captureMcpState] top [DboGraphicBoxInst_sGetTop $_captureMcpBox $_captureMcpState] right [DboGraphicBoxInst_sGetRight $_captureMcpBox $_captureMcpState] bottom [DboGraphicBoxInst_sGetBottom $_captureMcpBox $_captureMcpState] line_style [DboGraphicBoxInst_sGetLineStyle $_captureMcpBox $_captureMcpState] line_width [DboGraphicBoxInst_sGetLineWidth $_captureMcpBox $_captureMcpState] fill_style [DboGraphicBoxInst_sGetFillStyle $_captureMcpBox $_captureMcpState] hatch_style [DboGraphicBoxInst_sGetHatchStyle $_captureMcpBox $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetGraphicBoxFields}}
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_GRAPHIC_LINE_INST}} {{
+            set _captureMcpKind graphic_line
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpLine [DboGraphicInstanceToDboGraphicLineInst $_captureMcpObject]
+            lappend _captureMcpFields start.x [DboGraphicLineInst_sGetStartX $_captureMcpLine $_captureMcpState] start.y [DboGraphicLineInst_sGetStartY $_captureMcpLine $_captureMcpState] end.x [DboGraphicLineInst_sGetEndX $_captureMcpLine $_captureMcpState] end.y [DboGraphicLineInst_sGetEndY $_captureMcpLine $_captureMcpState] line_style [DboGraphicLineInst_sGetLineStyle $_captureMcpLine $_captureMcpState] line_width [DboGraphicLineInst_sGetLineWidth $_captureMcpLine $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetGraphicLineFields}}
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_GRAPHIC_ELLIPSE_INST}} {{
+            set _captureMcpKind graphic_ellipse
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpEllipse [DboGraphicInstanceToDboGraphicEllipseInst $_captureMcpObject]
+            lappend _captureMcpFields left [DboGraphicEllipseInst_sGetBoundingBoxLeft $_captureMcpEllipse $_captureMcpState] top [DboGraphicEllipseInst_sGetBoundingBoxTop $_captureMcpEllipse $_captureMcpState] right [DboGraphicEllipseInst_sGetBoundingBoxRight $_captureMcpEllipse $_captureMcpState] bottom [DboGraphicEllipseInst_sGetBoundingBoxBottom $_captureMcpEllipse $_captureMcpState] line_style [DboGraphicEllipseInst_sGetLineStyle $_captureMcpEllipse $_captureMcpState] line_width [DboGraphicEllipseInst_sGetLineWidth $_captureMcpEllipse $_captureMcpState] fill_style [DboGraphicEllipseInst_sGetFillStyle $_captureMcpEllipse $_captureMcpState] hatch_style [DboGraphicEllipseInst_sGetHatchStyle $_captureMcpEllipse $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetGraphicEllipseFields}}
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_COMMENT_TEXT ||
+                ([info exists ::DboBaseObject_GRAPHIC_COMMENTTEXT_INST] && $_captureMcpType == $::DboBaseObject_GRAPHIC_COMMENTTEXT_INST)}} {{
+            set _captureMcpKind comment_text
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            lappend _captureMcpFields text [_captureMcpBaseName $_captureMcpObject]
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_PORT}} {{
+            set _captureMcpKind port
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpPinType [$_captureMcpObject GetPinType $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetPinType(port)}}
+            set _captureMcpLocation [$_captureMcpObject GetLocation $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetLocation(port)}}
+            set _captureMcpConnectionPoint [$_captureMcpObject GetOffsetHotSpot $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetOffsetHotSpot(port)}}
+            lappend _captureMcpFields name [_captureMcpBaseName $_captureMcpObject] pin_type $_captureMcpPinType
+            set _captureMcpFields [concat $_captureMcpFields [_captureMcpConnectionFields $_captureMcpObject] [_captureMcpPointFields location $_captureMcpLocation] [_captureMcpPointFields connection_point $_captureMcpConnectionPoint]]
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_PORT_INSTANCE_SCALAR}} {{
+            set _captureMcpKind pin
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            set _captureMcpOwner [$_captureMcpObject GetOwner]
+            set _captureMcpStart [$_captureMcpObject GetOffsetStartPoint $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetOffsetStartPoint(pin)}}
+            set _captureMcpConnectionPoint [$_captureMcpObject GetOffsetHotSpot $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetOffsetHotSpot(pin)}}
+            set _captureMcpPinType [$_captureMcpObject GetPinType $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetPinType(pin)}}
+            set _captureMcpPinPosition [$_captureMcpObject GetPinPosition $_captureMcpState]
+            _captureMcpRequireOk $_captureMcpState {{GetPinPosition(pin)}}
+            lappend _captureMcpFields component_refdes [_captureMcpStringOut $_captureMcpOwner GetReference {{GetReference(pin owner)}}] pin_name [_captureMcpStringOut $_captureMcpObject GetPinName {{GetPinName}}] pin_number [_captureMcpStringOut $_captureMcpObject GetPinNumber {{GetPinNumber}}] pin_type $_captureMcpPinType pin_position $_captureMcpPinPosition
+            set _captureMcpFields [concat $_captureMcpFields [_captureMcpConnectionFields $_captureMcpObject] [_captureMcpPointFields start $_captureMcpStart] [_captureMcpPointFields connection_point $_captureMcpConnectionPoint]]
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} elseif {{$_captureMcpType == $::DboBaseObject_TITLEBLOCK_INSTANCE}} {{
+            set _captureMcpKind title_block
+            set _captureMcpSupported 1
+            set _captureMcpFields [_captureMcpLocatorFields $_captureMcpState $_captureMcpObject $_captureMcpDesignName $_captureMcpPageName $_captureMcpKind]
+            lappend _captureMcpFields page_name $_captureMcpPageName
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType 1 $_captureMcpFields _captureMcpOutput
+        }} else {{
+            _captureMcpAppendSelectionRecord $_captureMcpIndex unknown $_captureMcpType 0 {{}} _captureMcpOutput
+        }}
+        }} _captureMcpObjectError]}} {{
+            set _captureMcpErrorFields [list error.code [_captureMcpObjectErrorCode $_captureMcpObjectError] error.message $_captureMcpObjectError]
+            _captureMcpAppendSelectionRecord $_captureMcpIndex $_captureMcpKind $_captureMcpType $_captureMcpSupported $_captureMcpErrorFields _captureMcpOutput
+        }}
+    }}
+}} finally {{
+    $_captureMcpState -delete
+}}
+set _captureMcpMeta [join [list CAPTURE_MCP_SELECTION_META_V1 $_captureMcpSelectionCount $_captureMcpReturnedCount $_captureMcpTruncated [_captureMcpHex $_captureMcpDesignName] [_captureMcpHex $_captureMcpPageName]] "\t"]
+if {{$_captureMcpOutput eq {{}}}} {{
+    set _captureMcpMeta
+}} else {{
+    append _captureMcpMeta "\n" $_captureMcpOutput
+}}
+"""
+    )
+
+
 def _execute_capture_script(runtime_file: Path, script: str) -> str:
     try:
         descriptor = load_descriptor(runtime_file)
@@ -354,22 +649,71 @@ def _parse_read_result(raw: str, property_names: list[str]) -> dict[str, Any]:
         raise ToolExecutionError("Capture returned inconsistent component metadata.")
 
     components: list[dict[str, Any]] = []
-    expected_fields = 3 + 2 * len(property_names)
     for line in lines[1:]:
         fields = line.split("\t")
-        if len(fields) != expected_fields or fields[0] != "CAPTURE_MCP_V1":
+        if len(fields) < 2 or fields[0] != "CAPTURE_MCP_COMPONENT_V2":
             raise ToolExecutionError("Capture returned malformed component data.")
-        decoded = [_decode_hex(field) for field in fields[1:]]
-        properties: dict[str, str] = {}
-        for index in range(2, len(decoded), 2):
-            name, value = decoded[index], decoded[index + 1]
-            if name != property_names[(index - 2) // 2]:
-                raise ToolExecutionError("Capture returned properties in an unexpected order.")
-            properties[name] = value
-        components.append(
-            {"refdes": decoded[0], "path": decoded[1], "properties": properties}
-        )
+        try:
+            field_count = int(fields[1])
+        except ValueError as error:
+            raise ToolExecutionError("Capture returned malformed component data.") from error
+        if field_count < 0 or len(fields) != 2 + field_count * 2:
+            raise ToolExecutionError("Capture returned malformed component data.")
+        decoded_fields = _parse_key_value_fields(fields, 2, "component")
+        component = _component_information(decoded_fields, property_names)
+        if decoded_fields:
+            raise ToolExecutionError("Capture returned unexpected component fields.")
+        components.append(component)
     return {"components": components, "count": count, "truncated": bool(truncated_number)}
+
+
+def _parse_key_value_fields(
+    values: list[str], start: int, record_name: str
+) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for field_index in range(start, len(values), 2):
+        key = _decode_hex(values[field_index])
+        if key in fields:
+            raise ToolExecutionError(
+                f"Capture returned duplicate {record_name} fields."
+            )
+        fields[key] = _decode_hex(values[field_index + 1])
+    return fields
+
+
+def _component_information(
+    fields: dict[str, str], property_names: list[str]
+) -> dict[str, Any]:
+    try:
+        component: dict[str, Any] = {
+            "kind": "component",
+            "design": fields.pop("design"),
+            "occurrence": {
+                "refdes": fields.pop("occurrence.refdes"),
+                "path": fields.pop("occurrence.path"),
+            },
+            "page_instance": {
+                "page": fields.pop("page_instance.page"),
+                "object_id": int(fields.pop("page_instance.object_id")),
+            },
+        }
+    except (KeyError, ValueError) as error:
+        raise ToolExecutionError("Capture returned malformed component data.") from error
+    properties: dict[str, dict[str, Any]] = {}
+    for name in property_names:
+        present_key = f"property_present:{name}"
+        present_raw = fields.pop(present_key, None)
+        if present_raw not in ("0", "1"):
+            raise ToolExecutionError("Capture returned malformed property data.")
+        if present_raw == "1":
+            value_key = f"property_value:{name}"
+            if value_key not in fields:
+                raise ToolExecutionError("Capture returned malformed property data.")
+            properties[name] = {"present": True, "value": fields.pop(value_key)}
+        else:
+            properties[name] = {"present": False}
+    component["properties"] = properties
+    return component
 
 
 def _parse_set_result(raw: str) -> dict[str, str]:
@@ -383,6 +727,228 @@ def _parse_set_result(raw: str) -> dict[str, str]:
         "property": decoded[2],
         "before": decoded[3],
         "after": decoded[4],
+    }
+
+
+def _parse_selection_result(raw: str, property_names: list[str]) -> dict[str, Any]:
+    lines = raw.splitlines()
+    if not lines:
+        raise ToolExecutionError("Capture returned an empty selection result.")
+    meta = lines[0].split("\t")
+    if len(meta) != 6 or meta[0] != "CAPTURE_MCP_SELECTION_META_V1":
+        raise ToolExecutionError("Capture returned malformed selection metadata.")
+    try:
+        selection_count = int(meta[1])
+        returned_count = int(meta[2])
+        truncated_number = int(meta[3])
+    except ValueError as error:
+        raise ToolExecutionError("Capture returned malformed selection metadata.") from error
+    if (
+        selection_count < 0
+        or returned_count < 0
+        or returned_count > selection_count
+        or truncated_number not in (0, 1)
+        or bool(truncated_number) != (returned_count < selection_count)
+        or returned_count != len(lines) - 1
+    ):
+        raise ToolExecutionError("Capture returned inconsistent selection metadata.")
+    objects: list[dict[str, Any]] = []
+    for line in lines[1:]:
+        values = line.split("\t")
+        if len(values) < 6 or values[0] != "CAPTURE_MCP_SELECTION_V1":
+            raise ToolExecutionError("Capture returned malformed selection data.")
+        try:
+            selection_index = int(values[1])
+            raw_capture_type = int(values[3])
+            supported_number = int(values[4])
+            field_count = int(values[5])
+        except ValueError as error:
+            raise ToolExecutionError("Capture returned malformed selection data.") from error
+        if (
+            selection_index < 0
+            or selection_index != len(objects)
+            or supported_number not in (0, 1)
+            or field_count < 0
+            or len(values) != 6 + field_count * 2
+        ):
+            raise ToolExecutionError("Capture returned malformed selection data.")
+        kind = _decode_hex(values[2])
+        fields = _parse_key_value_fields(values, 6, "selection")
+        record: dict[str, Any] = {
+            "selection_index": selection_index,
+            "kind": kind,
+            "raw_capture_type": raw_capture_type,
+            "supported": bool(supported_number),
+        }
+        if "error.code" in fields:
+            try:
+                record["error"] = {
+                    "code": fields.pop("error.code"),
+                    "message": fields.pop("error.message"),
+                }
+            except KeyError as error:
+                raise ToolExecutionError(
+                    "Capture returned malformed selection object error."
+                ) from error
+        elif kind == "component" and supported_number:
+            component = _component_information(fields, property_names)
+            component.pop("kind")
+            record.update(component)
+        elif supported_number:
+            try:
+                record["locator"] = {
+                    "design": fields.pop("locator.design"),
+                    "page": fields.pop("locator.page"),
+                    "kind": fields.pop("locator.kind"),
+                    "object_id": int(fields.pop("locator.object_id")),
+                }
+                if record["locator"]["kind"] != kind:
+                    raise ValueError("locator kind mismatch")
+                if kind == "hierarchical_block":
+                    record.update(
+                        {
+                            "name": fields.pop("name"),
+                            "path": fields.pop("path"),
+                            "implementation_type": fields.pop("implementation_type"),
+                        }
+                    )
+                elif kind == "wire":
+                    wire_kind = fields.pop("wire_kind")
+                    if wire_kind not in ("scalar", "bus"):
+                        raise ValueError("invalid wire kind")
+                    record.update(
+                        {
+                            "wire_kind": wire_kind,
+                            "net": fields.pop("net"),
+                            "start": {
+                                "x": int(fields.pop("start.x")),
+                                "y": int(fields.pop("start.y")),
+                            },
+                            "end": {
+                                "x": int(fields.pop("end.x")),
+                                "y": int(fields.pop("end.y")),
+                            },
+                        }
+                    )
+                elif kind == "global":
+                    record.update(
+                        {
+                            "name": fields.pop("name"),
+                            "pin_type": int(fields.pop("pin_type")),
+                        }
+                    )
+                elif kind == "port":
+                    connected = int(fields.pop("connected"))
+                    if connected not in (0, 1):
+                        raise ValueError("invalid connected flag")
+                    record.update(
+                        {
+                            "name": fields.pop("name"),
+                            "pin_type": int(fields.pop("pin_type")),
+                            "connected": bool(connected),
+                            "net": fields.pop("net"),
+                            "location": {
+                                "x": int(fields.pop("location.x")),
+                                "y": int(fields.pop("location.y")),
+                            },
+                            "connection_point": {
+                                "x": int(fields.pop("connection_point.x")),
+                                "y": int(fields.pop("connection_point.y")),
+                            },
+                        }
+                    )
+                elif kind == "pin":
+                    connected = int(fields.pop("connected"))
+                    if connected not in (0, 1):
+                        raise ValueError("invalid connected flag")
+                    record.update(
+                        {
+                            "component_refdes": fields.pop("component_refdes"),
+                            "pin_name": fields.pop("pin_name"),
+                            "pin_number": fields.pop("pin_number"),
+                            "pin_type": int(fields.pop("pin_type")),
+                            "pin_position": int(fields.pop("pin_position")),
+                            "connected": bool(connected),
+                            "net": fields.pop("net"),
+                            "start": {
+                                "x": int(fields.pop("start.x")),
+                                "y": int(fields.pop("start.y")),
+                            },
+                            "connection_point": {
+                                "x": int(fields.pop("connection_point.x")),
+                                "y": int(fields.pop("connection_point.y")),
+                            },
+                        }
+                    )
+                elif kind == "net_alias":
+                    record.update(
+                        {
+                            "name": fields.pop("name"),
+                            "rotation": int(fields.pop("rotation")),
+                            "location": {
+                                "x": int(fields.pop("location.x")),
+                                "y": int(fields.pop("location.y")),
+                            },
+                        }
+                    )
+                elif kind in ("graphic_box", "graphic_ellipse"):
+                    record.update(
+                        {
+                            "bounds": {
+                                "left": int(fields.pop("left")),
+                                "top": int(fields.pop("top")),
+                                "right": int(fields.pop("right")),
+                                "bottom": int(fields.pop("bottom")),
+                            },
+                            "line_style": int(fields.pop("line_style")),
+                            "line_width": int(fields.pop("line_width")),
+                            "fill_style": int(fields.pop("fill_style")),
+                            "hatch_style": int(fields.pop("hatch_style")),
+                        }
+                    )
+                elif kind == "graphic_line":
+                    record.update(
+                        {
+                            "start": {
+                                "x": int(fields.pop("start.x")),
+                                "y": int(fields.pop("start.y")),
+                            },
+                            "end": {
+                                "x": int(fields.pop("end.x")),
+                                "y": int(fields.pop("end.y")),
+                            },
+                            "line_style": int(fields.pop("line_style")),
+                            "line_width": int(fields.pop("line_width")),
+                        }
+                    )
+                elif kind == "off_page_connector":
+                    record.update(
+                        {
+                            "name": fields.pop("name"),
+                            "location": {
+                                "x": int(fields.pop("location.x")),
+                                "y": int(fields.pop("location.y")),
+                            },
+                        }
+                    )
+                elif kind == "comment_text":
+                    record["text"] = fields.pop("text")
+                elif kind == "title_block":
+                    record["page_name"] = fields.pop("page_name")
+                else:
+                    raise ValueError("unexpected supported kind")
+            except (KeyError, ValueError) as error:
+                raise ToolExecutionError(
+                    "Capture returned malformed selection object data."
+                ) from error
+        if fields:
+            raise ToolExecutionError("Capture returned unexpected selection fields.")
+        objects.append(record)
+    return {
+        "objects": objects,
+        "selection_count": selection_count,
+        "returned_count": returned_count,
+        "truncated": bool(truncated_number),
     }
 
 
@@ -419,6 +985,31 @@ def _validate_arguments_object(arguments: Any) -> dict[str, Any]:
     return arguments
 
 
+def _property_names(arguments: dict[str, Any]) -> list[str]:
+    raw_names = arguments.get("property_names", list(DEFAULT_PROPERTIES))
+    if type(raw_names) is not list or not raw_names:
+        raise InvalidToolArguments("property_names must be a non-empty array.")
+    if len(raw_names) > MAX_PROPERTIES_PER_READ:
+        raise InvalidToolArguments(
+            f"property_names accepts at most {MAX_PROPERTIES_PER_READ} names."
+        )
+    property_names: list[str] = []
+    seen: set[str] = set()
+    for index, raw_name in enumerate(raw_names):
+        argument_name = f"property_names[{index}]"
+        name = _string_argument(
+            {argument_name: raw_name},
+            argument_name,
+            required=True,
+            max_length=MAX_PROPERTY_NAME_LENGTH,
+        )
+        assert name is not None
+        if name not in seen:
+            seen.add(name)
+            property_names.append(name)
+    return property_names
+
+
 def read_component_properties(runtime_file: Path, arguments: Any) -> dict[str, Any]:
     values = _validate_arguments_object(arguments)
     allowed = {"refdes", "path", "property_names", "max_results"}
@@ -428,28 +1019,7 @@ def read_component_properties(runtime_file: Path, arguments: Any) -> dict[str, A
     refdes = _string_argument(values, "refdes", max_length=256)
     path = _string_argument(values, "path", max_length=4096)
 
-    raw_names = values.get("property_names", list(DEFAULT_PROPERTIES))
-    if type(raw_names) is not list or not raw_names:
-        raise InvalidToolArguments("property_names must be a non-empty array.")
-    if len(raw_names) > MAX_PROPERTIES_PER_READ:
-        raise InvalidToolArguments(
-            f"property_names accepts at most {MAX_PROPERTIES_PER_READ} names."
-        )
-    property_names: list[str] = []
-    seen: set[str] = set()
-    for raw_name in raw_names:
-        temporary = {"property_name": raw_name}
-        name = _string_argument(
-            temporary,
-            "property_name",
-            required=True,
-            max_length=MAX_PROPERTY_NAME_LENGTH,
-        )
-        assert name is not None
-        if name in seen:
-            raise InvalidToolArguments(f"Duplicate property name: {name}.")
-        seen.add(name)
-        property_names.append(name)
+    property_names = _property_names(values)
 
     max_results = values.get("max_results", 500)
     if type(max_results) is not int or not 1 <= max_results <= MAX_RESULTS:
@@ -491,6 +1061,59 @@ def set_component_property(runtime_file: Path, arguments: Any) -> dict[str, str]
     script = build_set_script(refdes, path, property_name, value)
     raw = _execute_capture_script(runtime_file, script)
     return _parse_set_result(raw)
+
+
+def inspect_selection(runtime_file: Path, arguments: Any) -> dict[str, Any]:
+    values = _validate_arguments_object(arguments)
+    allowed = {"property_names", "max_results"}
+    unknown = sorted(set(values) - allowed)
+    if unknown:
+        raise InvalidToolArguments(f"Unknown argument(s): {', '.join(unknown)}.")
+    property_names = _property_names(values)
+    max_results = values.get("max_results", 100)
+    if type(max_results) is not int or not 1 <= max_results <= MAX_SELECTION_RESULTS:
+        raise InvalidToolArguments(
+            f"max_results must be an integer from 1 through {MAX_SELECTION_RESULTS}."
+        )
+    script = build_inspect_selection_script(property_names, max_results)
+    raw = _execute_capture_script(runtime_file, script)
+    return _parse_selection_result(raw, property_names)
+
+
+INSPECT_SELECTION_TOOL = {
+    "name": "capture_inspect_selection",
+    "title": "Inspect the current Capture selection",
+    "description": (
+        "Read the schematic objects selected in the active OrCAD Capture UI at "
+        "call time. Use this tool again before a write when the user refers to "
+        "the current, newly selected, or just-selected object."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "property_names": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": MAX_PROPERTIES_PER_READ,
+                "items": {"type": "string", "minLength": 1},
+                "default": list(DEFAULT_PROPERTIES),
+            },
+            "max_results": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": MAX_SELECTION_RESULTS,
+                "default": 100,
+            },
+        },
+        "additionalProperties": False,
+    },
+    "annotations": {
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+}
 
 
 READ_TOOL = {
@@ -536,7 +1159,9 @@ SET_TOOL = {
     "description": (
         "Set one effective string property on exactly one component in the active "
         "OrCAD Capture design and verify it by immediate readback. The design is not "
-        "saved. Supply path when refdes is not unique."
+        "saved. Supply path when refdes is not unique. This tool does not inspect the "
+        "GUI selection; call capture_inspect_selection first when the user means the "
+        "current or newly selected component."
     ),
     "inputSchema": {
         "type": "object",
@@ -643,7 +1268,9 @@ class CaptureMcpServer:
         if method == "ping":
             return self._success(request_id, _complete_result({}, modern))
         if method == "tools/list":
-            result: dict[str, Any] = {"tools": [READ_TOOL, SET_TOOL]}
+            result: dict[str, Any] = {
+                "tools": [INSPECT_SELECTION_TOOL, READ_TOOL, SET_TOOL]
+            }
             if modern:
                 result.update({"ttlMs": 86_400_000, "cacheScope": "public"})
             return self._success(request_id, _complete_result(result, modern))
@@ -674,10 +1301,13 @@ class CaptureMcpServer:
     @staticmethod
     def _instructions() -> str:
         return (
-            "Operate only on the active OrCAD Capture design. Read components first "
-            "when identity or current values are uncertain. Writes change in-memory "
-            "properties and verify readback, but never save the design. If a refdes is "
-            "ambiguous, retry with the exact path returned by the read tool."
+            "Operate only on the active OrCAD Capture design. When a user refers to "
+            "the current, newly selected, or just-selected object, call "
+            "capture_inspect_selection immediately before writing. Reuse an earlier "
+            "locator only when the user clearly refers to that earlier result. If a "
+            "mutation target is ambiguous, refresh the selection or ask; never guess. "
+            "Property writes use the occurrence refdes and exact path, change only "
+            "in-memory properties, verify readback, and never save the design."
         )
 
     @staticmethod
@@ -702,7 +1332,9 @@ class CaptureMcpServer:
         name = params["name"]
         arguments = params.get("arguments", {})
         try:
-            if name == READ_TOOL["name"]:
+            if name == INSPECT_SELECTION_TOOL["name"]:
+                value = inspect_selection(self.runtime_file, arguments)
+            elif name == READ_TOOL["name"]:
                 value = read_component_properties(self.runtime_file, arguments)
             elif name == SET_TOOL["name"]:
                 value = set_component_property(self.runtime_file, arguments)
@@ -770,7 +1402,7 @@ def serve_stdio(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Expose OrCAD Capture component properties through MCP over stdio."
+        description="Expose typed OrCAD Capture inspection and property tools over MCP stdio."
     )
     parser.add_argument(
         "--runtime-file",

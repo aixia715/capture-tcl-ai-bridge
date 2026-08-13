@@ -2,11 +2,12 @@
 
 `capture_mcp_server.py` is a local stdio MCP server for AI agents such as
 Codex, Claude Code and Hermes. It talks to the already-running authenticated
-Capture Tcl bridge and intentionally exposes only two tools:
+Capture Tcl bridge and intentionally exposes only three closed-world tools:
 
 | Tool | Effect |
 | --- | --- |
-| `capture_read_component_properties` | Lists components in the active design and reads selected effective string properties. |
+| `capture_inspect_selection` | Reads the Current Selection from the active schematic page and returns typed objects with locators. |
+| `capture_read_component_properties` | Lists components in the active design and reads requested effective string properties. |
 | `capture_set_component_property` | Changes one property on exactly one component and verifies it by immediate readback. |
 
 The write tool changes the design open in Capture but **does not save it**.
@@ -103,7 +104,19 @@ should remain disabled.
 
 ## Tool usage
 
-Read the common properties for every component (up to the default 500):
+Inspect the objects selected in the active schematic at call time:
+
+```json
+{}
+```
+
+The selection tool accepts optional `property_names` for selected components and
+`max_results` (default 100, maximum 1000). Empty selection succeeds. If Capture
+focus is outside a schematic editor it returns `SCHEMATIC_VIEW_REQUIRED` rather
+than reusing an old page.
+
+Read the common properties (`Value` and `PCB Footprint`) for every component
+(up to the default 500):
 
 ```json
 {}
@@ -130,18 +143,61 @@ pass the exact returned `path` to the write tool:
 }
 ```
 
-Read results contain `refdes`, `path`, and a property map. Write results contain
-`before` and `after`. Unknown properties and DBO failures are returned as MCP
-tool errors so the agent can correct its request.
+Both read tools return the same Component Information. Its occurrence locator
+contains `design`, `refdes`, and hierarchical `path`; its page-instance locator
+contains `design`, `page`, and `object_id`. Property writes continue to use only
+the occurrence `refdes` and `path`.
+
+Properties are keyed by the requested Capture name. Existing values use
+`{"present":true,"value":"..."}`; an existing empty string keeps `value:""`;
+a missing property uses `{"present":false}`. Explicit `property_names` replace
+the defaults, and duplicates are removed in first-seen order.
+
+Selection results preserve Capture's order and selection index. Supported kinds
+are `component`, `hierarchical_block`, `wire` (scalar or bus), `global`,
+`off_page_connector`, `comment_text`, `port`, `pin`, `net_alias`, `graphic_box`,
+`graphic_line`, `graphic_ellipse`, and `title_block`. Ports and pins include their
+page connection point, connectivity, and net name when connected; pins also
+include the owner refdes, pin name/number/type/position, and body-side start
+point. Aliases include name, location, and rotation. Graphic objects include
+bounds or endpoints plus their applicable line/fill styles. Coordinates are raw
+Capture document units. Supported non-components use a
+`design + page + kind + object_id` locator. Unknown kinds remain visible with
+`supported:false` and no locator. A field failure is attached to only that object
+when the rest of the selection can still be returned.
+
+Write results contain `before` and `after`. DBO failures are returned as MCP tool
+errors so the agent can correct its request.
+
+### Selection refresh rules for agents
+
+- “current”, “newly selected”, or “just selected” means call
+  `capture_inspect_selection` immediately before a write.
+- A locator from an earlier result may be reused only when the user clearly
+  identifies that earlier object.
+- For ambiguous mutation targets, refresh selection or ask the user; never guess.
+- `capture_set_component_property` does not inspect GUI selection itself.
+
+### Beta.3 output migration
+
+`capture_read_component_properties` no longer returns
+`{refdes,path,properties:{name:value}}`. Clients must read `occurrence`,
+`page_instance`, and the `present` property records described above. The removed
+default properties are `Part Name` (unreliable in target designs) and
+`Part Reference` (the authoritative refdes already lives in the occurrence
+locator).
 
 ## Scope and safety
 
 - Only the active Capture design is addressed.
+- Selection is read at tool execution time; no snapshot token or Tcl handle is
+  retained between MCP calls.
 - No arbitrary Tcl tool is exposed through MCP.
 - All MCP strings are UTF-8 encoded as hexadecimal before being embedded in a
   generated Tcl script, so property values cannot become Tcl source code.
 - A write must resolve to exactly one component. Duplicate refdes values require
   an exact hierarchical path.
+- Page object IDs are never used for component property writes.
 - Every write is read back and compared before success is reported.
 - The MCP server never saves the design and never modifies topology.
 - The runtime descriptor and bearer token remain governed by the bridge's

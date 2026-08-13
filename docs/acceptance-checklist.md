@@ -164,6 +164,23 @@
       `get_component_value.tcl` 另外验证三种情况：不存在 → `COMPONENT_NOT_FOUND`，
       唯一 → 正常输出，重复位号 → `COMPONENT_NOT_UNIQUE`。
 
+- [ ] **3.6** 【真机】 MCP Current Selection 与双定位：
+      - 在原理图中分别选择器件、层次块、标量线、总线、全局符号、跨页连接器、
+        文字、端口和标题栏，调用 `capture_inspect_selection`，核对 kind、代表字段、
+        page/object_id，并确认混合选择保持顺序；
+      - 在已标注层次设计中确认页面占位位号被映射成 occurrence 的真实 refdes/path；
+      - 用 `capture_read_component_properties` 查询同一器件，确认两入口的 Component
+        Information 一致；
+      - 切换到非原理图窗口，确认 `SCHEMATIC_VIEW_REQUIRED`；
+      - 请求一个不存在属性，确认 `present:false`，并验证存在空字符串仍为
+        `present:true,value:""`；
+      - 在平面和层次设计中验证 occurrence → page instance 反查。
+
+      **2026-08-12 部分已验（Capture 16.6）**：平面设计 U3 的选择映射与反查均得到
+      refdes/path `U3`、页面 `01 PFD`、object_id `3324`，两个读取入口的 Value/封装
+      完全一致；缺失属性为 `present:false`。其余七类、层次反查、非原理图窗口及
+      Capture 17.4 仍待验。
+
 ## 阶段 4：写入链路（测试原理图！）
 
 - [ ] **4.1** 【真机】 `set_component_value.tcl`：确认只改唯一命中的那个 occurrence，
