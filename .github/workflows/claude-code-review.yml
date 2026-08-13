@@ -50,14 +50,18 @@ jobs:
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }} --comment'
-          # The code-review plugin's command frontmatter only pre-authorizes these
-          # tools for its top-level agent; the review spawns parallel subagents
-          # that don't inherit it, so their gh calls get denied without this.
+          # A curated --allowed-tools list kept missing commands the review's
+          # subagents legitimately need (gh pr checkout, git apply, pytest,
+          # tclsh, ad-hoc pipelines...), causing denials on every run. Deny
+          # rules still apply in bypassPermissions mode, so block the one
+          # action a read-only review has no business doing instead of trying
+          # to enumerate everything it's allowed to do.
           # --append-system-prompt tells the agent to treat denied/missing tool
           # access (its own or a subagent's) as a broken review, not a clean pass.
           claude_args: |
-            --allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),mcp__github_inline_comment__create_inline_comment"
-            --append-system-prompt "CI review environment check: if tool calls required for this review — yours or any subagent's, e.g. gh pr diff/view/comment, file reads, or other necessary tools — are being denied due to permission or configuration problems, and this prevents you from actually inspecting the PR diff, CLAUDE.md files, or forming a real judgment, do NOT report 'No issues found.' Treat denied/missing tool access as a review failure, not a clean pass, including when a subagent's response indicates it could not complete its task for this reason. Instead, stop and post a single comment stating: (1) the review could not be completed, (2) the specific tool/permission failures you or your subagents hit, and (3) that someone should check this repo's workflow permissions and claude_args --allowed-tools configuration."
+            --permission-mode bypassPermissions
+            --disallowedTools "Bash(git push:*)"
+            --append-system-prompt "CI review environment check: if tool calls required for this review — yours or any subagent's, e.g. gh pr diff/view/comment, file reads, or other necessary tools — are being denied due to permission or configuration problems, and this prevents you from actually inspecting the PR diff, CLAUDE.md files, or forming a real judgment, do NOT report 'No issues found.' Treat denied/missing tool access as a review failure, not a clean pass, including when a subagent's response indicates it could not complete its task for this reason. Instead, stop and post a single comment stating: (1) the review could not be completed, (2) the specific tool/permission failures you or your subagents hit, and (3) that someone should check this repo's workflow permissions and claude_args configuration."
           show_full_output: true
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
