@@ -160,3 +160,13 @@ PCB Footprint 在两个入口完全一致；不存在属性返回 `present:false
 仍需人工完成：七类非器件代表字段、层次设计 occurrence → page instance 反查、
 非原理图焦点错误，以及 OrCAD Capture 17.4 的同组验收。自动 fixture 覆盖不替代
 这些原生 DBO 调用的真机证明。
+
+## MCP Offline Design 验收状态（2026-08-14）
+
+OrCAD SPB 16.6 上已在未启动新 Capture GUI 的情况下，用独立
+`tclsh.exe + orDb_Dll_TCL` 读取 `FNC_PD.DSN`：遍历 411 个 primitive
+occurrence，并对 C5 返回 `FNC-QQ/C5`、`PAGE1/object_id=7950`、`Value=1uF`
+和 `PCB Footprint=C0805`。输出副本写入在原本缺失的 `Capture AI Headless Test`
+属性上得到 `before.present=false`、`after.value=verified`，写进程退出后由第二个
+全新 `tclsh.exe` 重开验证；源 DSN SHA-256 未变化。随后在该临时副本上完成
+原地 `verified` 到 `verified-in-place` 写入与重开验证，临时备份成功清理。

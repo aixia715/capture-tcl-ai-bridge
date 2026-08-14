@@ -40,6 +40,27 @@ def _component_record(fields: list[tuple[str, str]]) -> str:
     return "\t".join(values)
 
 
+def _set_record(
+    refdes: str,
+    path: str,
+    property_name: str,
+    before: str | None,
+    after: str,
+) -> str:
+    return "\t".join(
+        [
+            "CAPTURE_MCP_SET_V2",
+            _hex(refdes),
+            _hex(path),
+            _hex(property_name),
+            "0" if before is None else "1",
+            _hex(before or ""),
+            "1",
+            _hex(after),
+        ]
+    )
+
+
 def _modern_params(**values):
     return {
         **values,
@@ -91,7 +112,7 @@ def _run_against_dbo_fixture(script: str, setup: str) -> subprocess.CompletedPro
     )
 
 
-def _bridge_fixture_executor(setup: str):
+def _bridge_fixture_executor(setup: str, expected_set_calls: int = 0):
     def execute(runtime_file: Path, script: str) -> str:
         result = _run_against_dbo_fixture(script, setup)
         assert result.returncode == 0, result.stderr
@@ -103,7 +124,7 @@ def _bridge_fixture_executor(setup: str):
         assert line is not None, (result.stdout, result.stderr)
         code, payload = line[len(marker) :].split(" ", 1)
         encoded, set_calls, _delete_calls = payload.rsplit(" ", 2)
-        assert set_calls == "0", line
+        assert set_calls == str(expected_set_calls), line
         decoded = bytes.fromhex(encoded).decode("utf-8")
         if code != "0":
             raise mcp.ToolExecutionError(decoded)
@@ -180,7 +201,7 @@ set ::fx::activeDesign [fx::makeDesign $root {}]
 
     assert result.returncode == 0, result.stderr
     assert "MCP_RESULT 0" in result.stdout
-    assert "CAPTURE_MCP_SET_V1" in result.stdout
+    assert "CAPTURE_MCP_SET_V2" in result.stdout
     assert _hex("100n") in result.stdout
     assert _hex(new_value) in result.stdout
     raw_output = result.stdout.split("MCP_RESULT_HEX", 1)[0].rstrip()
@@ -268,11 +289,13 @@ def test_read_tool_uses_defaults_and_returns_structured_data(monkeypatch, tmp_pa
 def test_set_tool_allows_empty_value_and_parses_readback(monkeypatch, tmp_path):
     raw = "\t".join(
         [
-            "CAPTURE_MCP_SET_V1",
+            "CAPTURE_MCP_SET_V2",
             _hex("R1"),
             _hex("/R1"),
             _hex("Value"),
+            "1",
             _hex("10k"),
+            "1",
             _hex(""),
         ]
     )
@@ -292,10 +315,35 @@ def test_set_tool_allows_empty_value_and_parses_readback(monkeypatch, tmp_path):
         "refdes": "R1",
         "path": "/R1",
         "property": "Value",
-        "before": "10k",
-        "after": "",
+        "before": {"present": True, "value": "10k"},
+        "after": {"present": True, "value": ""},
     }
     assert mcp._utf8_hex("") in scripts[0]
+
+
+def test_set_tool_upserts_a_completely_missing_occurrence_property(monkeypatch, tmp_path):
+    setup = """
+fx::resetAll
+set target [fx::makeOccurrence C3 100n /C3 {}]
+set root [fx::makeOccurrence {} {} / [list $target] 0]
+set ::fx::activeDesign [fx::makeDesign $root {}]
+"""
+    monkeypatch.setattr(
+        mcp, "_execute_capture_script", _bridge_fixture_executor(setup, 1)
+    )
+
+    result = mcp.set_component_property(
+        tmp_path / "runtime.json",
+        {"refdes": "C3", "property_name": "Manufacturer", "value": "Acme"},
+    )
+
+    assert result == {
+        "refdes": "C3",
+        "path": "/C3",
+        "property": "Manufacturer",
+        "before": {"present": False},
+        "after": {"present": True, "value": "Acme"},
+    }
 
 
 @pytest.mark.parametrize(
@@ -373,6 +421,8 @@ def test_legacy_initialize_and_tool_listing(tmp_path):
         "capture_inspect_selection",
         "capture_read_component_properties",
         "capture_set_component_property",
+        "capture_read_dsn_component_properties",
+        "capture_set_dsn_component_property",
     ]
     assert "resultType" not in listed["result"]
 
@@ -406,7 +456,476 @@ def test_modern_discovery_and_tool_listing_include_required_envelope(tmp_path):
         "capture_inspect_selection",
         "capture_read_component_properties",
         "capture_set_component_property",
+        "capture_read_dsn_component_properties",
+        "capture_set_dsn_component_property",
     ]
+
+
+def test_offline_tools_are_available_through_mcp_without_the_gui_bridge(tmp_path):
+    component = {
+        "kind": "component",
+        "design": "C:/designs/offline.dsn",
+        "occurrence": {"refdes": "C5", "path": "FNC-QQ/C5"},
+        "page_instance": {"page": "MAIN", "object_id": 42},
+        "properties": {"Value": {"present": True, "value": "1uF"}},
+    }
+
+    class FakeOfflineAdapter:
+        def __init__(self):
+            self.calls = []
+
+        def read_component_properties(self, arguments):
+            self.calls.append(("read", arguments))
+            return {"components": [component], "count": 1, "truncated": False}
+
+        def set_component_property(self, arguments):
+            self.calls.append(("set", arguments))
+            return {
+                "dsn_path": "C:/designs/offline.dsn",
+                "output_path": "C:/designs/changed.dsn",
+                "source_locked": False,
+                "refdes": "C5",
+                "path": "FNC-QQ/C5",
+                "property": "Manufacturer",
+                "before": {"present": False},
+                "after": {"present": True, "value": "Acme"},
+            }
+
+    adapter = FakeOfflineAdapter()
+    server = mcp.CaptureMcpServer(
+        tmp_path / "missing-runtime.json", offline_adapter=adapter
+    )
+    read_arguments = {
+        "dsn_path": "C:/designs/offline.dsn",
+        "refdes": "C5",
+        "property_names": ["Value"],
+    }
+    set_arguments = {
+        "dsn_path": "C:/designs/offline.dsn",
+        "output_path": "C:/designs/changed.dsn",
+        "refdes": "C5",
+        "path": "FNC-QQ/C5",
+        "property_name": "Manufacturer",
+        "value": "Acme",
+    }
+
+    read_response = server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 20,
+            "method": "tools/call",
+            "params": {
+                "name": "capture_read_dsn_component_properties",
+                "arguments": read_arguments,
+            },
+        }
+    )
+    set_response = server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 21,
+            "method": "tools/call",
+            "params": {
+                "name": "capture_set_dsn_component_property",
+                "arguments": set_arguments,
+            },
+        }
+    )
+
+    assert read_response["result"]["structuredContent"]["components"] == [component]
+    assert set_response["result"]["structuredContent"]["after"] == {
+        "present": True,
+        "value": "Acme",
+    }
+    assert adapter.calls == [("read", read_arguments), ("set", set_arguments)]
+
+
+def test_offline_set_uses_staging_then_fresh_verification_before_publishing(
+    tmp_path,
+):
+    cadence_root = tmp_path / "Cadence" / "SPB_16.6"
+    tclsh = cadence_root / "tools" / "tcl84" / "bin" / "tclsh.exe"
+    dbo = cadence_root / "tools" / "capture" / "orDb_Dll_TCL.dll"
+    tclsh.parent.mkdir(parents=True)
+    dbo.parent.mkdir(parents=True)
+    tclsh.write_bytes(b"")
+    dbo.write_bytes(b"")
+    source = tmp_path / "source.DSN"
+    output = tmp_path / "changed.DSN"
+    source.write_bytes(b"original design bytes")
+    Path(f"{source}lck").write_bytes(b"Capture lock")
+    calls = []
+
+    read_raw = "\n".join(
+        [
+            "CAPTURE_MCP_META_V1\t1\t0",
+            _component_record(
+                [
+                    ("design", source.as_posix()),
+                    ("occurrence.refdes", "C5"),
+                    ("occurrence.path", "FNC-QQ/C5"),
+                    ("page_instance.page", "MAIN"),
+                    ("page_instance.object_id", "42"),
+                    ("property_present:Manufacturer", "1"),
+                    ("property_value:Manufacturer", "Acme"),
+                ]
+            ),
+        ]
+    )
+
+    def execute(actual_tclsh, script, timeout):
+        calls.append((actual_tclsh, script, timeout))
+        if len(calls) == 1:
+            return _set_record("C5", "FNC-QQ/C5", "Manufacturer", None, "Acme")
+        return read_raw
+
+    adapter = mcp.OfflineDesignAdapter(cadence_root=cadence_root, executor=execute)
+    server = mcp.CaptureMcpServer(
+        tmp_path / "missing-runtime.json", offline_adapter=adapter
+    )
+
+    response = server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 22,
+            "method": "tools/call",
+            "params": {
+                "name": "capture_set_dsn_component_property",
+                "arguments": {
+                    "dsn_path": str(source),
+                    "output_path": str(output),
+                    "refdes": "C5",
+                    "path": "FNC-QQ/C5",
+                    "property_name": "Manufacturer",
+                    "value": "Acme",
+                },
+            },
+        }
+    )
+
+    result = response["result"]["structuredContent"]
+    assert result["before"] == {"present": False}
+    assert result["after"] == {"present": True, "value": "Acme"}
+    assert result["source_locked"] is True
+    assert result["output_path"] == output.resolve().as_posix()
+    assert output.read_bytes() == b"original design bytes"
+    assert len(calls) == 2
+    assert all(call[0] == tclsh for call in calls)
+    assert "SaveDesign" in calls[0][1]
+    assert "SaveDesign" not in calls[1][1]
+    assert not list(tmp_path.glob(".capture-ai-offline-*"))
+
+
+def test_offline_set_rejects_in_place_when_capture_lock_exists(tmp_path):
+    source = tmp_path / "locked.DSN"
+    source.write_bytes(b"original")
+    Path(f"{source}lck").write_bytes(b"lock")
+
+    cadence_root = tmp_path / "Cadence" / "SPB_16.6"
+    tclsh = cadence_root / "tools" / "tcl84" / "bin" / "tclsh.exe"
+    dbo = cadence_root / "tools" / "capture" / "orDb_Dll_TCL.dll"
+    tclsh.parent.mkdir(parents=True)
+    dbo.parent.mkdir(parents=True)
+    tclsh.write_bytes(b"")
+    dbo.write_bytes(b"")
+    calls = []
+    adapter = mcp.OfflineDesignAdapter(
+        cadence_root=cadence_root,
+        executor=lambda *args: calls.append(args),
+    )
+    server = mcp.CaptureMcpServer(tmp_path / "runtime.json", offline_adapter=adapter)
+
+    response = server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 23,
+            "method": "tools/call",
+            "params": {
+                "name": "capture_set_dsn_component_property",
+                "arguments": {
+                    "dsn_path": str(source),
+                    "in_place": True,
+                    "refdes": "C5",
+                    "property_name": "Value",
+                    "value": "2uF",
+                },
+            },
+        }
+    )
+
+    assert response["result"]["isError"] is True
+    assert "DESIGN_LOCKED" in response["result"]["content"][0]["text"]
+    assert calls == []
+    assert source.read_bytes() == b"original"
+
+
+def test_offline_set_does_not_publish_failed_fresh_process_verification(tmp_path):
+    cadence_root = tmp_path / "Cadence" / "SPB_16.6"
+    tclsh = cadence_root / "tools" / "tcl84" / "bin" / "tclsh.exe"
+    dbo = cadence_root / "tools" / "capture" / "orDb_Dll_TCL.dll"
+    tclsh.parent.mkdir(parents=True)
+    dbo.parent.mkdir(parents=True)
+    tclsh.write_bytes(b"")
+    dbo.write_bytes(b"")
+    source = tmp_path / "source.DSN"
+    output = tmp_path / "must-not-exist.DSN"
+    source.write_bytes(b"original")
+    calls = []
+    stale_read = "\n".join(
+        [
+            "CAPTURE_MCP_META_V1\t1\t0",
+            _component_record(
+                [
+                    ("design", source.as_posix()),
+                    ("occurrence.refdes", "C5"),
+                    ("occurrence.path", "FNC-QQ/C5"),
+                    ("page_instance.page", "MAIN"),
+                    ("page_instance.object_id", "42"),
+                    ("property_present:Value", "1"),
+                    ("property_value:Value", "old"),
+                ]
+            ),
+        ]
+    )
+
+    def execute(actual_tclsh, script, timeout):
+        calls.append(script)
+        if len(calls) == 1:
+            return _set_record("C5", "FNC-QQ/C5", "Value", "old", "new")
+        return stale_read
+
+    adapter = mcp.OfflineDesignAdapter(cadence_root=cadence_root, executor=execute)
+    server = mcp.CaptureMcpServer(tmp_path / "runtime.json", offline_adapter=adapter)
+
+    response = server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 24,
+            "method": "tools/call",
+            "params": {
+                "name": "capture_set_dsn_component_property",
+                "arguments": {
+                    "dsn_path": str(source),
+                    "output_path": str(output),
+                    "refdes": "C5",
+                    "path": "FNC-QQ/C5",
+                    "property_name": "Value",
+                    "value": "new",
+                },
+            },
+        }
+    )
+
+    assert response["result"]["isError"] is True
+    assert "PROPERTY_PERSISTENCE_FAILED" in response["result"]["content"][0]["text"]
+    assert not output.exists()
+    assert source.read_bytes() == b"original"
+    assert not list(tmp_path.glob(".capture-ai-offline-*"))
+
+
+def test_offline_output_does_not_overwrite_a_concurrently_created_destination(
+    monkeypatch, tmp_path
+):
+    cadence_root = tmp_path / "Cadence" / "SPB_16.6"
+    tclsh = cadence_root / "tools" / "tcl84" / "bin" / "tclsh.exe"
+    dbo = cadence_root / "tools" / "capture" / "orDb_Dll_TCL.dll"
+    tclsh.parent.mkdir(parents=True)
+    dbo.parent.mkdir(parents=True)
+    tclsh.write_bytes(b"")
+    dbo.write_bytes(b"")
+    source = tmp_path / "source.DSN"
+    output = tmp_path / "raced.DSN"
+    source.write_bytes(b"original")
+    calls = []
+    read_raw = "\n".join(
+        [
+            "CAPTURE_MCP_META_V1\t1\t0",
+            _component_record(
+                [
+                    ("design", source.as_posix()),
+                    ("occurrence.refdes", "C5"),
+                    ("occurrence.path", "C5"),
+                    ("page_instance.page", "MAIN"),
+                    ("page_instance.object_id", "42"),
+                    ("property_present:Value", "1"),
+                    ("property_value:Value", "new"),
+                ]
+            ),
+        ]
+    )
+
+    def execute(actual_tclsh, script, timeout):
+        calls.append(script)
+        if len(calls) == 1:
+            return _set_record("C5", "C5", "Value", "old", "new")
+        return read_raw
+
+    original_link = mcp.os.link
+
+    def race_link(source_path, destination_path):
+        Path(destination_path).write_bytes(b"concurrent owner")
+        return original_link(source_path, destination_path)
+
+    monkeypatch.setattr(mcp.os, "link", race_link)
+    adapter = mcp.OfflineDesignAdapter(cadence_root=cadence_root, executor=execute)
+    server = mcp.CaptureMcpServer(tmp_path / "runtime.json", offline_adapter=adapter)
+
+    response = server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 25,
+            "method": "tools/call",
+            "params": {
+                "name": "capture_set_dsn_component_property",
+                "arguments": {
+                    "dsn_path": str(source),
+                    "output_path": str(output),
+                    "refdes": "C5",
+                    "property_name": "Value",
+                    "value": "new",
+                },
+            },
+        }
+    )
+
+    assert response["result"]["isError"] is True
+    assert output.read_bytes() == b"concurrent owner"
+
+
+def test_offline_output_rejects_a_source_change_during_verification(tmp_path):
+    cadence_root = tmp_path / "Cadence" / "SPB_16.6"
+    tclsh = cadence_root / "tools" / "tcl84" / "bin" / "tclsh.exe"
+    dbo = cadence_root / "tools" / "capture" / "orDb_Dll_TCL.dll"
+    tclsh.parent.mkdir(parents=True)
+    dbo.parent.mkdir(parents=True)
+    tclsh.write_bytes(b"")
+    dbo.write_bytes(b"")
+    source = tmp_path / "source.DSN"
+    output = tmp_path / "changed.DSN"
+    source.write_bytes(b"original")
+    calls = []
+    read_raw = "\n".join(
+        [
+            "CAPTURE_MCP_META_V1\t1\t0",
+            _component_record(
+                [
+                    ("design", source.as_posix()),
+                    ("occurrence.refdes", "C5"),
+                    ("occurrence.path", "C5"),
+                    ("page_instance.page", "MAIN"),
+                    ("page_instance.object_id", "42"),
+                    ("property_present:Value", "1"),
+                    ("property_value:Value", "new"),
+                ]
+            ),
+        ]
+    )
+
+    def execute(actual_tclsh, script, timeout):
+        calls.append(script)
+        if len(calls) == 1:
+            return _set_record("C5", "C5", "Value", "old", "new")
+        source.write_bytes(b"concurrent update")
+        return read_raw
+
+    adapter = mcp.OfflineDesignAdapter(cadence_root=cadence_root, executor=execute)
+    server = mcp.CaptureMcpServer(tmp_path / "runtime.json", offline_adapter=adapter)
+
+    response = server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 26,
+            "method": "tools/call",
+            "params": {
+                "name": "capture_set_dsn_component_property",
+                "arguments": {
+                    "dsn_path": str(source),
+                    "output_path": str(output),
+                    "refdes": "C5",
+                    "property_name": "Value",
+                    "value": "new",
+                },
+            },
+        }
+    )
+
+    assert response["result"]["isError"] is True
+    assert "source DSN changed" in response["result"]["content"][0]["text"]
+    assert source.read_bytes() == b"concurrent update"
+    assert not output.exists()
+
+
+def test_offline_in_place_restores_original_when_backup_cleanup_fails(
+    monkeypatch, tmp_path
+):
+    cadence_root = tmp_path / "Cadence" / "SPB_16.6"
+    tclsh = cadence_root / "tools" / "tcl84" / "bin" / "tclsh.exe"
+    dbo = cadence_root / "tools" / "capture" / "orDb_Dll_TCL.dll"
+    tclsh.parent.mkdir(parents=True)
+    dbo.parent.mkdir(parents=True)
+    tclsh.write_bytes(b"")
+    dbo.write_bytes(b"")
+    source = tmp_path / "source.DSN"
+    source.write_bytes(b"original")
+    calls = []
+    read_raw = "\n".join(
+        [
+            "CAPTURE_MCP_META_V1\t1\t0",
+            _component_record(
+                [
+                    ("design", source.as_posix()),
+                    ("occurrence.refdes", "C5"),
+                    ("occurrence.path", "C5"),
+                    ("page_instance.page", "MAIN"),
+                    ("page_instance.object_id", "42"),
+                    ("property_present:Value", "1"),
+                    ("property_value:Value", "new"),
+                ]
+            ),
+        ]
+    )
+
+    def execute(actual_tclsh, script, timeout):
+        calls.append(script)
+        if len(calls) == 1:
+            staging = next(tmp_path.glob(".capture-ai-offline-*/working.DSN"))
+            staging.write_bytes(b"verified changed design")
+            return _set_record("C5", "C5", "Value", "old", "new")
+        return read_raw
+
+    original_unlink = Path.unlink
+
+    def fail_backup_unlink(path, *args, **kwargs):
+        if "capture-ai-backup" in path.name:
+            raise PermissionError("injected backup cleanup failure")
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", fail_backup_unlink)
+    adapter = mcp.OfflineDesignAdapter(cadence_root=cadence_root, executor=execute)
+    server = mcp.CaptureMcpServer(tmp_path / "runtime.json", offline_adapter=adapter)
+
+    response = server.handle(
+        {
+            "jsonrpc": "2.0",
+            "id": 27,
+            "method": "tools/call",
+            "params": {
+                "name": "capture_set_dsn_component_property",
+                "arguments": {
+                    "dsn_path": str(source),
+                    "in_place": True,
+                    "refdes": "C5",
+                    "property_name": "Value",
+                    "value": "new",
+                },
+            },
+        }
+    )
+
+    assert response["result"]["isError"] is True
+    assert "original was restored" in response["result"]["content"][0]["text"]
+    assert source.read_bytes() == b"original"
+    assert not list(tmp_path.glob(".*.capture-ai-backup-*.DSN"))
 
 
 def test_selection_tool_schema_exposes_only_bounded_read_options():
