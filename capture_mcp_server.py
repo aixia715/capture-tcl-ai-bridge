@@ -1549,6 +1549,12 @@ class OfflineDesignAdapter:
                 configured = Path(environment_root)
         if configured is None:
             cds_root = shutil.which("cds_root")
+            # Windows may search the process working directory before PATH.
+            if (
+                cds_root is not None
+                and Path(cds_root).resolve().parent == Path.cwd().resolve()
+            ):
+                cds_root = None
             if cds_root is None:
                 raise ToolExecutionError(
                     "Cadence SPB 16.6 was not found; configure --cadence-root."

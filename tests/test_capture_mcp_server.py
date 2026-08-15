@@ -962,6 +962,28 @@ def test_offline_child_environment_preserves_inherited_license_settings(monkeypa
     assert "CDS_LIC_FILE" not in queried
 
 
+def test_offline_cadence_discovery_rejects_cds_root_from_working_directory(
+    monkeypatch, tmp_path
+):
+    planted = tmp_path / "cds_root.bat"
+    planted.write_text("@exit /b 99\n", encoding="ascii")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("CAPTURE_CADENCE_ROOT", raising=False)
+    monkeypatch.setattr(mcp.shutil, "which", lambda name: str(planted))
+    monkeypatch.setattr(
+        mcp.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("a working-directory cds_root must never execute")
+        ),
+    )
+
+    adapter = mcp.OfflineDesignAdapter()
+
+    with pytest.raises(mcp.ToolExecutionError, match="configure --cadence-root"):
+        adapter._cadence_paths()
+
+
 def test_selection_tool_schema_exposes_only_bounded_read_options():
     assert mcp.INSPECT_SELECTION_TOOL["inputSchema"] == {
         "type": "object",
