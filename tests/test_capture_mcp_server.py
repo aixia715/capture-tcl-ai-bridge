@@ -928,6 +928,40 @@ def test_offline_in_place_restores_original_when_backup_cleanup_fails(
     assert not list(tmp_path.glob(".*.capture-ai-backup-*.DSN"))
 
 
+def test_offline_child_environment_recovers_persistent_license_settings(monkeypatch):
+    monkeypatch.delenv("CDS_LIC_FILE", raising=False)
+    monkeypatch.delenv("LM_LICENSE_FILE", raising=False)
+    persistent = {
+        "CDS_LIC_FILE": r"C:\Cadence\LicenseManager\license.dat",
+        "LM_LICENSE_FILE": None,
+    }
+    monkeypatch.setattr(
+        mcp,
+        "_persistent_windows_environment",
+        lambda name: persistent[name],
+    )
+
+    environment = mcp._offline_child_environment()
+
+    assert environment["CDS_LIC_FILE"] == persistent["CDS_LIC_FILE"]
+    assert "LM_LICENSE_FILE" not in environment
+
+
+def test_offline_child_environment_preserves_inherited_license_settings(monkeypatch):
+    monkeypatch.setenv("CDS_LIC_FILE", "5280@license.example")
+    queried = []
+    monkeypatch.setattr(
+        mcp,
+        "_persistent_windows_environment",
+        lambda name: queried.append(name) or None,
+    )
+
+    environment = mcp._offline_child_environment()
+
+    assert environment["CDS_LIC_FILE"] == "5280@license.example"
+    assert "CDS_LIC_FILE" not in queried
+
+
 def test_selection_tool_schema_exposes_only_bounded_read_options():
     assert mcp.INSPECT_SELECTION_TOOL["inputSchema"] == {
         "type": "object",

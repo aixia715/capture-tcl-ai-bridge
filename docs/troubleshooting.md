@@ -33,6 +33,25 @@ CaptureAiBridgeStatus
   再执行一次 `CaptureAiBridgeStop` 重试清理。
 - **不要**把令牌从描述文件里抄出来存到别处。它每次启动都变。
 
+## Offline Design 报 `ORDBDLL-1017: License not found`
+
+Offline Design 工具不启动 Capture GUI，但 standalone DBO 仍需要找到 Cadence
+许可证。桌面版 Hermes 可能由一个没有刷新用户环境变量的 Explorer 进程启动，
+导致 MCP 子进程看不到后来设置的 `CDS_LIC_FILE`。
+
+当前版本在子进程未继承 `CDS_LIC_FILE` 或 `LM_LICENSE_FILE` 时，会从 Windows
+用户和机器持久环境补齐。升级后需要重启 Hermes，使正在运行的 MCP Server 加载
+新代码。仍失败时比较以下三处；不要把许可证文件内容贴进日志：
+
+```powershell
+[Environment]::GetEnvironmentVariable('CDS_LIC_FILE', 'Process')
+[Environment]::GetEnvironmentVariable('CDS_LIC_FILE', 'User')
+[Environment]::GetEnvironmentVariable('CDS_LIC_FILE', 'Machine')
+```
+
+该错误与 Active Design Bridge 无关。GUI 工具的“连接被拒绝”表示
+`CaptureAiBridgeStart` 没有运行，是另一个独立故障。
+
 ## Start 报告找不到 server 脚本
 
 现象：控制台提示 `capture_tcl_bridge_server.py` 不存在，并给出它实际解析到的路径。

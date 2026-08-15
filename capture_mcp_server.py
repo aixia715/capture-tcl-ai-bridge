@@ -23,6 +23,11 @@ import time
 from typing import Any, BinaryIO
 import uuid
 
+try:
+    import winreg
+except ImportError:  # pragma: no cover - this project runs on Windows
+    winreg = None
+
 from capture_tcl_cli import (
     BridgeClientError,
     SOFTWARE_VERSION,
@@ -1298,6 +1303,7 @@ def _execute_offline_tcl(tclsh: Path, script: str, timeout: float) -> str:
                 stdout=stdout_file,
                 stderr=stderr_file,
                 creationflags=creationflags,
+                env=_offline_child_environment(),
             )
         except OSError as error:
             raise ToolExecutionError(f"Could not start Cadence Tcl: {error}") from error
@@ -1346,6 +1352,41 @@ def _execute_offline_tcl(tclsh: Path, script: str, timeout: float) -> str:
     if process.returncode != 0:
         raise ToolExecutionError(diagnostics or "Cadence Tcl offline operation failed.")
     return output
+
+
+def _persistent_windows_environment(name: str) -> str | None:
+    if winreg is None:
+        return None
+    locations = (
+        (winreg.HKEY_CURRENT_USER, r"Environment"),
+        (
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
+        ),
+    )
+    for hive, key_path in locations:
+        try:
+            with winreg.OpenKey(hive, key_path) as key:
+                value, value_type = winreg.QueryValueEx(key, name)
+        except OSError:
+            continue
+        if not isinstance(value, str) or not value:
+            continue
+        if value_type == winreg.REG_EXPAND_SZ:
+            value = os.path.expandvars(value)
+        return value
+    return None
+
+
+def _offline_child_environment() -> dict[str, str]:
+    environment = os.environ.copy()
+    for name in ("CDS_LIC_FILE", "LM_LICENSE_FILE"):
+        if environment.get(name):
+            continue
+        persistent = _persistent_windows_environment(name)
+        if persistent:
+            environment[name] = persistent
+    return environment
 
 
 def _file_sha256(path: Path) -> str:
