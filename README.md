@@ -129,10 +129,11 @@ POST /v1/execute
 codex mcp add capture -- C:\tclpython\runtime\python.exe C:\tclpython\capture_mcp_server.py
 ```
 
-它暴露三个工具：检查当前 GUI 选择、读取当前设计的元器件有效字符串属性，
-以及修改一个唯一元器件的一项属性并立即回读验证。选择检查支持器件、层次块、
-标量/总线、全局符号、跨页连接器、文字、端口和标题栏；写入不会自动保存设计，
-也不会开放任意 Tcl。
+它暴露五个工具：三个工具检查或修改 Capture GUI 中的 Active Design，另外两个
+工具通过 SPB 16.6 自带的 `tclsh.exe + orDb_Dll_TCL` 直接读写磁盘上的 DSN，
+不启动 `capture.exe` 或 Capture GUI。离线写入先操作私有副本，再由第二个全新
+Cadence Tcl 进程重开验证，验证成功后才发布输出文件或替换原文件。所有属性写入
+都只操作 occurrence；本地属性不存在时创建 override。不会开放任意 Tcl。
 Codex、Claude Code、Hermes 的完整配置和工具参数见 [docs/mcp.md](docs/mcp.md)。
 
 ### 6. 诊断日志（可选）

@@ -350,13 +350,12 @@ proc fx::occDispatch {handle method argsList} {
                 return $st
             }
             set propName [DboTclHelper_sGetConstCharPtr $nameCstr]
-            if {$propName ne {Value}} {
-                error "fake occurrence: unsupported property \"$propName\""
-            }
             incr ::fx::setPropCalls
             if {![info exists ::fx::occRejectWrite($handle)] || !$::fx::occRejectWrite($handle)} {
                 set newValue [DboTclHelper_sGetConstCharPtr $valueCstr]
-                set ::fx::occValue($handle) $newValue
+                if {$propName eq {Value}} {
+                    set ::fx::occValue($handle) $newValue
+                }
                 set ::fx::occProps($handle,$propName) $newValue
             }
             return $st

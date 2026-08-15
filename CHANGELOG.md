@@ -4,6 +4,28 @@
 
 ## [Unreleased]
 
+### Added
+
+- 新增 `capture_nogui_read_dsn_component_properties` 与
+  `capture_nogui_set_dsn_component_property`，通过 SPB 16.6 standalone DBO Session
+  在不启动 Capture GUI 的情况下读取或持久化修改 DSN。
+- 离线写入使用私有 staging、`.DSNlck` 防护、输出副本或显式原地发布、临时备份、
+  独立写入/验证进程和可配置超时。
+
+### Changed
+
+- `capture_set_component_property` 现在可以创建完全缺失的 occurrence property；
+  新旧 setter 的 `before`/`after` 都改用 `present/value` 记录。
+- Embedded Python runtime 现在把安装目标父目录加入模块搜索路径，并在 Release
+  smoke test 中实际启动 MCP server，避免同级模块导入失败。
+- Offline Design 子进程在 Hermes 未继承许可证变量时，会从 Windows 用户或机器
+  持久环境补齐 `CDS_LIC_FILE`/`LM_LICENSE_FILE`，避免误报 `ORDBDLL-1017`。
+
+### Validated
+
+- SPB 16.6 真机验证了 `FNC_PD.DSN` 的无 GUI 完整 Component Information 读取、
+  缺失属性输出副本写入、第二进程重开验证、源文件哈希不变和原地发布备份清理。
+
 ## [0.1.0-beta.3] - 2026-08-12
 
 ### Added

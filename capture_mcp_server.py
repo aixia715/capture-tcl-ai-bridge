@@ -1,16 +1,32 @@
 """MCP stdio server for inspecting OrCAD Capture and changing part properties.
 
 The server intentionally exposes a narrow, typed surface instead of arbitrary Tcl.
-It delegates each operation to the authenticated localhost Capture Tcl bridge.
+Active Design operations use the authenticated localhost bridge; Offline Design
+operations use isolated Cadence DBO processes.
 """
 
 from __future__ import annotations
 
 import argparse
+import ctypes
+from ctypes import wintypes
+import hashlib
 import json
+import math
+import os
 from pathlib import Path
+import shutil
+import subprocess
 import sys
+import tempfile
+import time
 from typing import Any, BinaryIO
+import uuid
+
+try:
+    import winreg
+except ImportError:  # pragma: no cover - this project runs on Windows
+    winreg = None
 
 from capture_tcl_cli import (
     BridgeClientError,
@@ -38,6 +54,7 @@ MAX_PROPERTY_VALUE_LENGTH = 64 * 1024
 MAX_PROPERTIES_PER_READ = 32
 MAX_RESULTS = 5000
 MAX_SELECTION_RESULTS = 1000
+MAX_OFFLINE_OUTPUT_BYTES = 16 * 1024 * 1024
 SERVER_INFO_META_KEY = "io.modelcontextprotocol/serverInfo"
 PROTOCOL_VERSION_META_KEY = "io.modelcontextprotocol/protocolVersion"
 
@@ -98,20 +115,6 @@ proc _captureMcpStringOut {obj method what} {
         error $msg
     }
     set value [DboTclHelper_sGetConstCharPtr $cstr]
-    $st -delete
-    return $value
-}
-
-proc _captureMcpGetProp {obj propName} {
-    set nameC [DboTclHelper_sMakeCString $propName]
-    set valueC [DboTclHelper_sMakeCString]
-    set st [$obj GetEffectivePropStringValue $nameC $valueC]
-    if {[$st OK] != 1} {
-        set msg "DBO_CALL_FAILED: GetEffectivePropStringValue($propName): [_captureMcpStatusMessage $st] (code [$st Code])"
-        $st -delete
-        error $msg
-    }
-    set value [DboTclHelper_sGetConstCharPtr $valueC]
     $st -delete
     return $value
 }
@@ -361,13 +364,13 @@ if {{$_captureMcpMatchCount > 1}} {{
 
 set _captureMcpTarget [lindex $_captureMcpMatchesList 0]
 set _captureMcpMatchedPath [lindex $_captureMcpPaths 0]
-set _captureMcpBefore [_captureMcpGetProp $_captureMcpTarget $_captureMcpPropertyName]
+lassign [_captureMcpReadPropertyRecord $_captureMcpTarget $_captureMcpPropertyName] _captureMcpBeforePresent _captureMcpBefore
 _captureMcpSetProp $_captureMcpTarget $_captureMcpPropertyName $_captureMcpPropertyValue
-set _captureMcpAfter [_captureMcpGetProp $_captureMcpTarget $_captureMcpPropertyName]
-if {{$_captureMcpAfter ne $_captureMcpPropertyValue}} {{
+lassign [_captureMcpReadPropertyRecord $_captureMcpTarget $_captureMcpPropertyName] _captureMcpAfterPresent _captureMcpAfter
+if {{!$_captureMcpAfterPresent || $_captureMcpAfter ne $_captureMcpPropertyValue}} {{
     error "PROPERTY_WRITE_FAILED: property readback does not match the requested value"
 }}
-join [list CAPTURE_MCP_SET_V1 [_captureMcpHex $_captureMcpTargetRefdes] [_captureMcpHex $_captureMcpMatchedPath] [_captureMcpHex $_captureMcpPropertyName] [_captureMcpHex $_captureMcpBefore] [_captureMcpHex $_captureMcpAfter]] "\t"
+join [list CAPTURE_MCP_SET_V2 [_captureMcpHex $_captureMcpTargetRefdes] [_captureMcpHex $_captureMcpMatchedPath] [_captureMcpHex $_captureMcpPropertyName] $_captureMcpBeforePresent [_captureMcpHex $_captureMcpBefore] $_captureMcpAfterPresent [_captureMcpHex $_captureMcpAfter]] "\t"
 """
     )
 
@@ -716,17 +719,29 @@ def _component_information(
     return component
 
 
-def _parse_set_result(raw: str) -> dict[str, str]:
+def _property_presence(present: str, value: str) -> dict[str, Any]:
+    if present == "0":
+        if value:
+            raise ToolExecutionError("Capture returned malformed property-write data.")
+        return {"present": False}
+    if present == "1":
+        return {"present": True, "value": value}
+    raise ToolExecutionError("Capture returned malformed property-write data.")
+
+
+def _parse_set_result(raw: str) -> dict[str, Any]:
     fields = raw.split("\t")
-    if len(fields) != 6 or fields[0] != "CAPTURE_MCP_SET_V1":
+    if len(fields) != 8 or fields[0] != "CAPTURE_MCP_SET_V2":
         raise ToolExecutionError("Capture returned malformed property-write data.")
-    decoded = [_decode_hex(field) for field in fields[1:]]
+    decoded = [_decode_hex(field) for field in fields[1:4]]
+    before_value = _decode_hex(fields[5])
+    after_value = _decode_hex(fields[7])
     return {
         "refdes": decoded[0],
         "path": decoded[1],
         "property": decoded[2],
-        "before": decoded[3],
-        "after": decoded[4],
+        "before": _property_presence(fields[4], before_value),
+        "after": _property_presence(fields[6], after_value),
     }
 
 
@@ -1010,28 +1025,35 @@ def _property_names(arguments: dict[str, Any]) -> list[str]:
     return property_names
 
 
-def read_component_properties(runtime_file: Path, arguments: Any) -> dict[str, Any]:
-    values = _validate_arguments_object(arguments)
-    allowed = {"refdes", "path", "property_names", "max_results"}
+def _component_read_arguments(
+    values: dict[str, Any], *, extra_allowed: set[str] | None = None
+) -> tuple[str | None, str | None, list[str], int]:
+    allowed = {"refdes", "path", "property_names", "max_results"} | (
+        extra_allowed or set()
+    )
     unknown = sorted(set(values) - allowed)
     if unknown:
         raise InvalidToolArguments(f"Unknown argument(s): {', '.join(unknown)}.")
     refdes = _string_argument(values, "refdes", max_length=256)
     path = _string_argument(values, "path", max_length=4096)
-
     property_names = _property_names(values)
-
     max_results = values.get("max_results", 500)
     if type(max_results) is not int or not 1 <= max_results <= MAX_RESULTS:
         raise InvalidToolArguments(
             f"max_results must be an integer from 1 through {MAX_RESULTS}."
         )
+    return refdes, path, property_names, max_results
+
+
+def read_component_properties(runtime_file: Path, arguments: Any) -> dict[str, Any]:
+    values = _validate_arguments_object(arguments)
+    refdes, path, property_names, max_results = _component_read_arguments(values)
     script = build_read_script(refdes, path, property_names, max_results)
     raw = _execute_capture_script(runtime_file, script)
     return _parse_read_result(raw, property_names)
 
 
-def set_component_property(runtime_file: Path, arguments: Any) -> dict[str, str]:
+def set_component_property(runtime_file: Path, arguments: Any) -> dict[str, Any]:
     values = _validate_arguments_object(arguments)
     allowed = {"refdes", "path", "property_name", "value"}
     unknown = sorted(set(values) - allowed)
@@ -1045,18 +1067,7 @@ def set_component_property(runtime_file: Path, arguments: Any) -> dict[str, str]
         required=True,
         max_length=MAX_PROPERTY_NAME_LENGTH,
     )
-    # Empty property values are legal, so validate this field separately.
-    if "value" not in values or type(values["value"]) is not str:
-        raise InvalidToolArguments("value must be a string.")
-    value = values["value"]
-    try:
-        encoded_value = value.encode("utf-8", errors="strict")
-    except UnicodeError as error:
-        raise InvalidToolArguments("value must be valid UTF-8 text.") from error
-    if b"\x00" in encoded_value:
-        raise InvalidToolArguments("value must not contain a NUL character.")
-    if len(value) > MAX_PROPERTY_VALUE_LENGTH:
-        raise InvalidToolArguments("value is too long.")
+    value = _property_value_argument(values)
     assert refdes is not None and property_name is not None
     script = build_set_script(refdes, path, property_name, value)
     raw = _execute_capture_script(runtime_file, script)
@@ -1078,6 +1089,694 @@ def inspect_selection(runtime_file: Path, arguments: Any) -> dict[str, Any]:
     script = build_inspect_selection_script(property_names, max_results)
     raw = _execute_capture_script(runtime_file, script)
     return _parse_selection_result(raw, property_names)
+
+
+_TCL84_OFFLINE_SHIMS = r"""
+if {[llength [info commands ::lassign]] == 0} {
+    proc ::lassign {values args} {
+        set index 0
+        foreach name $args {
+            uplevel 1 [list set $name [lindex $values $index]]
+            incr index
+        }
+        return [lrange $values $index end]
+    }
+}
+
+if {[llength [info commands ::try]] == 0} {
+    proc ::try {body keyword finallyScript} {
+        if {$keyword ne {finally}} {
+            error {the offline Tcl 8.4 try shim supports only: try BODY finally SCRIPT}
+        }
+        set code [catch {uplevel 1 $body} result]
+        set savedInfo $::errorInfo
+        set savedCode $::errorCode
+        set finallyCode [catch {uplevel 1 $finallyScript} finallyResult]
+        if {$finallyCode != 0} {
+            return -code $finallyCode $finallyResult
+        }
+        if {$code == 1} {
+            return -code error -errorinfo $savedInfo -errorcode $savedCode $result
+        }
+        return -code $code $result
+    }
+}
+"""
+
+
+def _build_offline_script(
+    cadence_root: Path, design_path: Path, operation_script: str, *, save: bool
+) -> str:
+    save_script = ""
+    if save:
+        save_script = r"""
+    set _captureOfflineSaveStatus [$_captureOfflineSession SaveDesign $_captureOfflineDesign]
+    if {[$_captureOfflineSaveStatus OK] != 1} {
+        set _captureOfflineMessage [_captureOfflineStatusMessage $_captureOfflineSaveStatus]
+        set _captureOfflineCode [$_captureOfflineSaveStatus Code]
+        $_captureOfflineSaveStatus -delete
+        error "DBO_CALL_FAILED: SaveDesign: $_captureOfflineMessage (code $_captureOfflineCode)"
+    }
+    $_captureOfflineSaveStatus -delete
+"""
+    return (
+        _TCL84_OFFLINE_SHIMS
+        + rf"""
+catch {{fconfigure stdout -encoding utf-8}}
+catch {{fconfigure stderr -encoding utf-8}}
+
+proc _captureOfflineDecode {{hexValue}} {{
+    return [encoding convertfrom utf-8 [binary format H* $hexValue]]
+}}
+
+proc _captureOfflineStatusMessage {{status}} {{
+    set message [DboTclHelper_sMakeCString]
+    $status Message $message
+    return [DboTclHelper_sGetConstCharPtr $message]
+}}
+
+set _captureOfflineRoot [_captureOfflineDecode {{{_utf8_hex(cadence_root.as_posix())}}}]
+set _captureOfflinePath [_captureOfflineDecode {{{_utf8_hex(design_path.as_posix())}}}]
+set _captureOfflineOperation [_captureOfflineDecode {{{_utf8_hex(operation_script)}}}]
+set _captureOfflineState {{}}
+set _captureOfflineSession {{}}
+set _captureOfflineDesign NULL
+set _captureOfflineResult {{}}
+
+set _captureOfflineResultCode [catch {{
+    if {{[info patchlevel] ne {{8.4.15}}}} {{
+        error "UNSUPPORTED_CADENCE_TCL: Offline Design tools require SPB 16.6 Tcl 8.4.15; found [info patchlevel]"
+    }}
+    load [file normalize [file join $_captureOfflineRoot tools capture orDb_Dll_TCL]] DboTclWriteBasic
+    set _captureOfflineState [DboState]
+    set _captureOfflineSession [DboTclHelper_sCreateSession]
+    set _captureOfflinePathC [DboTclHelper_sMakeCString $_captureOfflinePath]
+    set _captureOfflineDesign [$_captureOfflineSession GetDesignAndSchematics $_captureOfflinePathC $_captureOfflineState]
+    if {{$_captureOfflineDesign eq {{NULL}} || [$_captureOfflineState OK] != 1}} {{
+        error "DBO_CALL_FAILED: GetDesignAndSchematics: [_captureOfflineStatusMessage $_captureOfflineState] (code [$_captureOfflineState Code])"
+    }}
+    proc ::GetActivePMDesign {{}} {{ return $::captureOfflineDesign }}
+    set ::captureOfflineDesign $_captureOfflineDesign
+    set _captureOfflineResult [uplevel #0 $_captureOfflineOperation]
+{save_script}
+}} _captureOfflineError]
+
+if {{$_captureOfflineSession ne {{}} && $_captureOfflineDesign ne {{NULL}}}} {{
+    catch {{$_captureOfflineSession RemoveLib $_captureOfflineDesign}}
+}}
+if {{$_captureOfflineSession ne {{}}}} {{
+    catch {{DboTclHelper_sDeleteSession $_captureOfflineSession}}
+}}
+if {{$_captureOfflineState ne {{}}}} {{
+    catch {{$_captureOfflineState -delete}}
+}}
+
+if {{$_captureOfflineResultCode != 0}} {{
+    puts stderr "CAPTURE_OFFLINE_FAILED=$_captureOfflineError"
+    exit 1
+}}
+puts -nonewline $_captureOfflineResult
+"""
+    )
+
+
+class _JobBasicLimitInformation(ctypes.Structure):
+    _fields_ = [
+        ("PerProcessUserTimeLimit", ctypes.c_longlong),
+        ("PerJobUserTimeLimit", ctypes.c_longlong),
+        ("LimitFlags", wintypes.DWORD),
+        ("MinimumWorkingSetSize", ctypes.c_size_t),
+        ("MaximumWorkingSetSize", ctypes.c_size_t),
+        ("ActiveProcessLimit", wintypes.DWORD),
+        ("Affinity", ctypes.c_size_t),
+        ("PriorityClass", wintypes.DWORD),
+        ("SchedulingClass", wintypes.DWORD),
+    ]
+
+
+class _IoCounters(ctypes.Structure):
+    _fields_ = [
+        ("ReadOperationCount", ctypes.c_ulonglong),
+        ("WriteOperationCount", ctypes.c_ulonglong),
+        ("OtherOperationCount", ctypes.c_ulonglong),
+        ("ReadTransferCount", ctypes.c_ulonglong),
+        ("WriteTransferCount", ctypes.c_ulonglong),
+        ("OtherTransferCount", ctypes.c_ulonglong),
+    ]
+
+
+class _JobExtendedLimitInformation(ctypes.Structure):
+    _fields_ = [
+        ("BasicLimitInformation", _JobBasicLimitInformation),
+        ("IoInfo", _IoCounters),
+        ("ProcessMemoryLimit", ctypes.c_size_t),
+        ("JobMemoryLimit", ctypes.c_size_t),
+        ("PeakProcessMemoryUsed", ctypes.c_size_t),
+        ("PeakJobMemoryUsed", ctypes.c_size_t),
+    ]
+
+
+def _assign_kill_on_close_job(process: subprocess.Popen[bytes]) -> tuple[Any, int] | None:
+    if os.name != "nt":
+        return None
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel32.SetInformationJobObject.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+    ]
+    kernel32.SetInformationJobObject.restype = wintypes.BOOL
+    kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+    kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+    kernel32.TerminateJobObject.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    kernel32.TerminateJobObject.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    job = kernel32.CreateJobObjectW(None, None)
+    if not job:
+        process.kill()
+        raise ToolExecutionError("Could not create a Windows Job Object for Cadence Tcl.")
+    information = _JobExtendedLimitInformation()
+    information.BasicLimitInformation.LimitFlags = 0x00002000
+    if not kernel32.SetInformationJobObject(
+        job, 9, ctypes.byref(information), ctypes.sizeof(information)
+    ) or not kernel32.AssignProcessToJobObject(job, wintypes.HANDLE(process._handle)):
+        kernel32.CloseHandle(job)
+        process.kill()
+        raise ToolExecutionError(
+            "Could not contain Cadence Tcl in a Windows Job Object."
+        )
+    return kernel32, job
+
+
+def _terminate_offline_process(
+    process: subprocess.Popen[bytes], job: tuple[Any, int] | None
+) -> None:
+    if job is not None:
+        kernel32, job_handle = job
+        kernel32.TerminateJobObject(job_handle, 1)
+    else:
+        process.kill()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired as error:
+        process.kill()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired as termination_error:
+            raise ToolExecutionError(
+                "Cadence Tcl process tree could not be terminated."
+            ) from termination_error
+
+
+def _execute_offline_tcl(tclsh: Path, script: str, timeout: float) -> str:
+    creationflags = 0
+    if os.name == "nt":
+        creationflags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+    with tempfile.TemporaryFile() as stdout_file, tempfile.TemporaryFile() as stderr_file:
+        try:
+            process = subprocess.Popen(
+                [str(tclsh)],
+                stdin=subprocess.PIPE,
+                stdout=stdout_file,
+                stderr=stderr_file,
+                creationflags=creationflags,
+                env=_offline_child_environment(),
+            )
+        except OSError as error:
+            raise ToolExecutionError(f"Could not start Cadence Tcl: {error}") from error
+        job = _assign_kill_on_close_job(process)
+        try:
+            assert process.stdin is not None
+            process.stdin.write(script.encode("utf-8", errors="strict"))
+            process.stdin.close()
+            deadline = time.monotonic() + timeout
+            while process.poll() is None:
+                if (
+                    os.fstat(stdout_file.fileno()).st_size > MAX_OFFLINE_OUTPUT_BYTES
+                    or os.fstat(stderr_file.fileno()).st_size
+                    > MAX_OFFLINE_OUTPUT_BYTES
+                ):
+                    _terminate_offline_process(process, job)
+                    raise ToolExecutionError(
+                        "Cadence Tcl operation produced too much output."
+                    )
+                if time.monotonic() >= deadline:
+                    _terminate_offline_process(process, job)
+                    raise ToolExecutionError(
+                        f"Cadence Tcl operation timed out after {timeout:g} seconds."
+                    )
+                time.sleep(0.05)
+            if (
+                os.fstat(stdout_file.fileno()).st_size > MAX_OFFLINE_OUTPUT_BYTES
+                or os.fstat(stderr_file.fileno()).st_size > MAX_OFFLINE_OUTPUT_BYTES
+            ):
+                raise ToolExecutionError("Cadence Tcl operation produced too much output.")
+        except (BrokenPipeError, OSError) as error:
+            _terminate_offline_process(process, job)
+            raise ToolExecutionError(f"Cadence Tcl input failed: {error}") from error
+        finally:
+            if job is not None:
+                job[0].CloseHandle(job[1])
+        stdout_file.seek(0)
+        stderr_file.seek(0)
+        stdout = stdout_file.read()
+        stderr = stderr_file.read()
+    try:
+        output = stdout.decode("utf-8", errors="strict")
+        diagnostics = stderr.decode("utf-8", errors="strict").strip()
+    except UnicodeError as error:
+        raise ToolExecutionError("Cadence Tcl returned invalid UTF-8 output.") from error
+    if process.returncode != 0:
+        raise ToolExecutionError(diagnostics or "Cadence Tcl offline operation failed.")
+    return output
+
+
+def _persistent_windows_environment(name: str) -> str | None:
+    if winreg is None:
+        return None
+    locations = (
+        (winreg.HKEY_CURRENT_USER, r"Environment"),
+        (
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment",
+        ),
+    )
+    for hive, key_path in locations:
+        try:
+            with winreg.OpenKey(hive, key_path) as key:
+                value, value_type = winreg.QueryValueEx(key, name)
+        except OSError:
+            continue
+        if not isinstance(value, str) or not value:
+            continue
+        if value_type == winreg.REG_EXPAND_SZ:
+            value = os.path.expandvars(value)
+        return value
+    return None
+
+
+def _offline_child_environment() -> dict[str, str]:
+    environment = os.environ.copy()
+    for name in ("CDS_LIC_FILE", "LM_LICENSE_FILE"):
+        if environment.get(name):
+            continue
+        persistent = _persistent_windows_environment(name)
+        if persistent:
+            environment[name] = persistent
+    return environment
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _sibling_lock_exists(path: Path) -> bool:
+    wanted = f"{path.name}lck".casefold()
+    try:
+        return any(child.name.casefold() == wanted for child in path.parent.iterdir())
+    except OSError as error:
+        raise ToolExecutionError(f"Could not inspect the DSN directory: {error}") from error
+
+
+def _publish_new_file(source: Path, destination: Path) -> None:
+    try:
+        os.link(source, destination)
+    except FileExistsError as error:
+        raise ToolExecutionError(
+            "output_path was created by another process before publication."
+        ) from error
+    except OSError as error:
+        raise ToolExecutionError(f"Could not publish output_path: {error}") from error
+    try:
+        source.unlink()
+    except OSError:
+        # Both names reference the same verified bytes; staging cleanup can retry.
+        pass
+
+
+def _replace_file_with_backup(
+    destination: Path, replacement: Path, backup: Path | None
+) -> None:
+    if os.name != "nt":
+        raise ToolExecutionError("Offline Design in-place publication requires Windows.")
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.ReplaceFileW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.LPCWSTR,
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    ]
+    kernel32.ReplaceFileW.restype = wintypes.BOOL
+    backup_value = None if backup is None else str(backup)
+    if not kernel32.ReplaceFileW(
+        str(destination), str(replacement), backup_value, 0x00000001, None, None
+    ):
+        error = ctypes.get_last_error()
+        raise OSError(error, ctypes.FormatError(error), str(destination))
+
+
+def _dsn_path_argument(
+    arguments: dict[str, Any], name: str, *, must_exist: bool
+) -> Path:
+    raw = _string_argument(arguments, name, required=True, max_length=32767)
+    assert raw is not None
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        raise InvalidToolArguments(f"{name} must be an absolute path.")
+    if path.suffix.casefold() != ".dsn":
+        raise InvalidToolArguments(f"{name} must identify a .DSN file.")
+    try:
+        resolved = path.resolve(strict=must_exist)
+    except OSError as error:
+        raise InvalidToolArguments(f"{name} is not accessible: {error}") from error
+    if must_exist and not resolved.is_file():
+        raise InvalidToolArguments(f"{name} must identify an existing file.")
+    if not must_exist and not resolved.parent.is_dir():
+        raise InvalidToolArguments(f"{name} parent directory must exist.")
+    return resolved
+
+
+def _property_value_argument(arguments: dict[str, Any]) -> str:
+    if "value" not in arguments or type(arguments["value"]) is not str:
+        raise InvalidToolArguments("value must be a string.")
+    value = arguments["value"]
+    try:
+        encoded = value.encode("utf-8", errors="strict")
+    except UnicodeError as error:
+        raise InvalidToolArguments("value must be valid UTF-8 text.") from error
+    if b"\x00" in encoded:
+        raise InvalidToolArguments("value must not contain a NUL character.")
+    if len(value) > MAX_PROPERTY_VALUE_LENGTH:
+        raise InvalidToolArguments("value is too long.")
+    return value
+
+
+def _windows_file_version(path: Path) -> str | None:
+    if os.name != "nt":
+        return None
+    version = ctypes.WinDLL("version", use_last_error=True)
+    version.GetFileVersionInfoSizeW.argtypes = [wintypes.LPCWSTR, ctypes.c_void_p]
+    version.GetFileVersionInfoSizeW.restype = wintypes.DWORD
+    version.GetFileVersionInfoW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+    ]
+    version.GetFileVersionInfoW.restype = wintypes.BOOL
+    version.VerQueryValueW.argtypes = [
+        ctypes.c_void_p,
+        wintypes.LPCWSTR,
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(wintypes.UINT),
+    ]
+    version.VerQueryValueW.restype = wintypes.BOOL
+    size = version.GetFileVersionInfoSizeW(str(path), None)
+    if not size:
+        return None
+    buffer = ctypes.create_string_buffer(size)
+    if not version.GetFileVersionInfoW(str(path), 0, size, buffer):
+        return None
+    translation = ctypes.c_void_p()
+    length = wintypes.UINT()
+    if not version.VerQueryValueW(
+        buffer,
+        "\\VarFileInfo\\Translation",
+        ctypes.byref(translation),
+        ctypes.byref(length),
+    ) or length.value < 4:
+        return None
+    language, codepage = ctypes.cast(
+        translation, ctypes.POINTER(ctypes.c_ushort * 2)
+    ).contents
+    value = ctypes.c_void_p()
+    query = f"\\StringFileInfo\\{language:04x}{codepage:04x}\\FileVersion"
+    if not version.VerQueryValueW(
+        buffer, query, ctypes.byref(value), ctypes.byref(length)
+    ):
+        return None
+    return ctypes.wstring_at(value, length.value).rstrip("\x00")
+
+
+class OfflineDesignAdapter:
+    def __init__(
+        self,
+        *,
+        cadence_root: Path | None = None,
+        read_timeout: float = 60,
+        write_timeout: float = 120,
+        executor: Any = _execute_offline_tcl,
+    ) -> None:
+        self.cadence_root = cadence_root
+        self.read_timeout = read_timeout
+        self.write_timeout = write_timeout
+        self.executor = executor
+
+    def _cadence_paths(self) -> tuple[Path, Path]:
+        configured = self.cadence_root
+        if configured is None:
+            environment_root = os.environ.get("CAPTURE_CADENCE_ROOT")
+            if environment_root:
+                configured = Path(environment_root)
+        if configured is None:
+            cds_root = shutil.which("cds_root")
+            # Windows may search the process working directory before PATH.
+            if (
+                cds_root is not None
+                and Path(cds_root).resolve().parent == Path.cwd().resolve()
+            ):
+                cds_root = None
+            if cds_root is None:
+                raise ToolExecutionError(
+                    "Cadence SPB 16.6 was not found; configure --cadence-root."
+                )
+            try:
+                discovered = subprocess.run(
+                    [cds_root, "cds_root"],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="strict",
+                    timeout=10,
+                    check=True,
+                ).stdout.strip()
+            except (OSError, UnicodeError, subprocess.SubprocessError) as error:
+                raise ToolExecutionError(
+                    "Could not discover the Cadence installation with cds_root."
+                ) from error
+            configured = Path(discovered)
+        root = configured.expanduser().resolve()
+        tclsh = root / "tools" / "tcl84" / "bin" / "tclsh.exe"
+        dbo = root / "tools" / "capture" / "orDb_Dll_TCL.dll"
+        if not tclsh.is_file() or not dbo.is_file():
+            raise ToolExecutionError(
+                "The Cadence root must contain matching SPB 16.6 tclsh.exe and orDb_Dll_TCL.dll files."
+            )
+        if self.executor is _execute_offline_tcl:
+            dbo_version = _windows_file_version(dbo)
+            if dbo_version is None or not dbo_version.startswith("16.6"):
+                found = dbo_version or "unknown"
+                raise ToolExecutionError(
+                    f"Offline Design tools require an SPB 16.6 DBO DLL; found {found}."
+                )
+        return root, tclsh
+
+    def read_component_properties(self, arguments: Any) -> dict[str, Any]:
+        values = _validate_arguments_object(arguments)
+        design_path = _dsn_path_argument(values, "dsn_path", must_exist=True)
+        refdes, path, property_names, max_results = _component_read_arguments(
+            values, extra_allowed={"dsn_path"}
+        )
+        root, tclsh = self._cadence_paths()
+        operation = build_read_script(refdes, path, property_names, max_results)
+        raw = self.executor(
+            tclsh,
+            _build_offline_script(root, design_path, operation, save=False),
+            self.read_timeout,
+        )
+        result = _parse_read_result(raw, property_names)
+        normalized = design_path.as_posix()
+        for component in result["components"]:
+            component["design"] = normalized
+        return result
+
+    def set_component_property(self, arguments: Any) -> dict[str, Any]:
+        values = _validate_arguments_object(arguments)
+        allowed = {
+            "dsn_path",
+            "output_path",
+            "in_place",
+            "refdes",
+            "path",
+            "property_name",
+            "value",
+        }
+        unknown = sorted(set(values) - allowed)
+        if unknown:
+            raise InvalidToolArguments(f"Unknown argument(s): {', '.join(unknown)}.")
+        source = _dsn_path_argument(values, "dsn_path", must_exist=True)
+        in_place = values.get("in_place", False)
+        if type(in_place) is not bool:
+            raise InvalidToolArguments("in_place must be a boolean.")
+        has_output = "output_path" in values
+        if in_place == has_output:
+            raise InvalidToolArguments(
+                "Supply output_path, or set in_place to true, but not both."
+            )
+        if in_place:
+            destination = source
+        else:
+            destination = _dsn_path_argument(values, "output_path", must_exist=False)
+            if destination.exists():
+                raise InvalidToolArguments("output_path must not already exist.")
+        refdes = _string_argument(values, "refdes", required=True, max_length=256)
+        path = _string_argument(values, "path", max_length=4096)
+        property_name = _string_argument(
+            values,
+            "property_name",
+            required=True,
+            max_length=MAX_PROPERTY_NAME_LENGTH,
+        )
+        value = _property_value_argument(values)
+        assert refdes is not None and property_name is not None
+
+        source_locked = _sibling_lock_exists(source)
+        if in_place and source_locked:
+            raise ToolExecutionError(
+                f"DESIGN_LOCKED: {source} has a sibling .DSNlck file."
+            )
+        if not in_place and _sibling_lock_exists(destination):
+            raise ToolExecutionError(
+                f"DESIGN_LOCKED: {destination} has a sibling .DSNlck file."
+            )
+
+        root, tclsh = self._cadence_paths()
+        original_hash = _file_sha256(source)
+        staging_directory = Path(
+            tempfile.mkdtemp(prefix=".capture-ai-offline-", dir=destination.parent)
+        )
+        staging_design = staging_directory / "working.DSN"
+        backup: Path | None = None
+        result: dict[str, Any] | None = None
+        try:
+            shutil.copy2(source, staging_design)
+            if (
+                _file_sha256(staging_design) != original_hash
+                or _file_sha256(source) != original_hash
+            ):
+                raise ToolExecutionError("The source DSN changed while it was copied.")
+            set_operation = build_set_script(refdes, path, property_name, value)
+            raw_set = self.executor(
+                tclsh,
+                _build_offline_script(root, staging_design, set_operation, save=True),
+                self.write_timeout,
+            )
+            set_result = _parse_set_result(raw_set)
+
+            matched_path = set_result["path"]
+            verify_operation = build_read_script(
+                refdes, matched_path, [property_name], 2
+            )
+            raw_verify = self.executor(
+                tclsh,
+                _build_offline_script(
+                    root, staging_design, verify_operation, save=False
+                ),
+                self.write_timeout,
+            )
+            verification = _parse_read_result(raw_verify, [property_name])
+            if verification["count"] != 1 or verification["truncated"]:
+                raise ToolExecutionError(
+                    "PROPERTY_PERSISTENCE_FAILED: the saved occurrence was not unique after reopening."
+                )
+            persisted = verification["components"][0]["properties"][property_name]
+            if persisted != {"present": True, "value": value}:
+                raise ToolExecutionError(
+                    "PROPERTY_PERSISTENCE_FAILED: fresh-process readback did not match the requested value."
+                )
+
+            staged_hash = _file_sha256(staging_design)
+            if in_place:
+                if _sibling_lock_exists(source):
+                    raise ToolExecutionError(
+                        f"DESIGN_LOCKED: {source} became locked before publication."
+                    )
+                if _file_sha256(source) != original_hash:
+                    raise ToolExecutionError(
+                        "The source DSN changed before the verified result could be published."
+                    )
+                backup = source.with_name(
+                    f".{source.stem}.capture-ai-backup-{uuid.uuid4().hex}.DSN"
+                )
+                published = False
+                try:
+                    _replace_file_with_backup(source, staging_design, backup)
+                    published = True
+                    if _file_sha256(backup) != original_hash:
+                        raise OSError("the source DSN changed during atomic publication")
+                    if _sibling_lock_exists(source):
+                        raise OSError("the source DSN became locked during publication")
+                    if _file_sha256(source) != staged_hash:
+                        raise OSError("published DSN hash mismatch")
+                    backup.unlink()
+                    backup = None
+                except Exception as error:
+                    if published and backup is not None:
+                        try:
+                            if not source.exists() or _file_sha256(source) != staged_hash:
+                                raise OSError(
+                                    "the published DSN changed before rollback"
+                                )
+                            _replace_file_with_backup(source, backup, None)
+                            backup = None
+                        except OSError as restore_error:
+                            raise ToolExecutionError(
+                                f"DSN publication failed and rollback would overwrite concurrent work; backup remains at {backup}: {restore_error}"
+                            ) from error
+                        raise ToolExecutionError(
+                            f"Could not publish the verified DSN; the original was restored: {error}"
+                        ) from error
+                    if backup is not None and backup.exists():
+                        raise ToolExecutionError(
+                            f"Atomic DSN publication failed; backup remains at {backup}: {error}"
+                        ) from error
+                    raise ToolExecutionError(
+                        f"Atomic DSN publication failed before replacement: {error}"
+                    ) from error
+            else:
+                if _file_sha256(source) != original_hash:
+                    raise ToolExecutionError(
+                        "The source DSN changed before the verified output could be published."
+                    )
+                _publish_new_file(staging_design, destination)
+
+            result = {
+                "dsn_path": source.as_posix(),
+                "output_path": destination.as_posix(),
+                "source_locked": source_locked,
+                **set_result,
+            }
+            return result
+        finally:
+            active_error = sys.exc_info()[1]
+            try:
+                shutil.rmtree(staging_directory)
+            except OSError as cleanup_error:
+                message = f"Staging cleanup failed; files remain at {staging_directory}: {cleanup_error}"
+                if active_error is not None:
+                    raise ToolExecutionError(f"{active_error}\n{message}") from active_error
+                assert result is not None
+                result["cleanup_warning"] = message
+                result["staging_path"] = staging_directory.as_posix()
 
 
 INSPECT_SELECTION_TOOL = {
@@ -1183,6 +1882,87 @@ SET_TOOL = {
 }
 
 
+READ_DSN_TOOL = {
+    "name": "capture_nogui_read_dsn_component_properties",
+    "title": "Read component properties from an Offline Design",
+    "description": (
+        "Read effective string properties from an absolute DSN path without "
+        "starting the OrCAD Capture GUI. Omit refdes/path to list components."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "dsn_path": {"type": "string", "minLength": 1},
+            "refdes": {"type": "string", "minLength": 1},
+            "path": {"type": "string", "minLength": 1},
+            "property_names": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": MAX_PROPERTIES_PER_READ,
+                "items": {"type": "string", "minLength": 1},
+                "default": list(DEFAULT_PROPERTIES),
+            },
+            "max_results": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": MAX_RESULTS,
+                "default": 500,
+            },
+        },
+        "required": ["dsn_path"],
+        "additionalProperties": False,
+    },
+    "annotations": {
+        "readOnlyHint": True,
+        "destructiveHint": False,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+}
+
+
+SET_DSN_TOOL = {
+    "name": "capture_nogui_set_dsn_component_property",
+    "title": "Set an Occurrence Property in an Offline Design",
+    "description": (
+        "Set an occurrence property in a DSN without starting the OrCAD Capture "
+        "GUI, save it, and verify persistence in a fresh Cadence Tcl process. "
+        "Supply output_path, or explicitly set in_place to true."
+    ),
+    "inputSchema": {
+        "type": "object",
+        "properties": {
+            "dsn_path": {"type": "string", "minLength": 1},
+            "output_path": {"type": "string", "minLength": 1},
+            "in_place": {"type": "boolean", "default": False},
+            "refdes": {"type": "string", "minLength": 1},
+            "path": {"type": "string", "minLength": 1},
+            "property_name": {"type": "string", "minLength": 1},
+            "value": {"type": "string"},
+        },
+        "required": ["dsn_path", "refdes", "property_name", "value"],
+        "oneOf": [
+            {
+                "required": ["output_path"],
+                "properties": {"in_place": {"const": False}},
+            },
+            {
+                "required": ["in_place"],
+                "properties": {"in_place": {"const": True}},
+                "not": {"required": ["output_path"]},
+            },
+        ],
+        "additionalProperties": False,
+    },
+    "annotations": {
+        "readOnlyHint": False,
+        "destructiveHint": True,
+        "idempotentHint": True,
+        "openWorldHint": False,
+    },
+}
+
+
 def _server_meta() -> dict[str, Any]:
     return {SERVER_INFO_META_KEY: {"name": SERVER_NAME, "version": SERVER_VERSION}}
 
@@ -1220,8 +2000,9 @@ def _tool_error(message: str, modern: bool) -> dict[str, Any]:
 
 
 class CaptureMcpServer:
-    def __init__(self, runtime_file: Path) -> None:
+    def __init__(self, runtime_file: Path, *, offline_adapter: Any | None = None) -> None:
         self.runtime_file = runtime_file
+        self.offline_adapter = offline_adapter
         self.legacy_protocol: str | None = None
 
     def handle(self, message: Any) -> dict[str, Any] | None:
@@ -1269,7 +2050,13 @@ class CaptureMcpServer:
             return self._success(request_id, _complete_result({}, modern))
         if method == "tools/list":
             result: dict[str, Any] = {
-                "tools": [INSPECT_SELECTION_TOOL, READ_TOOL, SET_TOOL]
+                "tools": [
+                    INSPECT_SELECTION_TOOL,
+                    READ_TOOL,
+                    SET_TOOL,
+                    READ_DSN_TOOL,
+                    SET_DSN_TOOL,
+                ]
             }
             if modern:
                 result.update({"ttlMs": 86_400_000, "cacheScope": "public"})
@@ -1301,13 +2088,16 @@ class CaptureMcpServer:
     @staticmethod
     def _instructions() -> str:
         return (
-            "Operate only on the active OrCAD Capture design. When a user refers to "
+            "Active Design tools operate only on the design open in OrCAD Capture. "
+            "Offline Design tools require an explicit absolute DSN path and never infer "
+            "it from the active design. When a user refers to "
             "the current, newly selected, or just-selected object, call "
             "capture_inspect_selection immediately before writing. Reuse an earlier "
             "locator only when the user clearly refers to that earlier result. If a "
             "mutation target is ambiguous, refresh the selection or ask; never guess. "
             "Property writes use the occurrence refdes and exact path, change only "
-            "in-memory properties, verify readback, and never save the design."
+            "in-memory properties, verify readback, and never save the design. Offline "
+            "property writes save and verify the requested output DSN."
         )
 
     @staticmethod
@@ -1338,6 +2128,14 @@ class CaptureMcpServer:
                 value = read_component_properties(self.runtime_file, arguments)
             elif name == SET_TOOL["name"]:
                 value = set_component_property(self.runtime_file, arguments)
+            elif name == READ_DSN_TOOL["name"]:
+                if self.offline_adapter is None:
+                    raise ToolExecutionError("Offline DSN support is not configured.")
+                value = self.offline_adapter.read_component_properties(arguments)
+            elif name == SET_DSN_TOOL["name"]:
+                if self.offline_adapter is None:
+                    raise ToolExecutionError("Offline DSN support is not configured.")
+                value = self.offline_adapter.set_component_property(arguments)
             else:
                 return self._error(request_id, -32602, f"Unknown tool: {name}")
         except (InvalidToolArguments, ToolExecutionError) as error:
@@ -1410,12 +2208,46 @@ def build_parser() -> argparse.ArgumentParser:
         default=default_runtime_file(),
         help="Capture Tcl bridge runtime descriptor (defaults to %%TEMP%%).",
     )
+    parser.add_argument(
+        "--cadence-root",
+        type=Path,
+        help=(
+            "Cadence SPB 16.6 installation root for offline DSN tools. "
+            "Defaults to CAPTURE_CADENCE_ROOT or cds_root discovery."
+        ),
+    )
+    parser.add_argument(
+        "--offline-read-timeout",
+        type=float,
+        default=60,
+        help="Timeout in seconds for each offline DSN read process.",
+    )
+    parser.add_argument(
+        "--offline-write-timeout",
+        type=float,
+        default=120,
+        help="Timeout in seconds for each offline DSN writer or verifier process.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     arguments = build_parser().parse_args(argv)
-    return serve_stdio(CaptureMcpServer(arguments.runtime_file))
+    if (
+        not math.isfinite(arguments.offline_read_timeout)
+        or not math.isfinite(arguments.offline_write_timeout)
+        or arguments.offline_read_timeout <= 0
+        or arguments.offline_write_timeout <= 0
+    ):
+        raise SystemExit("offline timeouts must be greater than zero")
+    offline_adapter = OfflineDesignAdapter(
+        cadence_root=arguments.cadence_root,
+        read_timeout=arguments.offline_read_timeout,
+        write_timeout=arguments.offline_write_timeout,
+    )
+    return serve_stdio(
+        CaptureMcpServer(arguments.runtime_file, offline_adapter=offline_adapter)
+    )
 
 
 if __name__ == "__main__":

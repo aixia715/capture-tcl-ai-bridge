@@ -36,7 +36,7 @@ jobs:
           Invoke-WebRequest "https://www.python.org/ftp/python/$version/python-$version-embed-amd64.zip" -OutFile $zip
           Expand-Archive -LiteralPath $zip -DestinationPath $runtime
           $pth = Join-Path $runtime 'python312._pth'
-          @('python312.zip', '.', 'Lib', 'Lib/site-packages', 'import site') | Set-Content -LiteralPath $pth -Encoding ascii
+          @('python312.zip', '.', '..', 'Lib', 'Lib/site-packages', 'import site') | Set-Content -LiteralPath $pth -Encoding ascii
           python -m pip install --disable-pip-version-check --no-compile --target (Join-Path $runtime 'Lib/site-packages') -r requirements.txt
           & (Join-Path $runtime 'python.exe') -c "import fastapi, uvicorn; print('bundled runtime OK')"
       - name: Assemble release archive
@@ -63,6 +63,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Released archive installer smoke test failed.' }
           & (Join-Path $smokePython 'runtime/python.exe') -c "import fastapi, uvicorn"
           if ($LASTEXITCODE -ne 0) { throw 'Deployed runtime cannot import fastapi or uvicorn.' }
+          & (Join-Path $smokePython 'runtime/python.exe') (Join-Path $smokePython 'capture_mcp_server.py') --help
+          if ($LASTEXITCODE -ne 0) { throw 'Deployed runtime cannot start the MCP server.' }
       - uses: actions/upload-artifact@v4
         with:
           name: capture-tcl-ai-bridge-windows-x64

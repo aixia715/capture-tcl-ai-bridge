@@ -1,32 +1,43 @@
 # Capture MCP
 
 `capture_mcp_server.py` is a local stdio MCP server for AI agents such as
-Codex, Claude Code and Hermes. It talks to the already-running authenticated
-Capture Tcl bridge and intentionally exposes only three closed-world tools:
+Codex, Claude Code and Hermes. Active Design tools talk to the authenticated
+Capture Tcl bridge; Offline Design tools use a standalone SPB 16.6 DBO session.
+The server intentionally exposes only five closed-world tools:
 
 | Tool | Effect |
 | --- | --- |
 | `capture_inspect_selection` | Reads the Current Selection from the active schematic page and returns typed objects with locators. |
 | `capture_read_component_properties` | Lists components in the active design and reads requested effective string properties. |
 | `capture_set_component_property` | Changes one property on exactly one component and verifies it by immediate readback. |
+| `capture_nogui_read_dsn_component_properties` | Reads Component Information from an absolute DSN path without starting Capture GUI. |
+| `capture_nogui_set_dsn_component_property` | Sets one Occurrence Property in a staged DSN, saves it, and verifies it in a fresh process before publication. |
 
-The write tool changes the design open in Capture but **does not save it**.
-Capture remains the place where the user reviews and saves or discards changes.
+The Active Design write tool **does not save**; Capture remains where the user
+reviews and saves or discards that change. The Offline Design write tool is
+persistent and reports success only after a new `tclsh.exe` process reopens and
+verifies the saved DSN.
 
 ## Prerequisites
 
-Install and start the Tcl bridge first:
+Install the project first:
 
 ```powershell
 .\install.ps1
 ```
 
-Then run this in the Capture Tcl console:
+Active Design tools also require the bridge. Run this in the Capture Tcl console:
 
 ```tcl
 source C:/cadence/SPB_17.4/tools/capture/tclscripts/capAutoLoad/captureAiBridge.tcl
 CaptureAiBridgeStart
 ```
+
+Offline Design tools do not require the bridge or a running `capture.exe`. They
+require SPB 16.6. The MCP server uses `--cadence-root` when supplied, then
+`CAPTURE_CADENCE_ROOT`, then `cds_root cds_root`; the selected root must contain
+matching `tools\tcl84\bin\tclsh.exe` and
+`tools\capture\orDb_Dll_TCL.dll` files.
 
 The MCP process is launched by the agent client. Do not start it in a separate
 terminal: stdio is reserved for MCP JSON-RPC traffic.
@@ -49,7 +60,7 @@ The equivalent `config.toml` entry is:
 [mcp_servers.capture]
 command = "python"
 args = ["C:\\tclpython\\capture_mcp_server.py"]
-tool_timeout_sec = 45
+tool_timeout_sec = 300
 ```
 
 ### Claude Code
@@ -95,7 +106,7 @@ mcp_servers:
   capture:
     command: "python.exe"
     args: ["C:\\tclpython\\capture_mcp_server.py"]
-    timeout: 45
+    timeout: 300
     supports_parallel_tool_calls: false
 ```
 
@@ -169,6 +180,59 @@ when the rest of the selection can still be returned.
 Write results contain `before` and `after`. DBO failures are returned as MCP tool
 errors so the agent can correct its request.
 
+Both setters use the same Occurrence Property Set semantics. The assignment is
+always made on the target occurrence: an existing occurrence value is replaced,
+an inherited value is overridden on that occurrence, and a completely missing
+property is created there. `before` and `after` use the same presence records as
+reads, so missing and empty values remain distinct:
+
+```json
+{
+  "before": {"present": false},
+  "after": {"present": true, "value": "Acme"}
+}
+```
+
+### Offline Design tools
+
+Read a DSN without starting Capture GUI:
+
+```json
+{
+  "dsn_path": "C:\\designs\\board.DSN",
+  "refdes": "C5",
+  "property_names": ["Value", "PCB Footprint"]
+}
+```
+
+Offline reads return the same Component Information as Active Design reads,
+including occurrence and page-instance locators. The component `design` field is
+the normalized absolute DSN path.
+
+Write to a new output DSN, which must not already exist:
+
+```json
+{
+  "dsn_path": "C:\\designs\\board.DSN",
+  "output_path": "C:\\designs\\board-updated.DSN",
+  "refdes": "C5",
+  "path": "FNC-QQ/C5",
+  "property_name": "Manufacturer",
+  "value": "Acme"
+}
+```
+
+To replace the source explicitly, omit `output_path` and set `"in_place":true`.
+The operation stages a private copy, runs a writer process, runs a separate
+read-only verifier process, then atomically publishes the verified DSN. In-place
+publication creates a temporary adjacent backup and removes it after success.
+
+Capture indicates an open DSN with a same-directory sibling such as
+`board.DSNlck`. The server never removes that file. Reads and output-copy writes
+remain allowed and an output-copy result reports `source_locked:true`; in-place
+writes fail with `DESIGN_LOCKED`. Output-copy reads only the last state saved on
+disk, not unsaved GUI changes.
+
 ### Selection refresh rules for agents
 
 - “current”, “newly selected”, or “just selected” means call
@@ -189,7 +253,8 @@ locator).
 
 ## Scope and safety
 
-- Only the active Capture design is addressed.
+- Active Design tools address only the design open in Capture. Offline Design
+  tools require an explicit absolute `.DSN` path and never infer it from the GUI.
 - Selection is read at tool execution time; no snapshot token or Tcl handle is
   retained between MCP calls.
 - No arbitrary Tcl tool is exposed through MCP.
@@ -198,8 +263,10 @@ locator).
 - A write must resolve to exactly one component. Duplicate refdes values require
   an exact hierarchical path.
 - Page object IDs are never used for component property writes.
-- Every write is read back and compared before success is reported.
-- The MCP server never saves the design and never modifies topology.
+- Every Active Design write is read back immediately. Every Offline Design write
+  is saved and then re-read by a fresh `tclsh.exe` process before publication.
+- Active Design writes never save. Offline Design writes persist only the requested
+  Occurrence Property and never modify topology.
 - The runtime descriptor and bearer token remain governed by the bridge's
   existing localhost security model; see [security.md](security.md).
 
@@ -212,3 +279,14 @@ For a non-default runtime descriptor, append:
 ```text
 --runtime-file C:\path\to\capture_tcl_bridge.json
 ```
+
+Offline configuration options are:
+
+```text
+--cadence-root C:\Cadence\SPB_16.6
+--offline-read-timeout 60
+--offline-write-timeout 120
+```
+
+Each timeout applies to one isolated Cadence process. A timeout terminates that
+process tree and discards staging; an unverified output is never published.
