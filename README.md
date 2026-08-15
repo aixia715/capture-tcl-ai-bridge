@@ -1,6 +1,6 @@
 # Capture Tcl AI Bridge
 
-当前预发布版本：**0.1.0-beta.3**。
+当前预发布版本：**0.1.0-beta.4**。
 版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 把本机 AI 客户端或人工命令行提交的多行 Tcl，交给**正在运行的** OrCAD Capture
@@ -91,7 +91,7 @@ CaptureAiBridgeStatus
 ```
 
 `CaptureAiBridgeStatus` 的第一行会显示版本，例如
-`Capture Tcl AI Bridge v0.1.0-beta.3`。
+`Capture Tcl AI Bridge v0.1.0-beta.4`。
 
 ### 3. 用命令行执行 Tcl
 

@@ -376,7 +376,7 @@ def test_health_rejects_non_ascii_authorization_without_an_internal_error(client
 
 def test_health_returns_exact_service_identity_and_connection_status(client):
     assert bridge.SERVICE == "capture-tcl-bridge"
-    assert bridge.SOFTWARE_VERSION == "0.1.0-beta.3"
+    assert bridge.SOFTWARE_VERSION == "0.1.0-beta.4"
     assert bridge.PROTOCOL_VERSION == 1
 
     response = client.get("/v1/health", headers=bridge_headers())
