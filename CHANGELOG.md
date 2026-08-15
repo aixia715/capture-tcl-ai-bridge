@@ -16,6 +16,8 @@
 
 - `capture_set_component_property` 现在可以创建完全缺失的 occurrence property；
   新旧 setter 的 `before`/`after` 都改用 `present/value` 记录。
+- Embedded Python runtime 现在把安装目标父目录加入模块搜索路径，并在 Release
+  smoke test 中实际启动 MCP server，避免同级模块导入失败。
 
 ### Validated
 

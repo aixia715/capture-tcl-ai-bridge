@@ -22,3 +22,15 @@ def test_runtime_version_is_identical_in_every_deployed_component():
         == mcp.SERVER_VERSION
         == match.group(1)
     )
+
+
+def test_release_runtime_can_import_deployed_sibling_modules():
+    workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert (
+        "@('python312.zip', '.', '..', 'Lib', 'Lib/site-packages', 'import site')"
+        in workflow
+    )
+    assert "(Join-Path $smokePython 'capture_mcp_server.py') --help" in workflow
