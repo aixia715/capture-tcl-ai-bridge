@@ -10,8 +10,8 @@ The server intentionally exposes only five closed-world tools:
 | `capture_inspect_selection` | Reads the Current Selection from the active schematic page and returns typed objects with locators. |
 | `capture_read_component_properties` | Lists components in the active design and reads requested effective string properties. |
 | `capture_set_component_property` | Changes one property on exactly one component and verifies it by immediate readback. |
-| `capture_read_dsn_component_properties` | Reads Component Information from an absolute DSN path without starting Capture GUI. |
-| `capture_set_dsn_component_property` | Sets one Occurrence Property in a staged DSN, saves it, and verifies it in a fresh process before publication. |
+| `capture_nogui_read_dsn_component_properties` | Reads Component Information from an absolute DSN path without starting Capture GUI. |
+| `capture_nogui_set_dsn_component_property` | Sets one Occurrence Property in a staged DSN, saves it, and verifies it in a fresh process before publication. |
 
 The Active Design write tool **does not save**; Capture remains where the user
 reviews and saves or discards that change. The Offline Design write tool is

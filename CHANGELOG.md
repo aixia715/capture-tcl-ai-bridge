@@ -6,8 +6,8 @@
 
 ### Added
 
-- 新增 `capture_read_dsn_component_properties` 与
-  `capture_set_dsn_component_property`，通过 SPB 16.6 standalone DBO Session
+- 新增 `capture_nogui_read_dsn_component_properties` 与
+  `capture_nogui_set_dsn_component_property`，通过 SPB 16.6 standalone DBO Session
   在不启动 Capture GUI 的情况下读取或持久化修改 DSN。
 - 离线写入使用私有 staging、`.DSNlck` 防护、输出副本或显式原地发布、临时备份、
   独立写入/验证进程和可配置超时。

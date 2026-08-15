@@ -421,8 +421,8 @@ def test_legacy_initialize_and_tool_listing(tmp_path):
         "capture_inspect_selection",
         "capture_read_component_properties",
         "capture_set_component_property",
-        "capture_read_dsn_component_properties",
-        "capture_set_dsn_component_property",
+        "capture_nogui_read_dsn_component_properties",
+        "capture_nogui_set_dsn_component_property",
     ]
     assert "resultType" not in listed["result"]
 
@@ -456,8 +456,8 @@ def test_modern_discovery_and_tool_listing_include_required_envelope(tmp_path):
         "capture_inspect_selection",
         "capture_read_component_properties",
         "capture_set_component_property",
-        "capture_read_dsn_component_properties",
-        "capture_set_dsn_component_property",
+        "capture_nogui_read_dsn_component_properties",
+        "capture_nogui_set_dsn_component_property",
     ]
 
 
@@ -515,7 +515,7 @@ def test_offline_tools_are_available_through_mcp_without_the_gui_bridge(tmp_path
             "id": 20,
             "method": "tools/call",
             "params": {
-                "name": "capture_read_dsn_component_properties",
+                "name": "capture_nogui_read_dsn_component_properties",
                 "arguments": read_arguments,
             },
         }
@@ -526,7 +526,7 @@ def test_offline_tools_are_available_through_mcp_without_the_gui_bridge(tmp_path
             "id": 21,
             "method": "tools/call",
             "params": {
-                "name": "capture_set_dsn_component_property",
+                "name": "capture_nogui_set_dsn_component_property",
                 "arguments": set_arguments,
             },
         }
@@ -590,7 +590,7 @@ def test_offline_set_uses_staging_then_fresh_verification_before_publishing(
             "id": 22,
             "method": "tools/call",
             "params": {
-                "name": "capture_set_dsn_component_property",
+                "name": "capture_nogui_set_dsn_component_property",
                 "arguments": {
                     "dsn_path": str(source),
                     "output_path": str(output),
@@ -641,7 +641,7 @@ def test_offline_set_rejects_in_place_when_capture_lock_exists(tmp_path):
             "id": 23,
             "method": "tools/call",
             "params": {
-                "name": "capture_set_dsn_component_property",
+                "name": "capture_nogui_set_dsn_component_property",
                 "arguments": {
                     "dsn_path": str(source),
                     "in_place": True,
@@ -703,7 +703,7 @@ def test_offline_set_does_not_publish_failed_fresh_process_verification(tmp_path
             "id": 24,
             "method": "tools/call",
             "params": {
-                "name": "capture_set_dsn_component_property",
+                "name": "capture_nogui_set_dsn_component_property",
                 "arguments": {
                     "dsn_path": str(source),
                     "output_path": str(output),
@@ -776,7 +776,7 @@ def test_offline_output_does_not_overwrite_a_concurrently_created_destination(
             "id": 25,
             "method": "tools/call",
             "params": {
-                "name": "capture_set_dsn_component_property",
+                "name": "capture_nogui_set_dsn_component_property",
                 "arguments": {
                     "dsn_path": str(source),
                     "output_path": str(output),
@@ -837,7 +837,7 @@ def test_offline_output_rejects_a_source_change_during_verification(tmp_path):
             "id": 26,
             "method": "tools/call",
             "params": {
-                "name": "capture_set_dsn_component_property",
+                "name": "capture_nogui_set_dsn_component_property",
                 "arguments": {
                     "dsn_path": str(source),
                     "output_path": str(output),
@@ -910,7 +910,7 @@ def test_offline_in_place_restores_original_when_backup_cleanup_fails(
             "id": 27,
             "method": "tools/call",
             "params": {
-                "name": "capture_set_dsn_component_property",
+                "name": "capture_nogui_set_dsn_component_property",
                 "arguments": {
                     "dsn_path": str(source),
                     "in_place": True,

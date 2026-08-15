@@ -1877,7 +1877,7 @@ SET_TOOL = {
 
 
 READ_DSN_TOOL = {
-    "name": "capture_read_dsn_component_properties",
+    "name": "capture_nogui_read_dsn_component_properties",
     "title": "Read component properties from an Offline Design",
     "description": (
         "Read effective string properties from an absolute DSN path without "
@@ -1916,7 +1916,7 @@ READ_DSN_TOOL = {
 
 
 SET_DSN_TOOL = {
-    "name": "capture_set_dsn_component_property",
+    "name": "capture_nogui_set_dsn_component_property",
     "title": "Set an Occurrence Property in an Offline Design",
     "description": (
         "Set an occurrence property in a DSN without starting the OrCAD Capture "
