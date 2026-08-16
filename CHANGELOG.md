@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Capture Tcl 生命周期 Interface 从 `CaptureAiBridgeStart`、
+  `CaptureAiBridgeStatus`、`CaptureAiBridgeStop` 合并为 `AiBridge start`、
+  `AiBridge status`、`AiBridge stop`；旧的三个命令已移除。
+
 ## [0.1.0-beta.4] - 2026-08-15
 
 ### Added

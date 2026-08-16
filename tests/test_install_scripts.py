@@ -217,7 +217,7 @@ def test_enable_auto_start_installs_a_fourth_owned_file(sandbox):
 
     assert result.returncode == 0, result.stderr
     body = sandbox.autostart.read_text(encoding="utf-8")
-    assert "CaptureAiBridgeStart" in body
+    assert "AiBridge start" in body
     recorded = {entry["path"] for entry in _manifest(sandbox)["files"]}
     assert str(sandbox.autostart.resolve()) in recorded
 
@@ -263,8 +263,8 @@ def test_install_reports_the_source_and_start_commands(sandbox):
 
     assert result.returncode == 0, result.stderr
     assert str(sandbox.tcl) in result.stdout
-    assert "CaptureAiBridgeStart" in result.stdout
-    assert "CaptureAiBridgeStatus" in result.stdout
+    assert "AiBridge start" in result.stdout
+    assert "AiBridge status" in result.stdout
     assert f"{sandbox.runtime_target}\\ (" in result.stdout
     assert str(sandbox.runtime_target / "python.exe") not in result.stdout
 

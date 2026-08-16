@@ -89,9 +89,18 @@ check {source defines pending result id state} [info exists ::CaptureAiBridgePen
 check {source defines pending result JSON state} [info exists ::CaptureAiBridgePendingResultJson] 1
 check {source defines pending result generation state} [info exists ::CaptureAiBridgePendingResultGeneration] 1
 check {source creates no after task} [after info] $beforeAfter
-check {public lifecycle start proc exists} [llength [info commands CaptureAiBridgeStart]] 1
-check {public lifecycle status proc exists} [llength [info commands CaptureAiBridgeStatus]] 1
-check {public lifecycle stop proc exists} [llength [info commands CaptureAiBridgeStop]] 1
+check {public AiBridge command exists} [llength [info commands ::AiBridge]] 1
+foreach retiredCommand {
+    ::CaptureAiBridgeStart
+    ::CaptureAiBridgeStatus
+    ::CaptureAiBridgeStop
+} {
+    check "retired command $retiredCommand is absent" [llength [info commands $retiredCommand]] 0
+}
+unset retiredCommand
+set invalidSubcommandCode [catch {AiBridge restart} invalidSubcommandMessage]
+check {unknown AiBridge subcommand errors} $invalidSubcommandCode 1
+check {unknown AiBridge subcommand lists valid choices} $invalidSubcommandMessage {unknown AiBridge subcommand "restart": must be start, status, or stop}
 
 if {[llength [info commands ::_captureAiResolvePythonPath]] > 0} {
     set manifestRoot [file normalize [file join [pwd] capture-ai-install-manifest-[pid]]]
@@ -231,6 +240,9 @@ set ::CaptureAiBridgeMetadataLimit 17
 set ::CaptureAiBridgePendingResultId preserve-command
 set ::CaptureAiBridgePendingResultJson {{"id":"preserve-command"}}
 set ::CaptureAiBridgePendingResultGeneration 17
+proc ::CaptureAiBridgeStart {} { return legacy-start }
+proc ::CaptureAiBridgeStatus {} { return legacy-status }
+proc ::CaptureAiBridgeStop {} { return legacy-stop }
 source $bridgeFile
 check {hot source preserves active state} $::CaptureAiBridgeActive 1
 check {hot source preserves connecting state} $::CaptureAiBridgeConnecting 1
@@ -252,6 +264,14 @@ check {hot source preserves metadata limit} $::CaptureAiBridgeMetadataLimit 17
 check {hot source preserves pending result id} $::CaptureAiBridgePendingResultId preserve-command
 check {hot source preserves pending result JSON} $::CaptureAiBridgePendingResultJson {{"id":"preserve-command"}}
 check {hot source preserves pending result generation} $::CaptureAiBridgePendingResultGeneration 17
+foreach retiredCommand {
+    ::CaptureAiBridgeStart
+    ::CaptureAiBridgeStatus
+    ::CaptureAiBridgeStop
+} {
+    check "hot source removes retired command $retiredCommand" [llength [info commands $retiredCommand]] 0
+}
+unset retiredCommand
 set ::CaptureAiBridgeActive 0
 set ::CaptureAiBridgeConnecting 0
 set ::CaptureAiBridgeAfterId {}
@@ -806,12 +826,12 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
             }
             if {$::captureAiPollMode eq "stop-command"} {
                 set ::captureAiPollMode shutdown
-                CaptureAiBridgeStop
+                AiBridge stop
                 return [dict create id stopped-command script {set ::captureAiUnexpectedExecution 1}]
             }
             if {$::captureAiPollMode eq "restart-command"} {
                 set ::captureAiPollMode shutdown
-                CaptureAiBridgeStop
+                AiBridge stop
                 incr ::CaptureAiBridgeGeneration
                 set ::CaptureAiBridgeActive 1
                 set ::CaptureAiBridgeToken new-session-token
@@ -821,7 +841,7 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
             if {$::captureAiPollMode eq "script-stop"} {
                 set ::captureAiPollMode shutdown
                 return [dict create id script-stop-command script {
-                    CaptureAiBridgeStop
+                    AiBridge stop
                     set ::captureAiScriptContinuedAfterStop 1
                 }]
             }
@@ -835,7 +855,7 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
         if {$path eq "/internal/result" &&
             $::captureAiPollMode eq "result-post"} {
             set ::captureAiPollMode shutdown
-            CaptureAiBridgeStop
+            AiBridge stop
         }
         if {$path eq "/internal/result" &&
             [info exists ::captureAiResultPostFailures] &&
@@ -1311,7 +1331,7 @@ if {[llength [info commands ::_captureAiRequest]] > 0} {
     check {_captureAiRequest exists} 0 1
 }
 
-if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
+if {[llength [info commands ::AiBridge]] > 0} {
     rename ::exec ::captureAiRealExec
     proc ::exec {args} {
         lappend ::captureAiExecCalls $args
@@ -1335,8 +1355,8 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     set ::captureAiLifecycleAfterCancels {}
     set ::CaptureAiBridgeActive 0
     set ::CaptureAiBridgeConnecting 0
-    CaptureAiBridgeStart
-    CaptureAiBridgeStart
+    AiBridge start
+    AiBridge start
     check {duplicate start launches one server} [llength $::captureAiExecCalls] 1
     set launchArgs [lindex $::captureAiExecCalls 0]
     check {launch uses resolved Python path} [lindex $launchArgs 1] \
@@ -1369,7 +1389,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
         set firstNonce {}
     }
     check {start records owned child PID} $::CaptureAiBridgeOwnedPid 4321
-    check {status is callable while starting} [catch {CaptureAiBridgeStatus}] 0
+    check {status is callable while starting} [catch {AiBridge status}] 0
 
     if {[llength [info commands ::_captureAiConnect]] > 0} {
         rename ::_captureAiLoadDescriptor ::captureAiRealLoadDescriptor
@@ -1408,7 +1428,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
         rename ::_captureAiRequest ::captureAiRealRequestForConnect
         proc ::_captureAiRequest {method path {payload {}}} {
             if {$path eq "/v1/health"} {
-                CaptureAiBridgeStop
+                AiBridge stop
                 return [dict create \
                     service capture-tcl-bridge \
                     version $::CaptureAiBridgeVersion \
@@ -1514,7 +1534,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     set ::CaptureAiBridgeOwnedPid 4321
     set ::CaptureAiBridgeStopping 0
     set ::CaptureAiBridgeStopError {}
-    CaptureAiBridgeStop
+    AiBridge stop
     check {active stop requests shutdown} [lrange [lindex $::captureAiStopRequests 0] 0 1] {POST /internal/shutdown}
     check {cancel request uses exclusive separate file} [read [set channel [open $::CaptureAiBridgeCancelFile r]]] "cancel $::CaptureAiBridgeLaunchNonce\n"
     close $channel
@@ -1522,7 +1542,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     close $channel
     check {stop waits for authoritative ack} $::CaptureAiBridgeOwnedPid 4321
     file mtime $::CaptureAiBridgeCancelFile 1000000000
-    CaptureAiBridgeStop
+    AiBridge stop
     check {second stop never rewrites cancel request} [file mtime $::CaptureAiBridgeCancelFile] 1000000000
     captureAiWriteStoppedAck
     _captureAiFinishStop $::CaptureAiBridgeGeneration 0
@@ -1535,7 +1555,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     set ::CaptureAiBridgeToken missing-token
     set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
     file delete -- $::CaptureAiBridgeLaunchFile
-    CaptureAiBridgeStop
+    AiBridge stop
     check {missing launch is never treated as stopped ack} $::CaptureAiBridgeOwnedPid 6464
     check {missing launch still requests cancellation} [file exists $::CaptureAiBridgeCancelFile] 1
     captureAiWriteStoppedAck
@@ -1573,15 +1593,15 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     set ::CaptureAiBridgeToken legacy-token
     set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
     set ::CaptureAiBridgeStopError {}
-    CaptureAiBridgeStop
+    AiBridge stop
     check {first legacy stop attempts authenticated shutdown} $::captureAiLegacyAttempts 1
     checkTrue {first legacy failure remains cleanup-required} [expr {$::CaptureAiBridgeStopError ne {}}]
     check {first legacy failure preserves token} $::CaptureAiBridgeToken legacy-token
-    CaptureAiBridgeStop
+    AiBridge stop
     check {second legacy stop retries shutdown} $::captureAiLegacyAttempts 2
     checkTrue {second legacy failure remains cleanup-required} [expr {$::CaptureAiBridgeStopError ne {}}]
     check {second legacy failure preserves base URL} $::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
-    CaptureAiBridgeStop
+    AiBridge stop
     check {third legacy stop retries shutdown} $::captureAiLegacyAttempts 3
     check {third legacy shutdown success clears identity} $::CaptureAiBridgeOwnedPid {}
     check {third legacy shutdown success clears error} $::CaptureAiBridgeStopError {}
@@ -1735,7 +1755,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     check {startup without ack leaves finite stopping state} $::CaptureAiBridgeStopping 0
     check {startup without ack releases owned identity} $::CaptureAiBridgeOwnedPid {}
     set launchesBeforeRecovery [llength $::captureAiExecCalls]
-    CaptureAiBridgeStart
+    AiBridge start
     check {startup without ack permits a new isolated start} \
         [llength $::captureAiExecCalls] [expr {$launchesBeforeRecovery + 1}]
     set recoveredLaunch $::CaptureAiBridgeLaunchFile
@@ -1767,7 +1787,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     set ::CaptureAiBridgeToken {}
     set ::CaptureAiBridgeBaseUrl {}
     set ::CaptureAiBridgeStopError {}
-    CaptureAiBridgeStop
+    AiBridge stop
     _captureAiFinishStop $::CaptureAiBridgeGeneration 19
     check {active stop with unusable ack revokes launch} \
         [file exists $::CaptureAiBridgeLaunchFile] 0
@@ -1799,7 +1819,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     fconfigure $channel -encoding binary -translation binary
     puts -nonewline $channel "stopped $::CaptureAiBridgeLaunchNonce\n"
     close $channel
-    CaptureAiBridgeStart
+    AiBridge start
     check {late acknowledgement lets Start clear old error} $::CaptureAiBridgeStopError {}
     set restartArgs [lindex $::captureAiExecCalls 0]
     set restartLaunchFile [lindex $restartArgs [expr {[lsearch -exact $restartArgs --launch-file] + 1}]]
@@ -1876,7 +1896,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     set ::CaptureAiBridgeProtocolError {stale protocol error}
     set ::CaptureAiBridgeLastPollError {HTTP:401:UNAUTHORIZED}
     set ::CaptureAiBridgeRetryDelayMs 5000
-    CaptureAiBridgeStop
+    AiBridge stop
     check {Stop cancels its scheduled poll timer} $::captureAiLifecycleAfterCancels [list $scheduledPollTimer]
     check {Stop clears halted recovery state} $::CaptureAiBridgePollingHalted 0
     check {Stop clears protocol error} $::CaptureAiBridgeProtocolError {}
@@ -1884,7 +1904,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
     check {Stop resets retry delay} $::CaptureAiBridgeRetryDelayMs 250
 
     set ::captureAiExecCalls {}
-    CaptureAiBridgeStart
+    AiBridge start
     check {Start clears halted recovery state} $::CaptureAiBridgePollingHalted 0
     check {Start clears protocol error} $::CaptureAiBridgeProtocolError {}
     check {Start clears last poll error} $::CaptureAiBridgeLastPollError {}
@@ -1926,7 +1946,7 @@ if {[llength [info commands ::CaptureAiBridgeStart]] > 0} {
         unset ::env(TEMP)
     }
 } else {
-    check {CaptureAiBridgeStart callable} 0 1
+    check {AiBridge command callable} 0 1
 }
 
 if {$::fail} {

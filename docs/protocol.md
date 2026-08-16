@@ -150,8 +150,8 @@ Tcl 端用同样的认证访问这些接口：发布心跳和 Capture PID、领�
 
 Tcl 端据此区分可重试与确定性失败：传输错误和 5xx 保留 pending 结果并按
 250 / 500 / 1000 / 2000 / 5000 ms 退避重试；确定性 4xx 只报告一次就丢弃 pending；
-401、PID 不匹配等未确认的 4xx 进入 polling-halted 状态，`CaptureAiBridgeStatus`
-可见，`CaptureAiBridgeStop` 仍可执行。
+401、PID 不匹配等未确认的 4xx 进入 polling-halted 状态，`AiBridge status`
+可见，`AiBridge stop` 仍可执行。
 
 ## 安装清单
 

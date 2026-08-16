@@ -35,7 +35,7 @@
 
 .PARAMETER EnableAutoStart
     Also install captureAiBridgeAutoStart.tcl, which starts the bridge when
-    Capture launches instead of waiting for an explicit CaptureAiBridgeStart.
+    Capture launches instead of waiting for an explicit AiBridge start.
 
     This trades away a security property: without it the bridge exists only
     while an operator has deliberately opened it, and with it every Capture
@@ -219,7 +219,7 @@ if ($EnableAutoStart) {
         '# itself stays free of side effects and re-sourcing it never restarts a',
         '# bridge that is already running.',
         '',
-        'if {[llength [info commands CaptureAiBridgeStart]] > 0} {'
+        'if {[llength [info commands AiBridge]] > 0} {'
     ) -join $nl) + $nl
     if (-not [string]::IsNullOrWhiteSpace($LogFile)) {
         $logPath = (Get-CanonicalPath $LogFile) -replace '\\', '/'
@@ -227,7 +227,7 @@ if ($EnableAutoStart) {
     }
     $autoStartBody += (@(
         '    if {!$::CaptureAiBridgeActive && !$::CaptureAiBridgeConnecting} {',
-        '        CaptureAiBridgeStart',
+        '        AiBridge start',
         '    }',
         '}'
     ) -join $nl) + $nl
@@ -362,14 +362,14 @@ if ($EnableAutoStart -and $captureTclFiles.Count -ne 0) {
     Write-Output 'Auto-start is enabled: the bridge opens whenever Capture launches.'
     Write-Output 'Restart Capture, or start it once by hand, to pick this up:'
     foreach ($captureTclFile in $captureTclFiles) { Write-Output "  source $($captureTclFile -replace '\\', '/')" }
-    Write-Output '  CaptureAiBridgeStart'
+    Write-Output '  AiBridge start'
     Write-Output ''
     Write-Output 'To require an explicit start again, run uninstall.ps1 or delete:'
     foreach ($target in $canonicalCaptureTclTargets) { Write-Output "  $(Join-Path $target $autoStartName)" }
 } elseif ($captureTclFiles.Count -ne 0) {
     Write-Output 'In the Capture Tcl console, load and start the bridge explicitly:'
     foreach ($captureTclFile in $captureTclFiles) { Write-Output "  source $($captureTclFile -replace '\\', '/')" }
-    Write-Output '  CaptureAiBridgeStart'
-    Write-Output '  CaptureAiBridgeStatus'
+    Write-Output '  AiBridge start'
+    Write-Output '  AiBridge status'
 }
 if ($null -ne $autoStartSource) { Remove-Item -LiteralPath $autoStartSource -Force }

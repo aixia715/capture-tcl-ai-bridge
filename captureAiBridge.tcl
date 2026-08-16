@@ -1697,7 +1697,7 @@ proc _captureAiConnect {generation {attempt {}}} {
         if {$ackCode == 0 && $ackState eq "stopped"} {
             _captureAiCompleteStopped $generation
         } else {
-            CaptureAiBridgeStop
+            _captureAiBridgeStop
             if {$::CaptureAiBridgeStopping} {
                 set revokeState [_captureAiRevokeLaunch]
                 if {$::CaptureAiBridgeAfterId ne {}} {
@@ -1715,7 +1715,7 @@ proc _captureAiConnect {generation {attempt {}}} {
         [list _captureAiConnect $generation [expr {$attempt + 1}]]]
 }
 
-proc CaptureAiBridgeStart {} {
+proc _captureAiBridgeStart {} {
     if {$::CaptureAiBridgeStopping} {
         set reconcileCode [catch {
             _captureAiReadStoppedAck \
@@ -1729,7 +1729,7 @@ proc CaptureAiBridgeStart {} {
         $::CaptureAiBridgeStopping ||
         $::CaptureAiBridgeOwnedPid ne {} ||
         $::CaptureAiBridgeStopError ne {}} {
-        CaptureAiBridgeStatus
+        _captureAiBridgeStatus
         return
     }
     if {[catch {package require http} packageError]} {
@@ -1810,7 +1810,7 @@ proc CaptureAiBridgeStart {} {
         [list _captureAiConnect $generation 0]]
 }
 
-proc CaptureAiBridgeStatus {} {
+proc _captureAiBridgeStatus {} {
     puts "Capture Tcl AI Bridge v$::CaptureAiBridgeVersion"
     if {$::CaptureAiBridgeStopError ne {}} {
         _captureAiConsole "Capture AI bridge polling stopped; server cleanup required: $::CaptureAiBridgeStopError"
@@ -1827,7 +1827,7 @@ proc CaptureAiBridgeStatus {} {
     }
 }
 
-proc CaptureAiBridgeStop {} {
+proc _captureAiBridgeStop {} {
     set stopGeneration [incr ::CaptureAiBridgeGeneration]
     _captureAiResetPollRecoveryState
     _captureAiClearPendingResult
@@ -1929,3 +1929,33 @@ proc CaptureAiBridgeStop {} {
     set ::CaptureAiBridgeAfterId [after $::CaptureAiBridgePollMs \
         [list _captureAiFinishStop $stopGeneration 0]]
 }
+
+proc AiBridge {action} {
+    switch -exact -- $action {
+        start {
+            return [_captureAiBridgeStart]
+        }
+        status {
+            return [_captureAiBridgeStatus]
+        }
+        stop {
+            return [_captureAiBridgeStop]
+        }
+        default {
+            error [format {unknown AiBridge subcommand "%s": must be start, status, or stop} $action]
+        }
+    }
+}
+
+# Hot-sourcing this version over an older release must not leave the retired
+# lifecycle interface callable in the same Capture interpreter.
+foreach legacyCommand {
+    ::CaptureAiBridgeStart
+    ::CaptureAiBridgeStatus
+    ::CaptureAiBridgeStop
+} {
+    if {[llength [info commands $legacyCommand]] > 0} {
+        _captureAiDeleteCommand $legacyCommand
+    }
+}
+unset legacyCommand

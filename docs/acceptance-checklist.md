@@ -61,15 +61,15 @@
 
 - [ ] **1.2** 【真机】
 
-      CaptureAiBridgeStart
-      CaptureAiBridgeStatus
+      AiBridge start
+      AiBridge status
 
       预期：显示运行在 `127.0.0.1:8767`，状态 connected / idle。
 
 - [ ] **1.3** 【真机】 确认 `%TEMP%\capture_tcl_bridge.json` 已生成，且 `capturePid`
       等于当前 Capture 进程 PID。**不要把 token 抄到任何地方。**
 
-- [ ] **1.4** 【复验】 再执行一次 `CaptureAiBridgeStart`，确认不会起第二个服务。
+- [ ] **1.4** 【复验】 再执行一次 `AiBridge start`，确认不会起第二个服务。
 
 ## 阶段 2：Dbo API 形状确认
 
@@ -236,14 +236,14 @@
 
       确认正常返回，**不会**触发 `INVALID_RESULT`。
 
-- [ ] **5.6** 【复验】 在 pending / 故障状态下执行 `CaptureAiBridgeStop`，确认能输入且能收敛。
+- [ ] **5.6** 【复验】 在 pending / 故障状态下执行 `AiBridge stop`，确认能输入且能收敛。
 
 - [ ] **5.7** 【复验】 只在需要取证时才执行 `CaptureAiBridgeDumpPendingResult <path>`，
       确认文件内容**不含 token**。看完自行决定是否删除。
 
 ## 阶段 6：生命周期
 
-- [ ] **6.1** 【复验】 `CaptureAiBridgeStop`，确认描述文件消失、服务进程结束。
+- [ ] **6.1** 【复验】 `AiBridge stop`，确认描述文件消失、服务进程结束。
 
 - [ ] **6.2** 【复验】 Stop → Start，比较前后描述文件里的 token，**必须不同**。
 

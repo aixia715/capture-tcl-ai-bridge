@@ -75,22 +75,22 @@ SHA-256 记到 `%LOCALAPPDATA%\capture-tcl-ai-bridge\install.json`：
 
 ```tcl
 source C:/cadence/SPB_17.4/tools/capture/tclscripts/capAutoLoad/captureAiBridge.tcl
-CaptureAiBridgeStart
-CaptureAiBridgeStatus
+AiBridge start
+AiBridge status
 ```
 
-`source` 本身不会启动任何东西，必须显式 `CaptureAiBridgeStart`。
-启动后 `CaptureAiBridgeStatus` 应显示运行在 `127.0.0.1:8767`。
+`source` 本身不会启动任何东西，必须显式 `AiBridge start`。
+启动后 `AiBridge status` 应显示运行在 `127.0.0.1:8767`。
 每次修改 `captureAiBridge.tcl` 后都要重新 `source`。
 
 查看 Capture 当前实际加载的桥版本：
 
 ```tcl
 puts $::CaptureAiBridgeVersion
-CaptureAiBridgeStatus
+AiBridge status
 ```
 
-`CaptureAiBridgeStatus` 的第一行会显示版本，例如
+`AiBridge status` 的第一行会显示版本，例如
 `Capture Tcl AI Bridge v0.1.0-beta.4`。
 
 ### 3. 用命令行执行 Tcl
@@ -150,7 +150,7 @@ set ::CaptureAiBridgeLogFile C:/temp/capture_ai_bridge.log
 ### 7. 停止与卸载
 
 ```tcl
-CaptureAiBridgeStop
+AiBridge stop
 ```
 
 ```powershell
