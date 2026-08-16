@@ -125,7 +125,7 @@ Get-Content -Raw .\examples\selected_refs.tcl | C:\tclpython\runtime\python.exe 
 ### 3. HTTP，供 AI 客户端直接调用
 
 运行描述文件 `%TEMP%\capture_tcl_bridge.json` 里的 `baseUrl` 和 `token`
-每次 `CaptureAiBridgeStart` 都会变化，**永远从这个文件现读，不要把 token
+每次 `AiBridge start` 都会变化，**永远从这个文件现读，不要把 token
 抄进脚本、文档或提交记录**：
 
 ```powershell

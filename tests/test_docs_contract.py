@@ -179,9 +179,9 @@ def test_readme_documents_the_shortest_path(readme: str) -> None:
         ".\\install.ps1",
         ".\\uninstall.ps1",
         "source ",
-        "CaptureAiBridgeStart",
-        "CaptureAiBridgeStatus",
-        "CaptureAiBridgeStop",
+        "AiBridge start",
+        "AiBridge status",
+        "AiBridge stop",
         "capture_tcl_cli.py",
     ):
         assert required in readme, required
@@ -258,8 +258,8 @@ def test_troubleshooting_covers_the_known_failure_modes(
         "8767",
         "capture_tcl_bridge.json",
         "CaptureAiBridgeDumpPendingResult",
-        "CaptureAiBridgeStop",
-        "CaptureAiBridgeStatus",
+        "AiBridge stop",
+        "AiBridge status",
         "source ",
         "install.json",
         "400",

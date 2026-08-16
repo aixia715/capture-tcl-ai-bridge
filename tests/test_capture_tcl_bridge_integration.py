@@ -369,9 +369,9 @@ def test_real_server_fake_capture_and_real_cli_round_trip(tmp_path):
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for required in (
-        "CaptureAiBridgeStart",
-        "CaptureAiBridgeStatus",
-        "CaptureAiBridgeStop",
+        "AiBridge start",
+        "AiBridge status",
+        "AiBridge stop",
     ):
         assert required in readme
 

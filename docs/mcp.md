@@ -30,7 +30,7 @@ Active Design tools also require the bridge. Run this in the Capture Tcl console
 
 ```tcl
 source C:/cadence/SPB_17.4/tools/capture/tclscripts/capAutoLoad/captureAiBridge.tcl
-CaptureAiBridgeStart
+AiBridge start
 ```
 
 Offline Design tools do not require the bridge or a running `capture.exe`. They
