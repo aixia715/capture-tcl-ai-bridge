@@ -61,7 +61,7 @@ set beforeAfter [after info]
 source $bridgeFile
 check {source preserves explicit Python path} $::CaptureAiBridgePythonPath $repoRoot
 check {service name} $::CaptureAiBridgeService {capture-tcl-bridge}
-check {software version} $::CaptureAiBridgeVersion {0.1.0-beta.4}
+check {software version} $::CaptureAiBridgeVersion {0.1.0-beta.5}
 check {protocol version} $::CaptureAiBridgeProtocolVersion 1
 check {port} $::CaptureAiBridgePort 8767
 check {poll period} $::CaptureAiBridgePollMs 250
@@ -1189,7 +1189,7 @@ if {[llength [info commands ::_captureAiLoadDescriptor]] > 0} {
     set descriptorChannel [open $descriptorFile w]
     fconfigure $descriptorChannel -encoding utf-8
     puts -nonewline $descriptorChannel [format \
-        {{"service":"capture-tcl-bridge","version":"0.1.0-beta.4","protocolVersion":1,"baseUrl":"http://127.0.0.1:8767","token":"descriptor-token","capturePid":%d,"serverPid":1234}} \
+        {{"service":"capture-tcl-bridge","version":"0.1.0-beta.5","protocolVersion":1,"baseUrl":"http://127.0.0.1:8767","token":"descriptor-token","capturePid":%d,"serverPid":1234}} \
         [pid]]
     close $descriptorChannel
     set descriptor [_captureAiLoadDescriptor $descriptorFile]

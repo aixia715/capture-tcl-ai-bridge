@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.1.0-beta.5] - 2026-08-16
+
 ### Changed
 
 - Capture Tcl 生命周期 Interface 从 `CaptureAiBridgeStart`、
@@ -115,3 +117,4 @@
 [0.1.0-beta.2]: https://github.com/aixia715/capture-tcl-ai-bridge/compare/v0.1.0-beta.1...v0.1.0-beta.2
 [0.1.0-beta.3]: https://github.com/aixia715/capture-tcl-ai-bridge/compare/v0.1.0-beta.2...v0.1.0-beta.3
 [0.1.0-beta.4]: https://github.com/aixia715/capture-tcl-ai-bridge/compare/v0.1.0-beta.3...v0.1.0-beta.4
+[0.1.0-beta.5]: https://github.com/aixia715/capture-tcl-ai-bridge/compare/v0.1.0-beta.4...v0.1.0-beta.5
