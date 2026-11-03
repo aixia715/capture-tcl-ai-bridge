@@ -31,6 +31,22 @@
 
 ### 1. 安装
 
+**本机从源码安装或升级（常用）**
+
+先提交源码修改，确保 `git status --short` 没有输出。若桥正在运行，先在 Capture
+控制台执行 `AiBridge stop`，等待显示 `stopped`。然后在 PowerShell 执行：
+
+```powershell
+cd D:\codeprj\capture-tcl-ai-bridge
+.\install.ps1 -RuntimeSource 'C:\tclpython\runtime' -CaptureTclTarget 'C:\Cadence\SPB_17.4\tools\capture\tclscripts\capAutoLoad'
+```
+
+这里复用本机已有的 Python 运行环境，并更新 Capture 17.4 的桥脚本，无需重新下载
+Python。安装成功后，按下一节重新加载脚本并启动；`AiBridge status` 应显示
+`0.1.0-beta.6` 和 `http://127.0.0.1:18767`。
+
+**从 Release ZIP 安装**
+
 ```powershell
 .\install.ps1
 ```
