@@ -1,6 +1,6 @@
 # 协议
 
-服务只监听 `http://127.0.0.1:8767`。所有接口都要求认证，健康检查和内部接口也不例外。
+服务只监听 `http://127.0.0.1:18767`。所有接口都要求认证，健康检查和内部接口也不例外。
 
 ## 运行描述文件
 
@@ -10,9 +10,9 @@
 ```json
 {
   "service": "capture-tcl-bridge",
-  "version": "0.1.0-beta.5",
+  "version": "0.1.0-beta.6",
   "protocolVersion": 1,
-  "baseUrl": "http://127.0.0.1:8767",
+  "baseUrl": "http://127.0.0.1:18767",
   "token": "<每次启动都不同的随机令牌>",
   "capturePid": 1234,
   "serverPid": 5678

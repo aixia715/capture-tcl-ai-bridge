@@ -201,7 +201,7 @@ def test_readme_no_longer_describes_the_tclbom_project(readme: str) -> None:
 
 def test_documents_pin_the_localhost_endpoint(readme: str, protocol: str) -> None:
     for document in (readme, protocol):
-        assert "127.0.0.1:8767" in document
+        assert "127.0.0.1:18767" in document
 
 
 def test_documents_pin_the_runtime_descriptor(readme: str, protocol: str) -> None:
@@ -255,7 +255,7 @@ def test_troubleshooting_covers_the_known_failure_modes(
     troubleshooting: str,
 ) -> None:
     for required in (
-        "8767",
+        "18767",
         "capture_tcl_bridge.json",
         "CaptureAiBridgeDumpPendingResult",
         "AiBridge stop",

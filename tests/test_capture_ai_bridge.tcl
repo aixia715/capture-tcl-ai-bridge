@@ -61,9 +61,9 @@ set beforeAfter [after info]
 source $bridgeFile
 check {source preserves explicit Python path} $::CaptureAiBridgePythonPath $repoRoot
 check {service name} $::CaptureAiBridgeService {capture-tcl-bridge}
-check {software version} $::CaptureAiBridgeVersion {0.1.0-beta.5}
+check {software version} $::CaptureAiBridgeVersion {0.1.0-beta.6}
 check {protocol version} $::CaptureAiBridgeProtocolVersion 1
-check {port} $::CaptureAiBridgePort 8767
+check {port} $::CaptureAiBridgePort 18767
 check {poll period} $::CaptureAiBridgePollMs 250
 check {field limit} $::CaptureAiBridgeFieldLimit 4194304
 set metadataLimitAtSource {<missing>}
@@ -224,7 +224,7 @@ set ::CaptureAiBridgeActive 1
 set ::CaptureAiBridgeConnecting 1
 set ::CaptureAiBridgeAfterId preserve-after
 set ::CaptureAiBridgeToken preserve-token
-set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+set ::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
 set ::CaptureAiBridgeGeneration 17
 set ::CaptureAiBridgeOwnedPid 24680
 set ::CaptureAiBridgeStopping 1
@@ -248,7 +248,7 @@ check {hot source preserves active state} $::CaptureAiBridgeActive 1
 check {hot source preserves connecting state} $::CaptureAiBridgeConnecting 1
 check {hot source preserves callback id} $::CaptureAiBridgeAfterId preserve-after
 check {hot source preserves token} $::CaptureAiBridgeToken preserve-token
-check {hot source preserves base URL} $::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+check {hot source preserves base URL} $::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
 check {hot source preserves lifecycle generation} $::CaptureAiBridgeGeneration 17
 check {hot source preserves owned server PID} $::CaptureAiBridgeOwnedPid 24680
 check {hot source preserves stopping state} $::CaptureAiBridgeStopping 1
@@ -835,7 +835,7 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
                 incr ::CaptureAiBridgeGeneration
                 set ::CaptureAiBridgeActive 1
                 set ::CaptureAiBridgeToken new-session-token
-                set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+                set ::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
                 return [dict create id old-command script {set ::captureAiOldSessionExecuted 1}]
             }
             if {$::captureAiPollMode eq "script-stop"} {
@@ -958,7 +958,7 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     set ::CaptureAiBridgeGeneration 30
     set ::CaptureAiBridgeActive 1
     set ::CaptureAiBridgeToken stop-during-claim-token
-    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
     set ::CaptureAiBridgeAfterId {}
     set ::CaptureAiBridgeOwnedPid {}
     set ::CaptureAiBridgeStopError {}
@@ -975,7 +975,7 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     set ::CaptureAiBridgeGeneration 40
     set ::CaptureAiBridgeActive 1
     set ::CaptureAiBridgeToken old-session-token
-    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
     set ::CaptureAiBridgeAfterId {}
     set ::CaptureAiBridgeOwnedPid {}
     set ::CaptureAiBridgeStopError {}
@@ -992,7 +992,7 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     set ::CaptureAiBridgeGeneration 45
     set ::CaptureAiBridgeActive 1
     set ::CaptureAiBridgeToken script-stop-token
-    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
     set ::CaptureAiBridgeAfterId {}
     set ::CaptureAiBridgeOwnedPid {}
     set ::CaptureAiBridgeStopError {}
@@ -1008,7 +1008,7 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     set ::CaptureAiBridgeGeneration 47
     set ::CaptureAiBridgeActive 1
     set ::CaptureAiBridgeToken result-stop-token
-    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
     set ::CaptureAiBridgeAfterId {}
     set ::CaptureAiBridgeOwnedPid {}
     set ::CaptureAiBridgeStopError {}
@@ -1086,7 +1086,7 @@ if {[llength [info commands ::_captureAiTick]] > 0} {
     set ::CaptureAiBridgeStopping 0
     set ::CaptureAiBridgeAfterId {}
     set ::CaptureAiBridgeToken recovery-token
-    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
     set ::CaptureAiBridgePendingResultId pending-1
     set ::CaptureAiBridgePendingResultJson {"id":"pending-1"}
     set ::CaptureAiBridgePendingResultGeneration 200
@@ -1189,12 +1189,12 @@ if {[llength [info commands ::_captureAiLoadDescriptor]] > 0} {
     set descriptorChannel [open $descriptorFile w]
     fconfigure $descriptorChannel -encoding utf-8
     puts -nonewline $descriptorChannel [format \
-        {{"service":"capture-tcl-bridge","version":"0.1.0-beta.5","protocolVersion":1,"baseUrl":"http://127.0.0.1:8767","token":"descriptor-token","capturePid":%d,"serverPid":1234}} \
+        {{"service":"capture-tcl-bridge","version":"0.1.0-beta.6","protocolVersion":1,"baseUrl":"http://127.0.0.1:18767","token":"descriptor-token","capturePid":%d,"serverPid":1234}} \
         [pid]]
     close $descriptorChannel
     set descriptor [_captureAiLoadDescriptor $descriptorFile]
     check {descriptor accepts matching service} [dict get $descriptor service] $::CaptureAiBridgeService
-    check {descriptor accepts localhost URL} [dict get $descriptor baseUrl] {http://127.0.0.1:8767}
+    check {descriptor accepts localhost URL} [dict get $descriptor baseUrl] {http://127.0.0.1:18767}
 
     proc captureAiDescriptorJson {value} {
         return [format \
@@ -1213,7 +1213,7 @@ if {[llength [info commands ::_captureAiLoadDescriptor]] > 0} {
         version wrong-version
         protocolVersion 2
         capturePid 999999
-        baseUrl http://localhost:8767
+        baseUrl http://localhost:18767
         token {}
         serverPid 0
     } {
@@ -1255,7 +1255,7 @@ if {[llength [info commands ::_captureAiRequest]] > 0} {
     proc ::http::data {token} { return $::captureAiHttpData }
     proc ::http::cleanup {token} { lappend ::captureAiHttpCleanups $token }
     set ::CaptureAiBridgeToken request-secret
-    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
     set ::captureAiHttpStatus 200
     set ::captureAiHttpTransportStatus ok
     set ::captureAiHttpData [encoding convertto utf-8 \
@@ -1264,7 +1264,7 @@ if {[llength [info commands ::_captureAiRequest]] > 0} {
     set requestResult [_captureAiRequest GET /v1/health]
     check {HTTP request parses JSON response} [dict get $requestResult answer] 42
     check {HTTP request decodes UTF-8 JSON} [dict get $requestResult text] "\u4E2D\u6587"
-    check {HTTP request uses localhost URL} $::captureAiHttpUrl {http://127.0.0.1:8767/v1/health}
+    check {HTTP request uses localhost URL} $::captureAiHttpUrl {http://127.0.0.1:18767/v1/health}
     set headerIndex [lsearch -exact $::captureAiHttpOptions -headers]
     set sentHeaders [lindex $::captureAiHttpOptions [expr {$headerIndex + 1}]]
     checkTrue {HTTP request sends bearer token} [expr {[lsearch -exact $sentHeaders {Bearer request-secret}] >= 0}]
@@ -1420,7 +1420,7 @@ if {[llength [info commands ::AiBridge]] > 0} {
                 service capture-tcl-bridge \
                 version $::CaptureAiBridgeVersion \
                 protocolVersion 1 \
-                baseUrl http://127.0.0.1:8767 \
+                baseUrl http://127.0.0.1:18767 \
                 token connect-stop-token \
                 capturePid [pid] \
                 serverPid 4321]
@@ -1459,7 +1459,7 @@ if {[llength [info commands ::AiBridge]] > 0} {
                 service capture-tcl-bridge \
                 version $::CaptureAiBridgeVersion \
                 protocolVersion 1 \
-                baseUrl http://127.0.0.1:8767 \
+                baseUrl http://127.0.0.1:18767 \
                 token connection-secret \
                 capturePid [pid] \
                 serverPid 1234]
@@ -1530,7 +1530,7 @@ if {[llength [info commands ::AiBridge]] > 0} {
     set ::CaptureAiBridgeConnecting 0
     set ::CaptureAiBridgeAfterId active-after
     set ::CaptureAiBridgeToken secret-stop-token
-    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
     set ::CaptureAiBridgeOwnedPid 4321
     set ::CaptureAiBridgeStopping 0
     set ::CaptureAiBridgeStopError {}
@@ -1553,7 +1553,7 @@ if {[llength [info commands ::AiBridge]] > 0} {
     set ::CaptureAiBridgeActive 1
     set ::CaptureAiBridgeOwnedPid 6464
     set ::CaptureAiBridgeToken missing-token
-    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
     file delete -- $::CaptureAiBridgeLaunchFile
     AiBridge stop
     check {missing launch is never treated as stopped ack} $::CaptureAiBridgeOwnedPid 6464
@@ -1591,7 +1591,7 @@ if {[llength [info commands ::AiBridge]] > 0} {
     set ::CaptureAiBridgeAckFile {}
     set ::CaptureAiBridgeLaunchNonce {}
     set ::CaptureAiBridgeToken legacy-token
-    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
     set ::CaptureAiBridgeStopError {}
     AiBridge stop
     check {first legacy stop attempts authenticated shutdown} $::captureAiLegacyAttempts 1
@@ -1600,7 +1600,7 @@ if {[llength [info commands ::AiBridge]] > 0} {
     AiBridge stop
     check {second legacy stop retries shutdown} $::captureAiLegacyAttempts 2
     checkTrue {second legacy failure remains cleanup-required} [expr {$::CaptureAiBridgeStopError ne {}}]
-    check {second legacy failure preserves base URL} $::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+    check {second legacy failure preserves base URL} $::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
     AiBridge stop
     check {third legacy stop retries shutdown} $::captureAiLegacyAttempts 3
     check {third legacy shutdown success clears identity} $::CaptureAiBridgeOwnedPid {}
@@ -1864,7 +1864,7 @@ if {[llength [info commands ::AiBridge]] > 0} {
             service capture-tcl-bridge \
             version $::CaptureAiBridgeVersion \
             protocolVersion 1 \
-            baseUrl http://127.0.0.1:8767 \
+            baseUrl http://127.0.0.1:18767 \
             token recovery-lifecycle-token \
             capturePid [pid] \
             serverPid 4321]
@@ -1880,7 +1880,7 @@ if {[llength [info commands ::AiBridge]] > 0} {
     set ::CaptureAiBridgeAckFile {}
     set ::CaptureAiBridgeLaunchNonce {}
     set ::CaptureAiBridgeToken recovery-lifecycle-token
-    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:8767
+    set ::CaptureAiBridgeBaseUrl http://127.0.0.1:18767
     set ::CaptureAiBridgePollingHalted 0
     set ::CaptureAiBridgeProtocolError {}
     set ::CaptureAiBridgeLastPollError {}

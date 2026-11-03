@@ -8,12 +8,12 @@ AiBridge status
 
 ## Start 报告端口冲突
 
-现象：Capture 控制台显示启动失败，提示 8767 冲突或服务启动失败。
+现象：Capture 控制台显示启动失败，提示 18767 冲突或服务启动失败。
 
-- 端口 8767 被别的进程占用。查一下是谁：
+- 端口 18767 被别的进程占用。查一下是谁：
 
   ```powershell
-  Get-NetTCPConnection -LocalPort 8767 -State Listen |
+  Get-NetTCPConnection -LocalPort 18767 -State Listen |
       Select-Object OwningProcess |
       ForEach-Object { Get-Process -Id $_.OwningProcess }
   ```
@@ -21,6 +21,11 @@ AiBridge status
 - 如果是上一次 Capture 会话遗留的桥服务，先在原 Capture 里 `AiBridge stop`；
   该 Capture 已经退出的话，父进程监视器通常已经让它自己退出了。
 - 重复执行 `AiBridge start` 不会启动第二个服务，所以反复 Start 无济于事。
+- 没有进程监听也可能是 Windows 排除端口范围导致绑定被拒绝（WinError 10013）。
+  用 `netsh interface ipv4 show excludedportrange protocol=tcp` 检查。
+  旧默认端口 8767 在部分机器上会落入排除范围；当前默认改为 18767。
+  若当前端口也不可用，在停止桥后设置 `set ::CaptureAiBridgePort <可用端口>`，
+  再执行 `AiBridge start`。描述文件由服务启动时生成，不要手动创建。
 
 ## 客户端说描述文件无效或过期
 

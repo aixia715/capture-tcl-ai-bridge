@@ -140,6 +140,34 @@ function Write-TextAtomic {
     Move-Item -LiteralPath $temporary -Destination $Path -Force
 }
 
+# Reject dirty source checkouts before runtime validation or any writes.
+# A release ZIP has no .git metadata and does not require Git to install.
+# Walking parents also handles nested checkouts; .git can be a worktree file.
+$gitDirectory = Get-Item -LiteralPath $SourceRoot
+while ($null -ne $gitDirectory) {
+    if (Test-Path -LiteralPath (Join-Path $gitDirectory.FullName '.git')) {
+        if (-not (Get-Command git -CommandType Application -ErrorAction SilentlyContinue)) {
+            Stop-Install 'Git is required to verify this source checkout; nothing was installed.'
+        }
+        $previousPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $gitStatus = @(& git -C $SourceRoot status --porcelain=v1 --untracked-files=all --ignore-submodules=none 2>&1)
+            $gitExitCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $previousPreference
+        }
+        if ($gitExitCode -ne 0) {
+            Stop-Install 'Could not verify Git status; nothing was installed.'
+        }
+        if ($gitStatus.Count -ne 0) {
+            Stop-Install 'Git working tree is dirty (staged, unstaged, or untracked changes). Commit or remove these changes before installing; nothing was installed.'
+        }
+        break
+    }
+    $gitDirectory = $gitDirectory.Parent
+}
+
 # --- Bundled runtime preflight --------------------------------------------
 
 # --- Target preflight ------------------------------------------------------

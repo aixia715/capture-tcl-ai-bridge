@@ -64,7 +64,7 @@
       AiBridge start
       AiBridge status
 
-      预期：显示运行在 `127.0.0.1:8767`，状态 connected / idle。
+      预期：显示运行在 `127.0.0.1:18767`，状态 connected / idle。
 
 - [ ] **1.3** 【真机】 确认 `%TEMP%\capture_tcl_bridge.json` 已生成，且 `capturePid`
       等于当前 Capture 进程 PID。**不要把 token 抄到任何地方。**
@@ -247,9 +247,9 @@
 
 - [ ] **6.2** 【复验】 Stop → Start，比较前后描述文件里的 token，**必须不同**。
 
-- [ ] **6.3** 【真机】 退出 Capture，确认 8767 端口无监听、服务 PID 已结束、描述文件已清理：
+- [ ] **6.3** 【真机】 退出 Capture，确认 18767 端口无监听、服务 PID 已结束、描述文件已清理：
 
-      Get-NetTCPConnection -LocalPort 8767 -State Listen -ErrorAction SilentlyContinue
+      Get-NetTCPConnection -LocalPort 18767 -State Listen -ErrorAction SilentlyContinue
       Test-Path "$env:TEMP\capture_tcl_bridge.json"
 
 - [ ] **6.4** 【真机】 重启 Capture，确认必须重新 `source` 才能再次 Start。

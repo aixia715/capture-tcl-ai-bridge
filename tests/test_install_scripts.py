@@ -88,6 +88,12 @@ def sandbox(tmp_path: Path) -> SimpleNamespace:
     )
     box.local_app_data.mkdir()
     box.capture_target.mkdir()
+    # Exercise release installation independently of the developer checkout.
+    box.source = tmp_path / "release"
+    box.source.mkdir()
+    for name in ("install.ps1", SERVER_NAME, CLI_NAME, MCP_NAME, TCL_NAME):
+        shutil.copyfile(ROOT / name, box.source / name)
+    box.install = box.source / "install.ps1"
     box.runtime_source = tmp_path / "bundled-runtime"
     (box.runtime_source / "Lib" / "site-packages" / "fastapi").mkdir(parents=True)
     (box.runtime_source / "Lib" / "site-packages" / "uvicorn").mkdir(parents=True)
@@ -112,7 +118,7 @@ def _install(
     *extra: str,
 ) -> subprocess.CompletedProcess[str]:
     return _run(
-        INSTALL,
+        sandbox.install,
         [
             "-PythonTarget",
             str(sandbox.python_target),
@@ -164,7 +170,7 @@ def test_install_copies_all_bridge_files_and_bundled_runtime(sandbox):
 
 def test_install_rejects_an_incomplete_bundled_runtime(sandbox):
     result = _run(
-        INSTALL,
+        sandbox.install,
         [
             "-PythonTarget",
             str(sandbox.python_target),
@@ -185,7 +191,7 @@ def test_install_reports_runtime_probe_output_when_an_executable_exits_nonzero(s
     shutil.copyfile(_powershell(), sandbox.runtime_source / "python.exe")
 
     result = _run(
-        INSTALL,
+        sandbox.install,
         [
             "-PythonTarget",
             str(sandbox.python_target),
@@ -373,7 +379,7 @@ def test_install_aborts_when_a_manifest_points_at_other_targets(sandbox, tmp_pat
     other_capture = tmp_path / "capture2"
 
     result = _run(
-        INSTALL,
+        sandbox.install,
         [
             "-PythonTarget",
             str(other_python),

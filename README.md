@@ -1,13 +1,13 @@
 # Capture Tcl AI Bridge
 
-当前预发布版本：**0.1.0-beta.5**。
+当前预发布版本：**0.1.0-beta.6**。
 版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 把本机 AI 客户端或人工命令行提交的多行 Tcl，交给**正在运行的** OrCAD Capture
 全局 Tcl 解释器执行，并把 `puts` 输出、返回值和 Tcl 错误详情原样带回来。
 `puts` 的内容同时保留在 Capture 控制台里，不会被"吞掉"。
 
-桥只监听 `127.0.0.1:8767`，每次启动生成新的随机 Bearer 令牌。默认**只在你显式
+桥只监听 `127.0.0.1:18767`，每次启动生成新的随机 Bearer 令牌。默认**只在你显式
 启动时才开启**——加载脚本本身没有任何副作用，也没有空闲自动退出；需要的话可以
 装一个自启文件让它随 Capture 启动（见[安装](#1-安装)）。
 
@@ -38,6 +38,11 @@
 从 Release ZIP 解压后直接运行 `install.ps1`。它部署包内已预装依赖的 Python 3.12
 embeddable runtime，不使用系统 Python、`PATH`、pip 或网络；并把所有部署文件连同
 SHA-256 记到 `%LOCALAPPDATA%\capture-tcl-ai-bridge\install.json`：
+
+从 Git 源码工作区安装时，安装器首先要求工作区干净：已暂存、未暂存及未跟踪的
+文件改动都会阻止安装，必须先提交或清理。Git 检查失败也会拒绝安装；
+`-ForceOverwriteModified` 不会绕过此检查。被 Git 忽略的文件不计入 dirty。
+不含 Git 元数据的 Release ZIP 不要求安装 Git。
 
 | 文件 | 默认目标 |
 | --- | --- |
@@ -80,7 +85,7 @@ AiBridge status
 ```
 
 `source` 本身不会启动任何东西，必须显式 `AiBridge start`。
-启动后 `AiBridge status` 应显示运行在 `127.0.0.1:8767`。
+启动后 `AiBridge status` 应显示运行在 `127.0.0.1:18767`。
 每次修改 `captureAiBridge.tcl` 后都要重新 `source`。
 
 查看 Capture 当前实际加载的桥版本：
@@ -91,7 +96,7 @@ AiBridge status
 ```
 
 `AiBridge status` 的第一行会显示版本，例如
-`Capture Tcl AI Bridge v0.1.0-beta.5`。
+`Capture Tcl AI Bridge v0.1.0-beta.6`。
 
 ### 3. 用命令行执行 Tcl
 

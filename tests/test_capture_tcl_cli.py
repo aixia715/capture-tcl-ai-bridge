@@ -25,7 +25,7 @@ def descriptor(**overrides):
         "service": "capture-tcl-bridge",
         "version": cli.SOFTWARE_VERSION,
         "protocolVersion": 1,
-        "baseUrl": "http://127.0.0.1:8767",
+        "baseUrl": "http://127.0.0.1:18767",
         "token": TOKEN,
         "capturePid": 4242,
         "serverPid": 4343,
@@ -116,18 +116,18 @@ class ReconfigurableEncodingWriter(EncodingWriter):
         ({"token": ""}, "token"),
         ({"token": 12}, "token"),
         ({"token": "bad\r\nheader"}, "token"),
-        ({"baseUrl": "https://127.0.0.1:8767"}, "baseUrl"),
-        ({"baseUrl": "http://localhost:8767"}, "baseUrl"),
-        ({"baseUrl": "http://127.0.0.2:8767"}, "baseUrl"),
+        ({"baseUrl": "https://127.0.0.1:18767"}, "baseUrl"),
+        ({"baseUrl": "http://localhost:18767"}, "baseUrl"),
+        ({"baseUrl": "http://127.0.0.2:18767"}, "baseUrl"),
         ({"baseUrl": "http://127.0.0.1:not-a-port"}, "baseUrl"),
         ({"baseUrl": "http://127.0.0.1"}, "baseUrl"),
         ({"baseUrl": "http://127.0.0.1:0"}, "baseUrl"),
-        ({"baseUrl": "http://127.0.0.1:08767"}, "baseUrl"),
-        ({"baseUrl": "http://127.0.0.1:8767/"}, "baseUrl"),
-        ({"baseUrl": "http://127.0.0.1:8767?"}, "baseUrl"),
-        ({"baseUrl": "http://127.0.0.1:8767#"}, "baseUrl"),
-        ({"baseUrl": "http://127.0.0.1:8767/path"}, "baseUrl"),
-        ({"baseUrl": "http://user@127.0.0.1:8767"}, "baseUrl"),
+        ({"baseUrl": "http://127.0.0.1:018767"}, "baseUrl"),
+        ({"baseUrl": "http://127.0.0.1:18767/"}, "baseUrl"),
+        ({"baseUrl": "http://127.0.0.1:18767?"}, "baseUrl"),
+        ({"baseUrl": "http://127.0.0.1:18767#"}, "baseUrl"),
+        ({"baseUrl": "http://127.0.0.1:18767/path"}, "baseUrl"),
+        ({"baseUrl": "http://user@127.0.0.1:18767"}, "baseUrl"),
         ({"capturePid": "4242"}, "capturePid"),
         ({"capturePid": True}, "capturePid"),
         ({"capturePid": 0}, "capturePid"),
@@ -189,7 +189,7 @@ def test_request_json_sends_bearer_utf8_json_and_35_second_timeout(monkeypatch):
 
     request = observed["request"]
     assert result == {"ok": True}
-    assert request.full_url == "http://127.0.0.1:8767/v1/execute"
+    assert request.full_url == "http://127.0.0.1:18767/v1/execute"
     assert request.method == "POST"
     assert request.get_header("Authorization") == f"Bearer {TOKEN}"
     assert request.get_header("Content-type") == "application/json; charset=utf-8"
@@ -420,7 +420,7 @@ def test_request_json_converts_structured_http_errors(monkeypatch):
 
     def fail(*_args, **_kwargs):
         raise urllib.error.HTTPError(
-            "http://127.0.0.1:8767/v1/execute",
+            "http://127.0.0.1:18767/v1/execute",
             409,
             "Conflict",
             {},
@@ -445,7 +445,7 @@ def test_request_json_always_closes_http_error_response(monkeypatch):
         ).encode("utf-8")
     )
     error = urllib.error.HTTPError(
-        "http://127.0.0.1:8767/v1/execute",
+        "http://127.0.0.1:18767/v1/execute",
         409,
         "Conflict",
         {},
@@ -480,7 +480,7 @@ def test_http_error_close_failure_does_not_mask_the_protocol_error(
         ).encode("utf-8")
     )
     error = urllib.error.HTTPError(
-        "http://127.0.0.1:8767/v1/execute", 409, "Conflict", {}, body
+        "http://127.0.0.1:18767/v1/execute", 409, "Conflict", {}, body
     )
     monkeypatch.setattr(
         cli,
@@ -513,7 +513,7 @@ def test_execution_timeout_preserves_safe_command_metadata(monkeypatch):
 
     def fail(*_args, **_kwargs):
         raise urllib.error.HTTPError(
-            "http://127.0.0.1:8767/v1/execute",
+            "http://127.0.0.1:18767/v1/execute",
             504,
             "Gateway Timeout",
             {},
@@ -561,7 +561,7 @@ def test_http_error_surrogates_never_reach_exception_text_or_metadata(
 
     def fail(*_args, **_kwargs):
         raise urllib.error.HTTPError(
-            "http://127.0.0.1:8767/v1/execute",
+            "http://127.0.0.1:18767/v1/execute",
             500,
             "Server Error",
             {},
@@ -581,7 +581,7 @@ def test_http_error_surrogates_never_reach_exception_text_or_metadata(
 def test_non_json_http_error_with_surrogate_reason_is_safe(monkeypatch):
     def fail(*_args, **_kwargs):
         raise urllib.error.HTTPError(
-            "http://127.0.0.1:8767/v1/execute",
+            "http://127.0.0.1:18767/v1/execute",
             500,
             "bad \ud800 reason",
             {},
@@ -610,7 +610,7 @@ def test_request_json_probes_http_error_body_at_limit_plus_one(monkeypatch):
 
     def fail(*_args, **_kwargs):
         raise urllib.error.HTTPError(
-            "http://127.0.0.1:8767/v1/execute",
+            "http://127.0.0.1:18767/v1/execute",
             409,
             "Conflict",
             {},
@@ -633,7 +633,7 @@ def test_request_json_rejects_oversized_http_error_body_without_token(
 
     def fail(*_args, **_kwargs):
         raise urllib.error.HTTPError(
-            "http://127.0.0.1:8767/v1/execute",
+            "http://127.0.0.1:18767/v1/execute",
             500,
             f"server failed {TOKEN}",
             {},
@@ -658,7 +658,7 @@ def test_request_json_converts_unreadable_http_error_body(monkeypatch):
 
     def fail(*_args, **_kwargs):
         raise urllib.error.HTTPError(
-            "http://127.0.0.1:8767/v1/execute",
+            "http://127.0.0.1:18767/v1/execute",
             500,
             f"server failed {TOKEN}",
             {},

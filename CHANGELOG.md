@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [0.1.0-beta.6] - 2026-11-03
+
+### Changed
+
+- 默认监听端口从 8767 改为 18767，避开本机已确认的 Windows 排除端口范围。
+- 从 Git 工作区安装前必须通过 clean 检查；暂存、未暂存、未跟踪改动或
+  Git 检查失败都会阻止安装，`-ForceOverwriteModified` 不能绕过。
+- 不含 Git 元数据的发布 ZIP 仍可离线安装；补充端口排除排查说明与安装检查测试。
+
 ## [0.1.0-beta.5] - 2026-08-16
 
 ### Changed
@@ -118,3 +127,4 @@
 [0.1.0-beta.3]: https://github.com/aixia715/capture-tcl-ai-bridge/compare/v0.1.0-beta.2...v0.1.0-beta.3
 [0.1.0-beta.4]: https://github.com/aixia715/capture-tcl-ai-bridge/compare/v0.1.0-beta.3...v0.1.0-beta.4
 [0.1.0-beta.5]: https://github.com/aixia715/capture-tcl-ai-bridge/compare/v0.1.0-beta.4...v0.1.0-beta.5
+[0.1.0-beta.6]: https://github.com/aixia715/capture-tcl-ai-bridge/compare/v0.1.0-beta.5...v0.1.0-beta.6

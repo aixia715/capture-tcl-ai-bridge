@@ -34,7 +34,8 @@ This standalone repository imports the bridge baseline from
 | `tests/test_capture_tcl_cli.py` | `tests/test_capture_tcl_cli.py` |
 | `tests/test_capture_tcl_bridge_integration.py` | `tests/test_capture_tcl_bridge_integration.py` |
 
-The service continues to use localhost port `8767`.  Its runtime descriptor
+The service now defaults to localhost port `18767` (the migration baseline used
+`8767`). Its runtime descriptor
 remains compatible with the existing `capture_tcl_bridge.json` contract.
 
 ## Acceptance boundary

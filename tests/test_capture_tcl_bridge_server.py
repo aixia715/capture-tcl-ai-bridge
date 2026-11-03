@@ -376,7 +376,7 @@ def test_health_rejects_non_ascii_authorization_without_an_internal_error(client
 
 def test_health_returns_exact_service_identity_and_connection_status(client):
     assert bridge.SERVICE == "capture-tcl-bridge"
-    assert bridge.SOFTWARE_VERSION == "0.1.0-beta.5"
+    assert bridge.SOFTWARE_VERSION == "0.1.0-beta.6"
     assert bridge.PROTOCOL_VERSION == 1
 
     response = client.get("/v1/health", headers=bridge_headers())
@@ -978,7 +978,7 @@ def test_write_runtime_descriptor_is_atomic_and_contains_the_runtime_identity(tm
     monkeypatch.setattr(bridge.os, "replace", checked_replace)
     monkeypatch.setattr(bridge.os, "getpid", lambda: 9876)
 
-    bridge.write_runtime_descriptor(descriptor, "secret", 4321, 8767)
+    bridge.write_runtime_descriptor(descriptor, "secret", 4321, 18767)
 
     assert len(replaced) == 1
     assert replaced[0][0].parent == descriptor.parent
@@ -988,7 +988,7 @@ def test_write_runtime_descriptor_is_atomic_and_contains_the_runtime_identity(tm
         "service": "capture-tcl-bridge",
         "version": bridge.SOFTWARE_VERSION,
         "protocolVersion": 1,
-        "baseUrl": "http://127.0.0.1:8767",
+        "baseUrl": "http://127.0.0.1:18767",
         "token": "secret",
         "capturePid": 4321,
         "serverPid": 9876,
@@ -1011,7 +1011,7 @@ def test_write_runtime_descriptor_removes_temporary_file_when_replace_fails(tmp_
     monkeypatch.setattr(bridge.os, "replace", blocked_replace)
 
     with pytest.raises(OSError, match="blocked"):
-        bridge.write_runtime_descriptor(descriptor, "secret", 4321, 8767)
+        bridge.write_runtime_descriptor(descriptor, "secret", 4321, 18767)
 
     assert not descriptor.exists()
     assert fixed_temporary.read_text(encoding="utf-8") == "do not touch"
@@ -1027,7 +1027,7 @@ def test_concurrent_runtime_descriptor_writers_publish_complete_json_without_lef
     def write(token):
         try:
             start.wait()
-            bridge.write_runtime_descriptor(descriptor, token, 4321, 8767)
+            bridge.write_runtime_descriptor(descriptor, token, 4321, 18767)
         except Exception as error:
             failures.append(error)
 
@@ -1050,7 +1050,7 @@ def test_concurrent_runtime_descriptor_writers_publish_complete_json_without_lef
 def test_runtime_descriptor_and_lock_files_are_private_on_posix(tmp_path):
     descriptor = tmp_path / "bridge.json"
 
-    bridge.write_runtime_descriptor(descriptor, "secret", 4321, 8767)
+    bridge.write_runtime_descriptor(descriptor, "secret", 4321, 18767)
 
     assert descriptor.stat().st_mode & 0o777 == 0o600
     assert descriptor.with_suffix(".json.lock").stat().st_mode & 0o777 == 0o600
@@ -1066,7 +1066,7 @@ def test_runtime_descriptor_write_does_not_touch_a_preexisting_fixed_temporary_s
     except OSError:
         pytest.skip("symlink creation is unavailable for this test process")
 
-    bridge.write_runtime_descriptor(descriptor, "secret", 4321, 8767)
+    bridge.write_runtime_descriptor(descriptor, "secret", 4321, 18767)
 
     assert fixed_temporary.is_symlink()
     assert target.read_text(encoding="utf-8") == "do not touch"
@@ -1091,7 +1091,7 @@ def test_old_remove_cannot_delete_a_newer_descriptor_while_write_is_locked(tmp_p
     monkeypatch.setattr(Path, "read_text", paused_read)
     remover = threading.Thread(target=bridge.remove_runtime_descriptor, args=(descriptor, 100))
     writer = threading.Thread(
-        target=lambda: (bridge.write_runtime_descriptor(descriptor, "new", 4321, 8767), writer_finished.set())
+        target=lambda: (bridge.write_runtime_descriptor(descriptor, "new", 4321, 18767), writer_finished.set())
     )
     remover.start()
     try:
@@ -1570,7 +1570,7 @@ def test_main_removes_descriptor_before_closing_socket_on_normal_return(tmp_path
             pass
 
         def getsockname(self):
-            return ("127.0.0.1", 8767)
+            return ("127.0.0.1", 18767)
 
         def close(self):
             assert bridge.RUNTIME_FILE is None
@@ -1628,7 +1628,7 @@ def test_main_cleans_runtime_state_when_uvicorn_run_raises(tmp_path, monkeypatch
             self.listened = True
 
         def getsockname(self):
-            return ("127.0.0.1", 8767)
+            return ("127.0.0.1", 18767)
 
         def close(self):
             assert bridge.RUNTIME_FILE is None
@@ -1685,7 +1685,7 @@ def test_main_resets_state_and_closes_socket_when_descriptor_cleanup_fails(tmp_p
             pass
 
         def getsockname(self):
-            return ("127.0.0.1", 8767)
+            return ("127.0.0.1", 18767)
 
         def close(self):
             self.closed = True
@@ -1732,7 +1732,7 @@ def test_main_cleans_socket_and_state_when_descriptor_write_fails(tmp_path, monk
             pass
 
         def getsockname(self):
-            return ("127.0.0.1", 8767)
+            return ("127.0.0.1", 18767)
 
         def close(self):
             self.closed = True

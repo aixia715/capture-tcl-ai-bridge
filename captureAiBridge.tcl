@@ -2,9 +2,9 @@
 # Sourcing this module is side-effect free; lifecycle is always explicit.
 
 set ::CaptureAiBridgeService {capture-tcl-bridge}
-set ::CaptureAiBridgeVersion {0.1.0-beta.5}
+set ::CaptureAiBridgeVersion {0.1.0-beta.6}
 set ::CaptureAiBridgeProtocolVersion 1
-set ::CaptureAiBridgePort 8767
+set ::CaptureAiBridgePort 18767
 set ::CaptureAiBridgePollMs 250
 set ::CaptureAiBridgeFieldLimit 4194304
 if {![info exists ::CaptureAiBridgeMetadataLimit]} { set ::CaptureAiBridgeMetadataLimit 4194304 }
