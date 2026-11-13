@@ -32,14 +32,6 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Wait for CI to pass
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          check-name: 'test'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 15
-
       - name: Install tclsh (8.6 via apt, 8.4 built from source)
         # The bridge must work on both OrCAD Capture 16.6 (Tcl 8.4) and 17.4
         # (Tcl 8.6) — see README.md. Ubuntu dropped tcl8.4 from its archives,
