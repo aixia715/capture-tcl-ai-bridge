@@ -375,6 +375,245 @@ join [list CAPTURE_MCP_SET_V2 [_captureMcpHex $_captureMcpTargetRefdes] [_captur
     )
 
 
+# Connectivity is resolved from occurrence pins and design-wide flat nets, never
+# from page-local net labels (which are ambiguous in repeated hierarchy).
+_TCL_CONNECTIVITY = r"""
+proc _captureMcpPinKey {port st} {
+    set value [DboPortOccurrence_sGetPathName $port $st]
+    _captureMcpRequireOk $st {GetPathName(port)}
+    return [DboTclHelper_sGetConstCharPtr $value]
+}
+
+proc _captureMcpPinsWalk {st handle outputVar netMapVar} {
+    upvar 1 $outputVar output $netMapVar netMap
+    set inst [_captureMcpToInstOccurrence $handle]
+    set primitive [$inst IsPrimitive $st]
+    _captureMcpRequireOk $st {IsPrimitive}
+    if {$primitive == 1} {
+        set ref [_captureMcpStringOut $inst GetReference {GetReference}]
+        set path [_captureMcpStringOut $inst GetPathName {GetPathName}]
+        lappend output [join [list C [_captureMcpHex $ref] [_captureMcpHex $path]] "\t"]
+        set ports [$inst NewChildrenIter $st $::IterDefs_PORTS]
+        _captureMcpRequireOk $st {NewChildrenIter(PORTS)}
+        try {
+            while {1} {
+                set child [$ports NextOccurrence $st]
+                if {$child eq {NULL}} { break }
+                _captureMcpRequireOk $st {NextOccurrence(port)}
+                if {$::_captureMcpQueryCount > $::_captureMcpQueryLimit} { continue }
+                if {$::_captureMcpQueryMode ne {net_pins} &&
+                    ($ref ne $::_captureMcpQueryRef ||
+                     ($::_captureMcpQueryUsePath && $path ne $::_captureMcpQueryPath))} { continue }
+                if {[DboBaseObject_GetObjectType $child] != $::DboBaseObject_PORT_OCCURRENCE} {
+                    error "UNEXPECTED_OBJECT_TYPE: expected PORT_OCCURRENCE"
+                }
+                set port [DboOccurrenceToDboPortOccurrence $child]
+                set key [_captureMcpPinKey $port $st]
+                set connected [info exists netMap($key)]
+                set net {}
+                if {$connected} { set net $netMap($key) }
+                if {$::_captureMcpQueryMode eq {net_pins} &&
+                    (!$connected || $net ne $::_captureMcpQueryNet)} { continue }
+                set pin [$port GetPortInst $st]
+                _captureMcpRequireOk $st {GetPortInst}
+                if {$pin eq {NULL}} { error "PIN_NOT_FOUND: occurrence has no pin instance" }
+                set number [_captureMcpStringOut $pin GetPinNumber {GetPinNumber}]
+                if {$::_captureMcpQueryMode eq {pin_net} && $number ne $::_captureMcpQueryNumber} { continue }
+                set name [_captureMcpStringOut $pin GetPinName {GetPinName}]
+                incr ::_captureMcpQueryCount
+                lappend output [join [list P [_captureMcpHex $ref] [_captureMcpHex $path] [_captureMcpHex $number] [_captureMcpHex $name] $connected [_captureMcpHex $net]] "\t"]
+            }
+        } finally { delete_DboOccurrenceChildrenIter $ports }
+    }
+    set children [$inst NewChildrenIter $st $::IterDefs_INSTS]
+    _captureMcpRequireOk $st {NewChildrenIter(INSTS)}
+    try {
+        $children Sort $st
+        _captureMcpRequireOk $st {Sort}
+        while {1} {
+            set child [$children NextOccurrence $st]
+            if {$child eq {NULL}} { break }
+            _captureMcpRequireOk $st {NextOccurrence}
+            _captureMcpPinsWalk $st $child output netMap
+        }
+    } finally { delete_DboOccurrenceChildrenIter $children }
+}
+
+set _captureMcpState [DboState]
+try {
+    set _captureMcpDesign [GetActivePMDesign]
+    if {$_captureMcpDesign eq {NULL}} { error "NO_ACTIVE_DESIGN: open a design in Capture" }
+    set _captureMcpDesignNameC [DboTclHelper_sMakeCString]
+    DboBaseObject_GetName $_captureMcpDesign $_captureMcpDesignNameC
+    set _captureMcpDesignName [DboTclHelper_sGetConstCharPtr $_captureMcpDesignNameC]
+    set _captureMcpRows [list "CAPTURE_MCP_CONNECTIVITY_V1\t[_captureMcpHex $_captureMcpDesignName]"]
+    catch {unset _captureMcpNetMap}
+    array set _captureMcpNetMap {}
+    set _captureMcpNetNames {}
+    set _captureMcpNets [$_captureMcpDesign NewFlatNetsIter $_captureMcpState]
+    _captureMcpRequireOk $_captureMcpState {NewFlatNetsIter}
+    try {
+        while {1} {
+            set _captureMcpNet [$_captureMcpNets NextFlatNet $_captureMcpState]
+            if {$_captureMcpNet eq {NULL}} { break }
+            _captureMcpRequireOk $_captureMcpState {NextFlatNet}
+            set _captureMcpName [_captureMcpStringOut $_captureMcpNet GetName {GetName(flat net)}]
+            if {[lsearch -exact $_captureMcpNetNames $_captureMcpName] >= 0} {
+                error "NET_NOT_UNIQUE: duplicate flat net names in Active Design"
+            }
+            lappend _captureMcpNetNames $_captureMcpName
+            lappend _captureMcpRows "N\t[_captureMcpHex $_captureMcpName]"
+            set _captureMcpPorts [$_captureMcpNet NewPortOccurrencesIter $_captureMcpState $::IterDefs_PRIMITIVES]
+            _captureMcpRequireOk $_captureMcpState {NewPortOccurrencesIter}
+            try {
+                while {1} {
+                    set _captureMcpPort [$_captureMcpPorts NextPortOccurrence $_captureMcpState]
+                    if {$_captureMcpPort eq {NULL}} { break }
+                    _captureMcpRequireOk $_captureMcpState {NextPortOccurrence}
+                    set _captureMcpKey [_captureMcpPinKey $_captureMcpPort $_captureMcpState]
+                    if {[info exists _captureMcpNetMap($_captureMcpKey)] &&
+                        $_captureMcpNetMap($_captureMcpKey) ne $_captureMcpName} {
+                        error "PIN_NET_NOT_UNIQUE: one occurrence pin belongs to multiple flat nets"
+                    }
+                    set _captureMcpNetMap($_captureMcpKey) $_captureMcpName
+                }
+            } finally { delete_DboFlatNetPortOccurrencesIter $_captureMcpPorts }
+        }
+    } finally { delete_DboDesignFlatNetsIter $_captureMcpNets }
+    set _captureMcpRoot [$_captureMcpDesign GetRootOccurrence $_captureMcpState]
+    _captureMcpRequireOk $_captureMcpState {GetRootOccurrence}
+    _captureMcpPinsWalk $_captureMcpState $_captureMcpRoot _captureMcpRows _captureMcpNetMap
+} finally {
+    catch {unset _captureMcpNetMap}
+    $_captureMcpState -delete
+}
+join $_captureMcpRows "\n"
+"""
+
+
+def query_connectivity(runtime_file: Path, arguments: Any, mode: str) -> dict[str, Any]:
+    """Read occurrence pins and flat-net connectivity in one bridge command."""
+    values = _validate_arguments_object(arguments)
+    allowed = {"net_name", "max_results"} if mode == "net_pins" else {"refdes", "path", "max_results"}
+    if mode == "pin_net":
+        allowed.add("pin_number")
+    unknown = sorted(set(values) - allowed)
+    if unknown:
+        raise InvalidToolArguments(f"Unknown argument(s): {', '.join(unknown)}.")
+    refdes = path = number = net_name = None
+    if mode == "net_pins":
+        net_name = _string_argument(values, "net_name", required=True)
+    else:
+        refdes = _string_argument(values, "refdes", required=True, max_length=256)
+        path = _string_argument(values, "path", max_length=4096)
+        if mode == "pin_net":
+            number = _string_argument(values, "pin_number", required=True, max_length=256)
+    limit = values.get("max_results", 500)
+    if type(limit) is not int or not 1 <= limit <= MAX_RESULTS:
+        raise InvalidToolArguments(f"max_results must be an integer from 1 through {MAX_RESULTS}.")
+    filters = "\n".join([
+        f"set ::_captureMcpQueryMode {_tcl_decode_expression(mode)}",
+        f"set ::_captureMcpQueryRef {_tcl_decode_expression(refdes or '')}",
+        f"set ::_captureMcpQueryPath {_tcl_decode_expression(path or '')}",
+        f"set ::_captureMcpQueryNumber {_tcl_decode_expression(number or '')}",
+        f"set ::_captureMcpQueryNet {_tcl_decode_expression(net_name or '')}",
+        f"set ::_captureMcpQueryUsePath {int(path is not None)}",
+        f"set ::_captureMcpQueryLimit {1 if mode == 'pin_net' else limit}",
+        "set ::_captureMcpQueryCount 0",
+    ])
+    raw = _execute_capture_script(runtime_file, _TCL_COMMON + filters + "\n" + _TCL_CONNECTIVITY)
+    try:
+        lines = raw.splitlines()
+        header = lines.pop(0).split("\t")
+        if len(header) != 2 or header[0] != "CAPTURE_MCP_CONNECTIVITY_V1":
+            raise ValueError
+        design = _decode_hex(header[1])
+        components: set[tuple[str, str]] = set()
+        nets: set[str] = set()
+        pins = []
+        for line in lines:
+            fields = line.split("\t")
+            if fields[0] == "C" and len(fields) == 3:
+                components.add((_decode_hex(fields[1]), _decode_hex(fields[2])))
+            elif fields[0] == "N" and len(fields) == 2:
+                nets.add(_decode_hex(fields[1]))
+            elif fields[0] == "P" and len(fields) == 7 and fields[5] in {"0", "1"}:
+                ref, component_path, pin_number, pin_name, net = (
+                    _decode_hex(fields[i]) for i in (1, 2, 3, 4, 6)
+                )
+                connected = fields[5] == "1"
+                if not connected and net:
+                    raise ValueError
+                pins.append({
+                    "occurrence": {"design": design, "refdes": ref, "path": component_path},
+                    "pin_number": pin_number, "pin_name": pin_name,
+                    "connected": connected,
+                    "net": {"design": design, "name": net} if connected else None,
+                })
+            else:
+                raise ValueError
+        if any((p["occurrence"]["refdes"], p["occurrence"]["path"]) not in components
+               or (p["connected"] and p["net"]["name"] not in nets) for p in pins):
+            raise ValueError
+    except (ValueError, IndexError) as error:
+        raise ToolExecutionError("Capture returned malformed connectivity data.") from error
+    if mode == "net_pins":
+        if net_name not in nets:
+            raise ToolExecutionError("NET_NOT_FOUND: no flat net has the exact requested name.")
+        matches = [p for p in pins if p["connected"] and p["net"]["name"] == net_name]
+    else:
+        targets = [(r, p) for r, p in components if r == refdes and (path is None or p == path)]
+        if not targets:
+            raise ToolExecutionError("COMPONENT_NOT_FOUND: no component matched.")
+        if len(targets) != 1:
+            raise ToolExecutionError("COMPONENT_NOT_UNIQUE: supply the exact hierarchical path.")
+        matches = [p for p in pins if (p["occurrence"]["refdes"], p["occurrence"]["path"]) == targets[0]]
+        if mode == "pin_net":
+            matches = [p for p in matches if p["pin_number"] == number]
+            if not matches:
+                raise ToolExecutionError("PIN_NOT_FOUND: no pin has the exact requested number.")
+            if len(matches) != 1:
+                raise ToolExecutionError("PIN_NOT_UNIQUE: multiple pins have the requested number.")
+            return {"design": design, "pin": matches[0]}
+    return {"design": design, "pins": matches[:limit], "count": min(len(matches), limit),
+            "truncated": len(matches) > limit}
+
+
+def _connectivity_tool(name: str, description: str, properties: dict, required: list[str]) -> dict:
+    return {
+        "name": name, "description": description,
+        "inputSchema": {"type": "object", "properties": {
+            **properties,
+            "max_results": {"type": "integer", "minimum": 1, "maximum": MAX_RESULTS, "default": 500},
+        }, "required": required, "additionalProperties": False},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False,
+                        "idempotentHint": True, "openWorldHint": False},
+    }
+
+
+_COMPONENT_PIN_ARGS = {
+    "refdes": {"type": "string", "minLength": 1, "maxLength": 256},
+    "path": {"type": "string", "minLength": 1, "maxLength": 4096},
+}
+COMPONENT_PINS_TOOL = _connectivity_tool(
+    "capture_get_component_pins",
+    "Read all pins of exactly one Active Design component. Use the exact occurrence path when refdes is repeated. Includes unconnected pins and design-wide flat net names.",
+    _COMPONENT_PIN_ARGS, ["refdes"],
+)
+PIN_NET_TOOL = _connectivity_tool(
+    "capture_get_pin_net",
+    "Read the design-wide flat net connected to a component pin, selected by exact pin number (string). An unconnected pin returns connected:false and net:null.",
+    {**_COMPONENT_PIN_ARGS, "pin_number": {"type": "string", "minLength": 1, "maxLength": 256}},
+    ["refdes", "pin_number"],
+)
+NET_PINS_TOOL = _connectivity_tool(
+    "capture_get_net_pins",
+    "Read component pins across pages and hierarchy on the exact design-wide flat net name returned by capture_get_pin_net. Does not match page-local aliases or bus names.",
+    {"net_name": {"type": "string", "minLength": 1}}, ["net_name"],
+)
+CONNECTIVITY_TOOLS = [COMPONENT_PINS_TOOL, PIN_NET_TOOL, NET_PINS_TOOL]
+
+
 def build_inspect_selection_script(
     property_names: list[str], max_results: int
 ) -> str:
@@ -2056,6 +2295,7 @@ class CaptureMcpServer:
                     SET_TOOL,
                     READ_DSN_TOOL,
                     SET_DSN_TOOL,
+                    *CONNECTIVITY_TOOLS,
                 ]
             }
             if modern:
@@ -2124,6 +2364,11 @@ class CaptureMcpServer:
         try:
             if name == INSPECT_SELECTION_TOOL["name"]:
                 value = inspect_selection(self.runtime_file, arguments)
+            elif name in {tool["name"] for tool in CONNECTIVITY_TOOLS}:
+                mode = {COMPONENT_PINS_TOOL["name"]: "component_pins",
+                        PIN_NET_TOOL["name"]: "pin_net",
+                        NET_PINS_TOOL["name"]: "net_pins"}[name]
+                value = query_connectivity(self.runtime_file, arguments, mode)
             elif name == READ_TOOL["name"]:
                 value = read_component_properties(self.runtime_file, arguments)
             elif name == SET_TOOL["name"]:

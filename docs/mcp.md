@@ -3,12 +3,15 @@
 `capture_mcp_server.py` is a local stdio MCP server for AI agents such as
 Codex, Claude Code and Hermes. Active Design tools talk to the authenticated
 Capture Tcl bridge; Offline Design tools use a standalone SPB 16.6 DBO session.
-The server intentionally exposes only five closed-world tools:
+The server intentionally exposes only eight closed-world tools:
 
 | Tool | Effect |
 | --- | --- |
 | `capture_inspect_selection` | Reads the Current Selection from the active schematic page and returns typed objects with locators. |
 | `capture_read_component_properties` | Lists components in the active design and reads requested effective string properties. |
+| `capture_get_component_pins` | Reads all pins of exactly one component, including unconnected pins. |
+| `capture_get_pin_net` | Reads the design-wide flat net connected to one component pin. |
+| `capture_get_net_pins` | Reads component pins on one flat net across pages and hierarchy. |
 | `capture_set_component_property` | Changes one property on exactly one component and verifies it by immediate readback. |
 | `capture_nogui_read_dsn_component_properties` | Reads Component Information from an absolute DSN path without starting Capture GUI. |
 | `capture_nogui_set_dsn_component_property` | Sets one Occurrence Property in a staged DSN, saves it, and verifies it in a fresh process before publication. |
@@ -192,6 +195,84 @@ reads, so missing and empty values remain distinct:
   "after": {"present": true, "value": "Acme"}
 }
 ```
+
+### Active Design pin and net queries
+
+These three read-only tools use the bridge and the Active Design; they do not
+require a schematic selection, edit the design, or save it. Connectivity is
+resolved using occurrence pins and design-wide flat nets, rather than matching
+page-local net labels. Repeated hierarchical instances remain separate endpoints.
+
+Read a component's pins with `capture_get_component_pins`:
+
+```json
+{"refdes": "C3", "path": "/TOP/POWER/C3", "max_results": 500}
+```
+
+`refdes` is required. `path` is optional but must be supplied when a refdes matches
+multiple components. Copy the exact `occurrence.path` from a component read;
+the path shown here is illustrative. A component with no pins succeeds with an
+empty array. Missing and ambiguous components return `COMPONENT_NOT_FOUND` and
+`COMPONENT_NOT_UNIQUE`, respectively.
+
+Read a specific pin's net with `capture_get_pin_net`:
+
+```json
+{"refdes": "C3", "path": "/TOP/POWER/C3", "pin_number": "1"}
+```
+
+`refdes` and `pin_number` are required; `path` has the same semantics as above.
+Pin numbers are exact strings, including alphanumeric numbers. Pin names are
+not selectors. A missing pin returns `PIN_NOT_FOUND`; a repeated number within
+one component returns `PIN_NOT_UNIQUE`.
+
+Read all component pins on a network with `capture_get_net_pins`:
+
+```json
+{"net_name": "VCC", "max_results": 500}
+```
+
+`net_name` is required and matches the exact design-wide flat net name returned
+by the pin queries. It may be a generated name for an unnamed net. A page-local
+alias or a bus name is not a substitute for this name. Missing networks return
+`NET_NOT_FOUND`; duplicate flat net names fail with `NET_NOT_UNIQUE` rather than
+merging endpoints from different networks. Only component pins are returned,
+not hierarchical ports, labels, or wires.
+
+The two list tools return `design`, `pins`, `count`, and `truncated`.
+`max_results` defaults to 500 and accepts 1 through 5000. `count` is the number
+returned, not the total number of matching pins. The single-pin tool returns
+`design` and `pin`. Each pin has this structure:
+
+```json
+{
+  "occurrence": {"design": "board.dsn", "refdes": "C3", "path": "/TOP/POWER/C3"},
+  "pin_number": "1",
+  "pin_name": "1",
+  "connected": true,
+  "net": {"design": "board.dsn", "name": "VCC"}
+}
+```
+
+An unconnected pin succeeds with `connected:false` and `net:null`. Network names
+and occurrence paths are identities within the returned design, not filesystem
+paths or retained Tcl handles. Queries inspect live design data each time; any
+bridge-level truncation is an error rather than a partial connectivity success.
+
+For read-only acceptance against a running Capture, run from a Windows checkout
+with the updated server (this exercises actual MCP stdio requests):
+
+```powershell
+C:\tclpython\runtime\python.exe examples\verify_mcp_connectivity.py
+```
+
+Optionally supply `--refdes C3 --path <exact-occurrence-path>` to choose a test
+component. The script verifies component pins, a pin's net, and membership of
+that same endpoint in the network's pin list. It also checks an unconnected pin
+when the chosen component has one. It prints the observed endpoints as JSON and
+fails on errors, disagreement, or truncated results. Without `--refdes`, it tries
+the first 100 components until it finds a connected pin. This is live acceptance;
+the deterministic Tcl fixture tests alone do not establish Cadence compatibility.
 
 ### Offline Design tools
 

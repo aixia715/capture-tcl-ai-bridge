@@ -423,6 +423,9 @@ def test_legacy_initialize_and_tool_listing(tmp_path):
         "capture_set_component_property",
         "capture_nogui_read_dsn_component_properties",
         "capture_nogui_set_dsn_component_property",
+        "capture_get_component_pins",
+        "capture_get_pin_net",
+        "capture_get_net_pins",
     ]
     assert "resultType" not in listed["result"]
 
@@ -458,6 +461,9 @@ def test_modern_discovery_and_tool_listing_include_required_envelope(tmp_path):
         "capture_set_component_property",
         "capture_nogui_read_dsn_component_properties",
         "capture_nogui_set_dsn_component_property",
+        "capture_get_component_pins",
+        "capture_get_pin_net",
+        "capture_get_net_pins",
     ]
 
 
