@@ -1,6 +1,6 @@
 # Capture Tcl AI Bridge
 
-当前预发布版本：**0.1.0-beta.6**。
+当前预发布版本：**0.1.0-beta.7**。
 版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 把本机 AI 客户端或人工命令行提交的多行 Tcl，交给**正在运行的** OrCAD Capture
@@ -24,8 +24,9 @@
 不需要额外安装 tcllib，也不需要配置 `TCLLIBPATH`。
 16.6 的唯一差异见[版本差异](#版本差异)。
 
-真实 Capture 验收目前在 16.6 / Tcl 8.4.15 上完成。17.4 / Tcl 8.6 已由自动兼容
-测试覆盖，但尚未进行真机验收；beta 使用者应将这一点视为已知验证边界。
+真实 Capture 验收已在 16.6 / Tcl 8.4.15 上完成。17.4 / Tcl 8.6 已由自动兼容
+测试覆盖，并完成引脚与网络查询的只读真机边界验收；这不代表全部 17.4 功能
+均已完成真机验收，详见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 最短使用路径
 
@@ -43,7 +44,7 @@ cd D:\codeprj\capture-tcl-ai-bridge
 
 这里复用本机已有的 Python 运行环境，并更新 Capture 17.4 的桥脚本，无需重新下载
 Python。安装成功后，按下一节重新加载脚本并启动；`AiBridge status` 应显示
-`0.1.0-beta.6` 和 `http://127.0.0.1:18767`。
+`0.1.0-beta.7` 和 `http://127.0.0.1:18767`。
 
 **从 Release ZIP 安装**
 
@@ -112,7 +113,7 @@ AiBridge status
 ```
 
 `AiBridge status` 的第一行会显示版本，例如
-`Capture Tcl AI Bridge v0.1.0-beta.6`。
+`Capture Tcl AI Bridge v0.1.0-beta.7`。
 
 ### 3. 用命令行执行 Tcl
 
