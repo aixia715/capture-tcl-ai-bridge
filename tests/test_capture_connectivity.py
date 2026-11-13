@@ -92,6 +92,10 @@ foreach obj {root A B} {interp alias {} $obj {} instance $obj}
 proc port {obj method args} {
     switch $method {
         GetPortInst {return "pin$obj"}
+        GetEffectivePropStringValue {
+            set ::strings([lindex $args 1]) [string index $obj end]
+            return state
+        }
         default {error "unexpected port $method"}
     }
 }
@@ -214,3 +218,125 @@ def test_duplicate_flat_net_names_are_rejected(call_tool):
     result = call_tool("capture_get_net_pins", {"net_name": "VCC"})
     assert result["isError"] is True
     assert "NET_NOT_UNIQUE" in result["content"][0]["text"]
+
+
+@pytest.fixture
+def multipart_tool(call_tool):
+    # Real Capture: A/C have identical occurrence paths and symbol pin numbers,
+    # but occurrence Number contains the actual package number (3 versus 10).
+    call_tool.configure_dbo(r'''
+        proc DboPortOccurrence_sGetPathName {obj st} {
+            set name IN+
+            if {[string index $obj end] eq {2}} {set name VCC}
+            return [DboTclHelper_sMakeCString "POWER/U47/$name"]
+        }
+        rename instance original_instance
+        proc instance {obj method args} {
+            switch $method {
+                GetReference {set ::strings([lindex $args 0]) U47; return state}
+                GetPathName {set ::strings([lindex $args 0]) POWER/U47; return state}
+                NewChildrenIter {
+                    if {$obj eq {B} && [lindex $args 1] == $::IterDefs_PORTS} {
+                        return [iterator {portB1 portB2}]
+                    }
+                }
+            }
+            return [original_instance $obj $method {*}$args]
+        }
+        rename port original_port
+        proc port {obj method args} {
+            if {$method eq {GetEffectivePropStringValue}} {
+                if {$::strings([lindex $args 0]) ne {Number}} {error "unexpected property"}
+                set number 4
+                if {$obj eq {portA1}} {set number 3}
+                if {$obj eq {portB1}} {set number 10}
+                set ::strings([lindex $args 1]) $number
+                return state
+            }
+            return [original_port $obj $method {*}$args]
+        }
+        interp alias {} portB2 {} port portB2
+        interp alias {} pinportB2 {} pin portB2
+        rename design original_design
+        proc design {method args} {
+            if {$method eq {NewFlatNetsIter}} {return [iterator {netA netC netPower}]}
+            return [original_design $method {*}$args]
+        }
+        proc multi_net {obj method args} {
+            if {$method eq {GetName}} {
+                set ::strings([lindex $args 0]) $obj
+                return state
+            }
+            if {$method eq {NewPortOccurrencesIter}} {
+                if {$obj eq {netA}} {return [iterator {portA1}]}
+                if {$obj eq {netC}} {return [iterator {portB1}]}
+                return [iterator {portA2 portB2}]
+            }
+            error "unexpected net method"
+        }
+        foreach obj {netA netC netPower} {interp alias {} $obj {} multi_net $obj}
+    ''')
+    return call_tool
+
+
+def test_multipart_package_numbers_and_net_round_trip(multipart_tool):
+    result = multipart_tool("capture_get_component_pins", {"refdes": "U47"})
+    assert not result.get("isError"), result
+    data = result["structuredContent"]
+    assert data["count"] == 3
+    assert not data["truncated"]
+    assert {p["pin_number"] for p in data["pins"]} == {"3", "10", "4"}
+    for number, net in [("3", "netA"), ("10", "netC"), ("4", "netPower")]:
+        result = multipart_tool("capture_get_pin_net", {"refdes": "U47", "pin_number": number})
+        assert not result.get("isError"), result
+        pin = result["structuredContent"]["pin"]
+        assert pin["net"]["name"] == net
+        result = multipart_tool("capture_get_net_pins", {"net_name": net})
+        assert result["structuredContent"]["pins"] == [pin]
+
+
+def test_shared_package_pins_do_not_consume_result_limit(multipart_tool):
+    result = multipart_tool("capture_get_component_pins", {"refdes": "U47", "max_results": 3})
+    assert not result.get("isError"), result
+    assert result["structuredContent"]["count"] == 3
+    assert result["structuredContent"]["truncated"] is False
+    result = multipart_tool("capture_get_net_pins", {"net_name": "netPower", "max_results": 1})
+    assert result["structuredContent"]["count"] == 1
+    assert result["structuredContent"]["truncated"] is False
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_missing_or_empty_package_number_fails_closed(call_tool, missing):
+    call_tool.configure_dbo(r'''
+        proc absent {method args} {
+            switch $method { OK {return 0} Code {return 1021} -delete {return} }
+        }
+        rename port original_port
+        proc port {obj method args} {
+            if {$method eq {GetEffectivePropStringValue}} {
+                set ::strings([lindex $args 1]) {}
+                if {$::missingNumber} {return absent}
+                return state
+            }
+            return [original_port $obj $method {*}$args]
+        }
+    ''')
+    call_tool.configure_dbo(f"set ::missingNumber {int(missing)}")
+    result = call_tool("capture_get_component_pins", {"refdes": "C3", "path": "A/C3"})
+    assert result["isError"] is True
+    assert "PIN_NUMBER_NOT_FOUND" in result["content"][0]["text"]
+
+
+def test_same_package_pin_on_different_nets_still_fails(multipart_tool):
+    multipart_tool.configure_dbo(r'''
+        rename multi_net original_multi_net
+        proc multi_net {obj method args} {
+            if {$obj eq {netC} && $method eq {NewPortOccurrencesIter}} {
+                return [iterator {portA1}]
+            }
+            return [original_multi_net $obj $method {*}$args]
+        }
+    ''')
+    result = multipart_tool("capture_get_component_pins", {"refdes": "U47"})
+    assert result["isError"] is True
+    assert "PIN_NET_NOT_UNIQUE" in result["content"][0]["text"]

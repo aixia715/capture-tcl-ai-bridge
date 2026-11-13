@@ -381,7 +381,14 @@ _TCL_CONNECTIVITY = r"""
 proc _captureMcpPinKey {port st} {
     set value [DboPortOccurrence_sGetPathName $port $st]
     _captureMcpRequireOk $st {GetPathName(port)}
-    return [DboTclHelper_sGetConstCharPtr $value]
+    # Homogeneous package units share this path (e.g. U47/IN+). The
+    # occurrence Number carries the mapped package pin, unlike GetPortInst's
+    # symbol pin number, which can be the first unit's number for every unit.
+    lassign [_captureMcpReadPropertyRecord $port Number] present number
+    if {!$present || $number eq {}} {
+        error "PIN_NUMBER_NOT_FOUND: occurrence has no package pin Number"
+    }
+    return [list [DboTclHelper_sGetConstCharPtr $value] $number]
 }
 
 proc _captureMcpPinsWalk {st handle outputVar netMapVar} {
@@ -417,11 +424,16 @@ proc _captureMcpPinsWalk {st handle outputVar netMapVar} {
                 set pin [$port GetPortInst $st]
                 _captureMcpRequireOk $st {GetPortInst}
                 if {$pin eq {NULL}} { error "PIN_NOT_FOUND: occurrence has no pin instance" }
-                set number [_captureMcpStringOut $pin GetPinNumber {GetPinNumber}]
+                set number [lindex $key 1]
                 if {$::_captureMcpQueryMode eq {pin_net} && $number ne $::_captureMcpQueryNumber} { continue }
                 set name [_captureMcpStringOut $pin GetPinName {GetPinName}]
+                set row [join [list P [_captureMcpHex $ref] [_captureMcpHex $path] [_captureMcpHex $number] [_captureMcpHex $name] $connected [_captureMcpHex $net]] "\t"]
+                # Shared package power pins can appear on every unit. Collapse
+                # only identical endpoints, before counting toward the limit.
+                if {[info exists ::_captureMcpSeenPins($row)]} { continue }
+                set ::_captureMcpSeenPins($row) 1
                 incr ::_captureMcpQueryCount
-                lappend output [join [list P [_captureMcpHex $ref] [_captureMcpHex $path] [_captureMcpHex $number] [_captureMcpHex $name] $connected [_captureMcpHex $net]] "\t"]
+                lappend output $row
             }
         } finally { delete_DboOccurrenceChildrenIter $ports }
     }
@@ -449,6 +461,8 @@ try {
     set _captureMcpRows [list "CAPTURE_MCP_CONNECTIVITY_V1\t[_captureMcpHex $_captureMcpDesignName]"]
     catch {unset _captureMcpNetMap}
     array set _captureMcpNetMap {}
+    catch {unset ::_captureMcpSeenPins}
+    array set ::_captureMcpSeenPins {}
     set _captureMcpNetNames {}
     set _captureMcpNets [$_captureMcpDesign NewFlatNetsIter $_captureMcpState]
     _captureMcpRequireOk $_captureMcpState {NewFlatNetsIter}
@@ -485,6 +499,7 @@ try {
     _captureMcpPinsWalk $_captureMcpState $_captureMcpRoot _captureMcpRows _captureMcpNetMap
 } finally {
     catch {unset _captureMcpNetMap}
+    catch {unset ::_captureMcpSeenPins}
     $_captureMcpState -delete
 }
 join $_captureMcpRows "\n"

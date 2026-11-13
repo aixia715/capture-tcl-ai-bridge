@@ -223,7 +223,14 @@ Read a specific pin's net with `capture_get_pin_net`:
 
 `refdes` and `pin_number` are required; `path` has the same semantics as above.
 Pin numbers are exact strings, including alphanumeric numbers. Pin names are
-not selectors. A missing pin returns `PIN_NOT_FOUND`; a repeated number within
+not selectors. Numbers are read from the occurrence's effective `Number`
+property, so homogeneous multi-unit parts use their mapped package numbers
+(e.g. OP484 U47A IN+ is pin 3, U47C IN+ is pin 10). Query the package reference
+`U47` and the returned occurrence path, not a synthesized unit suffix. Identical
+shared package-pin records (such as power pins repeated on each unit) are
+returned once, before applying `max_results`. A missing or empty occurrence
+number fails with `PIN_NUMBER_NOT_FOUND`; symbol-default numbers are never used
+as a fallback. A missing pin returns `PIN_NOT_FOUND`; a repeated number within
 one component returns `PIN_NOT_UNIQUE`.
 
 Read all component pins on a network with `capture_get_net_pins`:
