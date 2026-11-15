@@ -7,7 +7,7 @@
 全局 Tcl 解释器执行，并把 `puts` 输出、返回值和 Tcl 错误详情原样带回来。
 `puts` 的内容同时保留在 Capture 控制台里，不会被"吞掉"。
 
-桥只监听 `127.0.0.1:18767`，每次启动生成新的随机 Bearer 令牌。默认**只在你显式
+桥默认监听 `127.0.0.1:18767`，可配置为允许其他设备访问，每次启动生成新的随机 Bearer 令牌。默认**只在你显式
 启动时才开启**——加载脚本本身没有任何副作用，也没有空闲自动退出；需要的话可以
 装一个自启文件让它随 Capture 启动（见[安装](#1-安装)）。
 
@@ -142,6 +142,38 @@ POST /v1/execute
 ```
 
 完整协议见 [docs/protocol.md](docs/protocol.md)。
+
+#### 从其他设备访问
+
+在 Capture 控制台中，先执行 `AiBridge stop`，等 `AiBridge status` 显示
+`stopped` 后设置并启动：
+
+```tcl
+set ::CaptureAiBridgeHost 0.0.0.0
+AiBridge start
+```
+
+这会监听所有 IPv4 网卡的 `18767` 端口；默认值为 `127.0.0.1`，修改后重启桥生效。
+重新 `source` 会保留此设置；重新启动 Capture 后需要再次设置，或在自启脚本的
+`AiBridge start` 前设置它。Windows 防火墙需要允许其他设备到此 TCP 端口的连接。
+
+在 Capture 所在电脑读取当前会话的令牌：
+
+```powershell
+(Get-Content -Raw "$env:TEMP\capture_tcl_bridge.json" | ConvertFrom-Json).token
+```
+
+在另一台设备上，将地址换成 Capture 电脑的局域网 IP，使用该令牌调用 HTTP API：
+
+```sh
+curl http://192.168.1.100:18767/v1/health -H "Authorization: Bearer <token>"
+curl http://192.168.1.100:18767/v1/execute -H "Authorization: Bearer <token>" -H "Content-Type: application/json" --data '{"script":"expr {1 + 1}"}'
+```
+
+描述文件中的 `baseUrl` 仍为 `127.0.0.1`，供本机 Tcl 轮询、CLI 和 MCP 使用；
+远程设备通过上面的 HTTP 地址访问，不要将 `0.0.0.0` 作为请求地址。
+每次启动桥都需使用新令牌。恢复仅本机访问时，将 `::CaptureAiBridgeHost` 设为
+`127.0.0.1` 并重启桥。
 
 ### 5. 让 AI Agent 通过 MCP 读写元器件属性
 

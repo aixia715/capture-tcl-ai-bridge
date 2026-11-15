@@ -64,6 +64,7 @@ check {service name} $::CaptureAiBridgeService {capture-tcl-bridge}
 check {software version} $::CaptureAiBridgeVersion {0.1.0-beta.7}
 check {protocol version} $::CaptureAiBridgeProtocolVersion 1
 check {port} $::CaptureAiBridgePort 18767
+check {default listen host} $::CaptureAiBridgeHost 127.0.0.1
 check {poll period} $::CaptureAiBridgePollMs 250
 check {field limit} $::CaptureAiBridgeFieldLimit 4194304
 set metadataLimitAtSource {<missing>}
@@ -221,6 +222,7 @@ if {[llength [info commands ::_captureAiResolvePythonPath]] > 0} {
 }
 
 set ::CaptureAiBridgeActive 1
+set ::CaptureAiBridgeHost 0.0.0.0
 set ::CaptureAiBridgeConnecting 1
 set ::CaptureAiBridgeAfterId preserve-after
 set ::CaptureAiBridgeToken preserve-token
@@ -245,6 +247,8 @@ proc ::CaptureAiBridgeStatus {} { return legacy-status }
 proc ::CaptureAiBridgeStop {} { return legacy-stop }
 source $bridgeFile
 check {hot source preserves active state} $::CaptureAiBridgeActive 1
+check {hot source preserves listen host} $::CaptureAiBridgeHost 0.0.0.0
+set ::CaptureAiBridgeHost 127.0.0.1
 check {hot source preserves connecting state} $::CaptureAiBridgeConnecting 1
 check {hot source preserves callback id} $::CaptureAiBridgeAfterId preserve-after
 check {hot source preserves token} $::CaptureAiBridgeToken preserve-token

@@ -944,7 +944,7 @@ async def command_status(command_id: str, request: Request) -> JSONResponse:
 def main(argv: list[str] | None = None) -> None:
     """Run the local bridge after publishing an authenticated runtime descriptor."""
     parser = argparse.ArgumentParser(description="Local Capture Tcl bridge")
-    parser.add_argument("--host", default=DEFAULT_HOST)
+    parser.add_argument("--host", default=DEFAULT_HOST, choices=(DEFAULT_HOST, "0.0.0.0"))
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--parent-pid", type=int, required=True)
     parser.add_argument("--runtime-file", type=Path, required=True)
@@ -953,8 +953,6 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--cancel-file", type=Path, required=True)
     parser.add_argument("--ack-file", type=Path, required=True)
     arguments = parser.parse_args(argv)
-    if arguments.host != DEFAULT_HOST:
-        parser.error("--host must be 127.0.0.1")
     if arguments.parent_pid <= 0:
         parser.error("--parent-pid must be positive")
 
@@ -1001,7 +999,7 @@ def main(argv: list[str] | None = None) -> None:
     claim_written = False
     sock: socket.socket | None = None
     try:
-        config = uvicorn.Config(app, host=DEFAULT_HOST, port=arguments.port)
+        config = uvicorn.Config(app, host=arguments.host, port=arguments.port)
         config.timeout_graceful_shutdown = 2.0
         server = uvicorn.Server(config)
         if not hasattr(server, "should_exit"):
@@ -1031,7 +1029,7 @@ def main(argv: list[str] | None = None) -> None:
         ):
             return
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.bind((DEFAULT_HOST, arguments.port))
+        sock.bind((arguments.host, arguments.port))
         sock.listen()
         bound_port = sock.getsockname()[1]
 

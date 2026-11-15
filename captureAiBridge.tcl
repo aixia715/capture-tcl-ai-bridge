@@ -1,10 +1,11 @@
-# Authenticated localhost bridge for executing Tcl in Capture's interpreter.
+# Authenticated bridge for executing Tcl in Capture's interpreter.
 # Sourcing this module is side-effect free; lifecycle is always explicit.
 
 set ::CaptureAiBridgeService {capture-tcl-bridge}
 set ::CaptureAiBridgeVersion {0.1.0-beta.7}
 set ::CaptureAiBridgeProtocolVersion 1
 set ::CaptureAiBridgePort 18767
+if {![info exists ::CaptureAiBridgeHost]} { set ::CaptureAiBridgeHost 127.0.0.1 }
 set ::CaptureAiBridgePollMs 250
 set ::CaptureAiBridgeFieldLimit 4194304
 if {![info exists ::CaptureAiBridgeMetadataLimit]} { set ::CaptureAiBridgeMetadataLimit 4194304 }
@@ -1732,6 +1733,10 @@ proc _captureAiBridgeStart {} {
         _captureAiBridgeStatus
         return
     }
+    if {$::CaptureAiBridgeHost ne "127.0.0.1" && $::CaptureAiBridgeHost ne "0.0.0.0"} {
+        _captureAiConsole {Capture AI bridge host must be 127.0.0.1 or 0.0.0.0.}
+        return
+    }
     if {[catch {package require http} packageError]} {
         _captureAiConsole "Capture AI bridge requires Tcl http package: $packageError"
         return
@@ -1771,7 +1776,7 @@ proc _captureAiBridgeStart {} {
     set ::CaptureAiBridgeStopError {}
     set launchCode [catch {
         exec [_captureAiResolvePythonExecutable] $serverScript \
-            --host 127.0.0.1 \
+            --host $::CaptureAiBridgeHost \
             --port $::CaptureAiBridgePort \
             --parent-pid [pid] \
             --runtime-file $runtimeFile \
@@ -1805,7 +1810,7 @@ proc _captureAiBridgeStart {} {
         return
     }
     set ::CaptureAiBridgeOwnedPid $childPid
-    puts "Capture AI bridge starting on 127.0.0.1:$::CaptureAiBridgePort"
+    puts "Capture AI bridge starting on $::CaptureAiBridgeHost:$::CaptureAiBridgePort"
     set ::CaptureAiBridgeAfterId [after $::CaptureAiBridgePollMs \
         [list _captureAiConnect $generation 0]]
 }
@@ -1821,7 +1826,7 @@ proc _captureAiBridgeStatus {} {
     } elseif {$::CaptureAiBridgeActive} {
         puts "Capture AI bridge running at $::CaptureAiBridgeBaseUrl"
     } elseif {$::CaptureAiBridgeConnecting} {
-        puts "Capture AI bridge starting on 127.0.0.1:$::CaptureAiBridgePort"
+        puts "Capture AI bridge starting on $::CaptureAiBridgeHost:$::CaptureAiBridgePort"
     } else {
         puts {Capture AI bridge stopped}
     }

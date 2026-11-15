@@ -220,7 +220,8 @@ def _assert_server_cleanup(
     assert ack_file.read_bytes() == f"stopped {NONCE}\n".encode("ascii")
 
 
-def test_real_server_fake_capture_and_real_cli_round_trip(tmp_path):
+@pytest.mark.parametrize("host", ["127.0.0.1", "0.0.0.0"])
+def test_real_server_fake_capture_and_real_cli_round_trip(tmp_path, host):
     capture_pid = os.getpid()
     runtime_file = tmp_path / "capture_tcl_bridge.json"
     launch_file = tmp_path / "capture_tcl_bridge_launch_integration"
@@ -234,7 +235,7 @@ def test_real_server_fake_capture_and_real_cli_round_trip(tmp_path):
             sys.executable,
             str(SERVER),
             "--host",
-            "127.0.0.1",
+            host,
             "--port",
             "0",
             "--parent-pid",

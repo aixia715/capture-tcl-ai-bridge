@@ -1447,18 +1447,19 @@ def test_server_has_no_forced_process_exit_helper():
 @pytest.mark.parametrize(
     "arguments",
     [
-        ["--host", "0.0.0.0", "--parent-pid", "1", "--runtime-file", "bridge.json"],
-        ["--parent-pid", "0", "--runtime-file", "bridge.json"],
+        ["--host", "192.0.2.1"],
+        ["--parent-pid", "0"],
     ],
 )
-def test_main_rejects_non_local_host_and_non_positive_parent_pid(arguments):
+def test_main_rejects_unsupported_host_and_non_positive_parent_pid(tmp_path, arguments):
     with pytest.raises(SystemExit) as error:
-        bridge.main(arguments)
+        bridge.main(server_main_args(tmp_path / "bridge.json", *arguments))
 
     assert error.value.code == 2
 
 
-def test_main_binds_before_writing_descriptor_and_passes_bound_socket_to_uvicorn(tmp_path, monkeypatch):
+@pytest.mark.parametrize("host", ["127.0.0.1", "0.0.0.0"])
+def test_main_binds_before_writing_descriptor_and_passes_bound_socket_to_uvicorn(tmp_path, monkeypatch, host):
     runtime_file = tmp_path / "bridge.json"
     written = []
     tokens = []
@@ -1496,19 +1497,21 @@ def test_main_binds_before_writing_descriptor_and_passes_bound_socket_to_uvicorn
         def run(self, *, sockets):
             server_runs.append((self.config, sockets[0].getsockname()))
             assert runtime_file.exists()
+            descriptor = json.loads(runtime_file.read_text(encoding="utf-8"))
+            assert descriptor["baseUrl"] == f"http://127.0.0.1:{sockets[0].getsockname()[1]}"
 
     monkeypatch.setattr(bridge.uvicorn, "Config", FakeConfig)
     monkeypatch.setattr(bridge.uvicorn, "Server", FakeServer)
 
-    bridge.main(server_main_args(runtime_file, "--port", "0"))
+    bridge.main(server_main_args(runtime_file, "--port", "0", "--host", host))
 
     assert tokens == [32]
     assert reset_calls == [("random-token", 123)]
     assert written[0][0] == runtime_file
     assert written[0][1:3] == ("random-token", 123)
-    assert server_runs[0][0].host == "127.0.0.1"
+    assert server_runs[0][0].host == host
     assert server_runs[0][0].port == 0
-    assert server_runs[0][1][0] == "127.0.0.1"
+    assert server_runs[0][1][0] == host
     assert not runtime_file.exists()
     assert bridge.RUNTIME_FILE is None
     assert len(cleanup_callbacks) == 1
