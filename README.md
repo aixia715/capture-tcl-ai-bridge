@@ -157,7 +157,8 @@ AiBridge start
 重新 `source` 会保留此设置；重新启动 Capture 后需要再次设置，或在自启脚本的
 `AiBridge start` 前设置它。Windows 防火墙需要允许其他设备到此 TCP 端口的连接。
 
-在 Capture 所在电脑读取当前会话的令牌：
+启动成功时，Capture 控制台会显示当前会话的令牌；也可执行 `AiBridge status`
+再次查看。令牌不写入桥的诊断日志。还可以在 Capture 所在电脑读取：
 
 ```powershell
 (Get-Content -Raw "$env:TEMP\capture_tcl_bridge.json" | ConvertFrom-Json).token

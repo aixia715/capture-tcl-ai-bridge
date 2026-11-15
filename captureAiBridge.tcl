@@ -1680,7 +1680,8 @@ proc _captureAiConnect {generation {attempt {}}} {
     if {$connectCode == 0} {
         set ::CaptureAiBridgeConnecting 0
         set ::CaptureAiBridgeActive 1
-        puts "Capture AI bridge running at $::CaptureAiBridgeBaseUrl"
+        puts "Capture AI bridge listening on $::CaptureAiBridgeHost:$::CaptureAiBridgePort"
+        puts "Capture AI bridge token: $::CaptureAiBridgeToken"
         _captureAiScheduleTick $generation
         return
     }
@@ -1690,7 +1691,7 @@ proc _captureAiConnect {generation {attempt {}}} {
     set ::CaptureAiBridgeBaseUrl {}
     if {$attempt >= 19} {
         set ::CaptureAiBridgeConnecting 0
-        _captureAiConsole "Capture AI bridge failed to start on 127.0.0.1:$::CaptureAiBridgePort (port conflict or server startup failure): $safeConnectError"
+        _captureAiConsole "Capture AI bridge failed to start on $::CaptureAiBridgeHost:$::CaptureAiBridgePort (port conflict or server startup failure): $safeConnectError"
         set ackCode [catch {
             _captureAiReadStoppedAck \
                 $::CaptureAiBridgeAckFile $::CaptureAiBridgeLaunchNonce
@@ -1824,7 +1825,8 @@ proc _captureAiBridgeStatus {} {
     } elseif {$::CaptureAiBridgePollingHalted} {
         _captureAiConsole "Capture AI bridge polling halted by protocol error: $::CaptureAiBridgeProtocolError"
     } elseif {$::CaptureAiBridgeActive} {
-        puts "Capture AI bridge running at $::CaptureAiBridgeBaseUrl"
+        puts "Capture AI bridge listening on $::CaptureAiBridgeHost:$::CaptureAiBridgePort"
+        puts "Capture AI bridge token: $::CaptureAiBridgeToken"
     } elseif {$::CaptureAiBridgeConnecting} {
         puts "Capture AI bridge starting on $::CaptureAiBridgeHost:$::CaptureAiBridgePort"
     } else {
