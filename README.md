@@ -237,6 +237,7 @@ Capture 16.6 的 Tcl 是 8.4，它的 `catch` 没有选项字典，因而没有 
 
 ## 文档
 
+- [skills/orcad-tcl/SKILL.md](skills/orcad-tcl/SKILL.md) —— 可直接复制到其他项目 `.agents/skills/` 的 OrCAD Tcl 编写技能，内含 DBO 参考、执行说明和完整示例
 - [docs/protocol.md](docs/protocol.md) —— HTTP 接口、运行描述文件、状态机
 - [docs/runtime-packaging.md](docs/runtime-packaging.md) —— 离线 Python runtime 的发布打包方式
 - [docs/mcp.md](docs/mcp.md) —— Codex、Claude Code、Hermes 接入、元器件属性与引脚网络查询工具
